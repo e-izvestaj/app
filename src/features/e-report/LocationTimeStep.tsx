@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Button from "../../components/Button";
 import Card from "../../components/Card";
 import type { LocationDetails } from "../../types";
@@ -10,30 +10,61 @@ type Props = {
 
 export default function LocationTimeStep({ value, onChange }: Props) {
   const [gpsState, setGpsState] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [gpsMessage, setGpsMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!navigator.geolocation || value.latitude || gpsState !== "idle") {
+  const handleRequestLocation = () => {
+    if (!window.isSecureContext) {
+      setGpsState("error");
+      setGpsMessage("GPS radi samo preko bezbedne HTTPS konekcije.");
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      setGpsState("error");
+      setGpsMessage("Ovaj browser ne podrzava GPS lokaciju.");
       return;
     }
 
     setGpsState("loading");
+    setGpsMessage("Preuzimam trenutnu lokaciju...");
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+
         setGpsState("done");
+        setGpsMessage("Lokacija je uspesno preuzeta.");
         onChange({
           ...value,
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          address:
-            value.address ||
-            `Lat ${position.coords.latitude.toFixed(5)}, Lon ${position.coords.longitude.toFixed(5)}`
+          latitude,
+          longitude,
+          address: `Lat ${latitude.toFixed(5)}, Lon ${longitude.toFixed(5)}`
         });
       },
-      () => setGpsState("error"),
-      { enableHighAccuracy: true, timeout: 6000 }
+      (error) => {
+        setGpsState("error");
+
+        if (error.code === error.PERMISSION_DENIED) {
+          setGpsMessage("Dozvola za lokaciju je odbijena. Omoguci je u browseru i pokusaj ponovo.");
+          return;
+        }
+
+        if (error.code === error.TIMEOUT) {
+          setGpsMessage("GPS nije odgovorio na vreme. Pokusaj ponovo.");
+          return;
+        }
+
+        if (error.code === error.POSITION_UNAVAILABLE) {
+          setGpsMessage("Lokacija trenutno nije dostupna na ovom uredjaju.");
+          return;
+        }
+
+        setGpsMessage("Ne mogu da preuzmem lokaciju. Pokusaj ponovo.");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
-  }, [gpsState, onChange, value]);
+  };
 
   return (
     <div className="space-y-4">
@@ -70,13 +101,31 @@ export default function LocationTimeStep({ value, onChange }: Props) {
           />
         </label>
       </Card>
-      <Button variant="secondary" onClick={() => setGpsState("idle")} type="button">
+      <Button
+        variant="secondary"
+        onClick={handleRequestLocation}
+        type="button"
+        disabled={gpsState === "loading"}
+      >
         {gpsState === "loading"
           ? "Pribavljam GPS..."
           : gpsState === "done"
             ? "Osvezi GPS lokaciju"
             : "Preuzmi GPS lokaciju"}
       </Button>
+      {gpsMessage ? (
+        <div
+          className={`rounded-[20px] px-4 py-3 text-sm ${
+            gpsState === "error"
+              ? "border border-red-400/25 bg-red-500/12 text-red-100"
+              : gpsState === "done"
+                ? "border border-emerald-400/25 bg-emerald-500/12 text-emerald-100"
+                : "border border-white/10 bg-white/6 text-white/65"
+          }`}
+        >
+          {gpsMessage}
+        </div>
+      ) : null}
     </div>
   );
 }
