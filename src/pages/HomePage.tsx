@@ -29,6 +29,7 @@ export default function HomePage() {
   const [showSplash, setShowSplash] = useState(true);
   const [reports, setReports] = useState<ReportDraft[]>([]);
   const [activeDraftId, setActiveDraft] = useState<string | null>(null);
+  const logoSrc = `${import.meta.env.BASE_URL}logo.png`;
 
   useEffect(() => {
     void (async () => {
@@ -53,7 +54,7 @@ export default function HomePage() {
       {showSplash ? <SplashIntro onDone={() => setShowSplash(false)} /> : null}
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-10 pt-6">
         <div className="mb-8">
-          <img alt="e-Izvestaj logo" className="h-16 w-auto" src="/logo.png" />
+          <img alt="e-Izvestaj logo" className="h-16 w-auto" src={logoSrc} />
           <div className="mt-6">
             <div className="text-sm uppercase tracking-[0.35em] text-white/35">AutoPulse</div>
             <h1 className="mt-2 text-[36px] font-semibold text-white">e-Izvestaj</h1>
