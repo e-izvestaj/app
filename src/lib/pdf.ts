@@ -121,7 +121,8 @@ export async function generatePdf(report: ReportDraft) {
   }
 
   const bytes = await pdfDoc.save();
-  const blob = new Blob([bytes], { type: "application/pdf" });
+  const blobBytes = bytes.slice().buffer;
+  const blob = new Blob([blobBytes], { type: "application/pdf" });
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => resolve(String(reader.result));

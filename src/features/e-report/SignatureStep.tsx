@@ -24,7 +24,7 @@ function SignaturePad({
   signatures: Props["signatures"];
   onChange: Props["onChange"];
 }) {
-  const ref = useRef<SignatureCanvas | null>(null);
+  const ref = useRef<any>(null);
 
   const saveSignature = () => {
     const dataUrl = ref.current?.getTrimmedCanvas().toDataURL("image/png") || null;

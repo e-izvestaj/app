@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  base: "/app/",
   plugins: [
     react(),
     VitePWA({
@@ -16,15 +17,16 @@ export default defineConfig({
         background_color: "#0B0D12",
         display: "standalone",
         orientation: "portrait",
-        start_url: "/",
+        start_url: "/app/",
+        scope: "/app/",
         icons: [
           {
-            src: "/logo.png",
+            src: "logo.png",
             sizes: "512x512",
             type: "image/png"
           },
           {
-            src: "/maskable-icon.png",
+            src: "maskable-icon.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "maskable"
