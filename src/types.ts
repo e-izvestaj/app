@@ -36,6 +36,7 @@ export type DocumentSuggestion = {
   status: "idle" | "pending" | "confirmed";
   fields: ExtractedField[];
   sourcePhotoId: string | null;
+  rawText?: string;
 };
 
 export type DamageSuggestion = {
