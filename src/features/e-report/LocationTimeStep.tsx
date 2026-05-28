@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Button from "../../components/Button";
 import Card from "../../components/Card";
 import type { LocationDetails } from "../../types";
@@ -20,6 +20,13 @@ export default function LocationTimeStep({
 }: Props) {
   const [gpsState, setGpsState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [gpsMessage, setGpsMessage] = useState<string | null>(null);
+  const mapUrl = useMemo(() => {
+    if (!value.latitude || !value.longitude) {
+      return null;
+    }
+
+    return `https://www.openstreetmap.org/export/embed.html?bbox=${value.longitude - 0.01}%2C${value.latitude - 0.01}%2C${value.longitude + 0.01}%2C${value.latitude + 0.01}&layer=mapnik&marker=${value.latitude}%2C${value.longitude}`;
+  }, [value.latitude, value.longitude]);
 
   const handleRequestLocation = () => {
     if (!window.isSecureContext) {
@@ -30,12 +37,12 @@ export default function LocationTimeStep({
 
     if (!navigator.geolocation) {
       setGpsState("error");
-      setGpsMessage("Ovaj browser ne podrzava GPS lokaciju.");
+      setGpsMessage("Ovaj browser ne podržava GPS lokaciju.");
       return;
     }
 
     setGpsState("loading");
-    setGpsMessage("Preuzimam trenutnu lokaciju...");
+    setGpsMessage("Tražim dozvolu i preuzimam trenutnu lokaciju...");
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -43,7 +50,7 @@ export default function LocationTimeStep({
         const longitude = position.coords.longitude;
 
         setGpsState("done");
-        setGpsMessage("Lokacija je uspesno preuzeta.");
+        setGpsMessage("Lokacija je uspešno preuzeta.");
         onChange({
           ...value,
           latitude,
@@ -56,21 +63,21 @@ export default function LocationTimeStep({
         setGpsState("error");
 
         if (error.code === error.PERMISSION_DENIED) {
-          setGpsMessage("Dozvola za lokaciju je odbijena. Omoguci je u browseru i pokusaj ponovo.");
+          setGpsMessage("Dozvola za lokaciju je odbijena. Omogući je u browseru i pokušaj ponovo.");
           return;
         }
 
         if (error.code === error.TIMEOUT) {
-          setGpsMessage("GPS nije odgovorio na vreme. Pokusaj ponovo.");
+          setGpsMessage("GPS nije odgovorio na vreme. Pokušaj ponovo.");
           return;
         }
 
         if (error.code === error.POSITION_UNAVAILABLE) {
-          setGpsMessage("Lokacija trenutno nije dostupna na ovom uredjaju.");
+          setGpsMessage("Lokacija trenutno nije dostupna na ovom uređaju.");
           return;
         }
 
-        setGpsMessage("Ne mogu da preuzmem lokaciju. Pokusaj ponovo.");
+        setGpsMessage("Ne mogu da preuzmem lokaciju. Pokušaj ponovo.");
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
@@ -123,7 +130,7 @@ export default function LocationTimeStep({
           />
         </label>
         <label className="space-y-2">
-          <span className="text-sm text-white/60">Drzava</span>
+          <span className="text-sm text-white/60">Država</span>
           <input
             className="input-glass"
             disabled={readOnly}
@@ -149,9 +156,9 @@ export default function LocationTimeStep({
         disabled={gpsState === "loading" || readOnly}
       >
         {gpsState === "loading"
-          ? "Pribavljam GPS..."
+          ? "Preuzimam GPS..."
           : gpsState === "done"
-            ? "Osvezi GPS lokaciju"
+            ? "Osveži GPS lokaciju"
             : "Preuzmi GPS lokaciju"}
       </Button>
       {gpsMessage ? (
@@ -166,6 +173,23 @@ export default function LocationTimeStep({
         >
           {gpsMessage}
         </div>
+      ) : null}
+      {mapUrl ? (
+        <Card className="space-y-3 overflow-hidden p-0">
+          <div className="px-5 pt-5">
+            <div className="text-sm font-medium text-white">Trenutna lokacija</div>
+            <div className="mt-1 text-xs text-white/55">
+              {value.latitude?.toFixed(5)}, {value.longitude?.toFixed(5)}
+            </div>
+          </div>
+          <iframe
+            className="h-52 w-full border-0"
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            src={mapUrl}
+            title="Mapa lokacije nezgode"
+          />
+        </Card>
       ) : null}
     </div>
   );
