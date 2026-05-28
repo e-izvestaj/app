@@ -3,100 +3,157 @@ import type { ScenarioOption } from "../../types";
 
 type Props = {
   options: ScenarioOption[];
-  note: string;
   vehicleANote: string;
   vehicleBNote: string;
   onOptionsChange: (options: ScenarioOption[]) => void;
-  onNoteChange: (note: string) => void;
   onVehicleANoteChange: (note: string) => void;
   onVehicleBNoteChange: (note: string) => void;
   readOnly?: boolean;
 };
 
+function countSelected(options: ScenarioOption[], side: "A" | "B") {
+  return options.filter((item) => (side === "A" ? item.selectedByA : item.selectedByB)).length;
+}
+
+function CircumstanceColumn({
+  side,
+  options,
+  readOnly = false,
+  onToggle
+}: {
+  side: "A" | "B";
+  options: ScenarioOption[];
+  readOnly?: boolean;
+  onToggle: (id: string) => void;
+}) {
+  const selectedCount = countSelected(options, side);
+
+  return (
+    <Card className="space-y-4">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <div className="text-sm uppercase tracking-[0.24em] text-white/40">Okolnosti vozila {side}</div>
+          <div className="mt-1 text-sm text-white/60">
+            Svaki učesnik čekira samo svoja polja iz obrasca.
+          </div>
+        </div>
+        <div className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1 text-sm text-accent">
+          Označeno: {selectedCount}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3">
+        {options.map((item, index) => {
+          const selected = side === "A" ? item.selectedByA : item.selectedByB;
+
+          return (
+            <button
+              key={`${side}-${item.id}`}
+              className={`rounded-[22px] border px-4 py-4 text-left text-sm transition ${
+                selected
+                  ? "border-accent bg-accent/18 text-white"
+                  : "border-white/10 bg-white/5 text-white/72"
+              } ${readOnly ? "cursor-default opacity-85" : ""}`}
+              disabled={readOnly}
+              onClick={() => onToggle(item.id)}
+              type="button"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.24em] text-white/40">{index + 1}</div>
+                  <div className="mt-2">{item.label}</div>
+                </div>
+                <div
+                  className={`mt-1 h-6 w-6 rounded-md border text-center text-xs leading-[22px] ${
+                    selected ? "border-accent bg-accent text-white" : "border-white/20 text-white/45"
+                  }`}
+                >
+                  {selected ? "X" : ""}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
 export default function AccidentDetails({
   options,
-  note,
   vehicleANote,
   vehicleBNote,
   onOptionsChange,
-  onNoteChange,
   onVehicleANoteChange,
   onVehicleBNoteChange,
   readOnly = false
 }: Props) {
+  const toggleSide = (side: "A" | "B", id: string) => {
+    onOptionsChange(
+      options.map((option) =>
+        option.id === id
+          ? {
+              ...option,
+              selectedByA: side === "A" ? !option.selectedByA : option.selectedByA,
+              selectedByB: side === "B" ? !option.selectedByB : option.selectedByB
+            }
+          : option
+      )
+    );
+  };
+
   return (
     <div className="space-y-4">
       <div className="space-y-1">
-        <h2 className="text-[30px] font-semibold text-white">Opis događaja</h2>
+        <h2 className="text-[30px] font-semibold text-white">Okolnosti nezgode</h2>
         <p className="text-sm text-white/60">
-          Zajedničke okolnosti ostaju u jednom bloku, a napomene za vozilo A i vozilo B su odvojene.
+          Polje 12 je odvojeno za vozilo A i vozilo B. Svaka strana nezavisno označava svoja polja.
         </p>
       </div>
-      <Card className="grid grid-cols-1 gap-3">
-        {options.map((item, index) => (
-          <button
-            key={item.id}
-            className={`rounded-[22px] border px-4 py-4 text-left text-sm transition ${
-              item.selected
-                ? "border-accent bg-accent/18 text-white"
-                : "border-white/10 bg-white/5 text-white/72"
-            } ${readOnly ? "cursor-default opacity-85" : ""}`}
-            disabled={readOnly}
-            onClick={() =>
-              onOptionsChange(
-                options.map((option) =>
-                  option.id === item.id ? { ...option, selected: !option.selected } : option
-                )
-              )
-            }
-            type="button"
-          >
-            <div className="text-xs uppercase tracking-[0.24em] text-white/40">{index + 1}</div>
-            <div className="mt-2">{item.label}</div>
-          </button>
-        ))}
-      </Card>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <CircumstanceColumn
+          onToggle={(id) => toggleSide("A", id)}
+          options={options}
+          readOnly={readOnly}
+          side="A"
+        />
+        <CircumstanceColumn
+          onToggle={(id) => toggleSide("B", id)}
+          options={options}
+          readOnly={readOnly}
+          side="B"
+        />
+      </div>
 
       <Card className="space-y-4">
-        <label className="space-y-2">
-          <span className="text-sm text-white/60">Zajednička napomena uz okolnosti</span>
-          <textarea
-            className="input-glass min-h-[160px]"
-            disabled={readOnly}
-            placeholder="Kratka zajednička beleška uz okolnosti i skicu nezgode"
-            value={note}
-            onChange={(event) => onNoteChange(event.target.value)}
-          />
-        </label>
-      </Card>
-
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <Card>
+        <div className="text-sm uppercase tracking-[0.24em] text-white/40">Opcione napomene (polje 14)</div>
+        <div className="text-sm text-white/60">
+          Ovo nije zamena za okolnosti. Koristi se samo ako učesnici žele dodatnu napomenu uz obrazac.
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label className="space-y-2">
-            <span className="text-sm text-white/60">Vlastite napomene vozila A</span>
+            <span className="text-sm text-white/60">Napomena vozila A</span>
             <textarea
-              className="input-glass min-h-[160px]"
+              className="input-glass min-h-[140px]"
               disabled={readOnly}
-              placeholder="Napomena učesnika A"
+              placeholder="Opciona napomena učesnika A"
               value={vehicleANote}
               onChange={(event) => onVehicleANoteChange(event.target.value)}
             />
           </label>
-        </Card>
-
-        <Card>
           <label className="space-y-2">
-            <span className="text-sm text-white/60">Vlastite napomene vozila B</span>
+            <span className="text-sm text-white/60">Napomena vozila B</span>
             <textarea
-              className="input-glass min-h-[160px]"
+              className="input-glass min-h-[140px]"
               disabled={readOnly}
-              placeholder="Napomena učesnika B"
+              placeholder="Opciona napomena učesnika B"
               value={vehicleBNote}
               onChange={(event) => onVehicleBNoteChange(event.target.value)}
             />
           </label>
-        </Card>
-      </div>
+        </div>
+      </Card>
     </div>
   );
 }

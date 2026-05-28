@@ -177,16 +177,10 @@ export async function generatePdf(report: ReportDraft) {
   drawText(page, font, right.note, 386, 26, 7);
 
   report.circumstances.forEach((item, index) => {
-    if (!item.selected) {
-      return;
-    }
-
     const y = 615 - index * 28.7;
-    drawCheck(page, font, true, 360, y);
-    drawCheck(page, font, true, 545, y);
+    drawCheck(page, font, item.selectedByA, 360, y);
+    drawCheck(page, font, item.selectedByB, 545, y);
   });
-
-  drawText(page, font, report.note, 214, 316, 7);
 
   if (report.signatures.a) {
     const signatureA = await pdfDoc.embedPng(report.signatures.a);

@@ -98,27 +98,36 @@ export type VehicleDraft = {
   type: string;
   vin: string;
   trailerPlate: string;
+  trailerRegistrationCountry: string;
   insurer: string;
   policyNumber: string;
   greenCardNumber: string;
   policyValidFrom: string;
   policyValidUntil: string;
   insuranceBranch: string;
+  insuranceOfficeName: string;
   insuranceAddress: string;
-  insuranceContact: string;
+  insuranceCity: string;
+  insuranceCountry: string;
+  insurancePhone: string;
+  insuranceEmail: string;
   coveredDamage: boolean | null;
   ownerFirstName: string;
   ownerLastName: string;
   ownerAddress: string;
+  ownerCity: string;
   ownerPostalCode: string;
   ownerCountry: string;
-  ownerContact: string;
+  ownerPhone: string;
+  ownerEmail: string;
   driverFirstName: string;
   driverLastName: string;
   driverBirthDate: string;
   driverAddress: string;
+  driverCity: string;
   driverCountry: string;
-  driverContact: string;
+  driverPhone: string;
+  driverEmail: string;
   driverLicenseNumber: string;
   driverLicenseCategory: string;
   driverLicenseValidUntil: string;
@@ -134,7 +143,8 @@ export type VehicleDraft = {
 export type ScenarioOption = {
   id: string;
   label: string;
-  selected: boolean;
+  selectedByA: boolean;
+  selectedByB: boolean;
 };
 
 export type ReportDraft = {

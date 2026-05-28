@@ -84,27 +84,36 @@ export function defaultVehicle(side: "A" | "B"): VehicleDraft {
     type: "",
     vin: "",
     trailerPlate: "",
+    trailerRegistrationCountry: "Srbija",
     insurer: "",
     policyNumber: "",
     greenCardNumber: "",
     policyValidFrom: "",
     policyValidUntil: "",
     insuranceBranch: "",
+    insuranceOfficeName: "",
     insuranceAddress: "",
-    insuranceContact: "",
+    insuranceCity: "",
+    insuranceCountry: "Srbija",
+    insurancePhone: "",
+    insuranceEmail: "",
     coveredDamage: null,
     ownerFirstName: "",
     ownerLastName: "",
     ownerAddress: "",
+    ownerCity: "",
     ownerPostalCode: "",
     ownerCountry: "Srbija",
-    ownerContact: "",
+    ownerPhone: "",
+    ownerEmail: "",
     driverFirstName: "",
     driverLastName: "",
     driverBirthDate: "",
     driverAddress: "",
+    driverCity: "",
     driverCountry: "Srbija",
-    driverContact: "",
+    driverPhone: "",
+    driverEmail: "",
     driverLicenseNumber: "",
     driverLicenseCategory: "",
     driverLicenseValidUntil: "",
@@ -139,7 +148,8 @@ export function defaultCircumstances(): ScenarioOption[] {
   ].map((label) => ({
     id: createId("circ"),
     label,
-    selected: false
+    selectedByA: false,
+    selectedByB: false
   }));
 }
 
@@ -242,16 +252,7 @@ export function normalizeReport(report: ReportDraft): ReportDraft {
 
 export function isReportReadyForSignature(report: ReportDraft) {
   const vehicles = [report.vehicleA, report.vehicleB];
-  const vehiclesReady = vehicles.every(
-    (vehicle) =>
-      vehicle.plate.trim() &&
-      vehicle.make.trim() &&
-      vehicle.insurer.trim() &&
-      vehicle.policyNumber.trim() &&
-      vehicle.driverFirstName.trim() &&
-      vehicle.driverLastName.trim() &&
-      vehicle.driverLicenseNumber.trim()
-  );
+  const vehiclesReady = vehicles.every((vehicle) => getVehicleMissingFields(vehicle).length === 0);
 
   return Boolean(
     report.location.date &&
@@ -263,6 +264,51 @@ export function isReportReadyForSignature(report: ReportDraft) {
       report.safety.vehiclesInPosition !== null &&
       vehiclesReady
   );
+}
+
+export function getVehicleMissingFields(vehicle: VehicleDraft) {
+  const missing: string[] = [];
+  const requireValue = (label: string, value: string) => {
+    if (!value.trim()) {
+      missing.push(label);
+    }
+  };
+
+  requireValue("Prezime vozača", vehicle.driverLastName);
+  requireValue("Ime vozača", vehicle.driverFirstName);
+  requireValue("Datum rođenja", vehicle.driverBirthDate);
+  requireValue("Adresa vozača", vehicle.driverAddress);
+  requireValue("Grad vozača", vehicle.driverCity);
+  requireValue("Telefon vozača", vehicle.driverPhone);
+  requireValue("E-mail vozača", vehicle.driverEmail);
+  requireValue("Broj vozačke dozvole", vehicle.driverLicenseNumber);
+  requireValue("Kategorija dozvole", vehicle.driverLicenseCategory);
+  requireValue("Važenje vozačke dozvole", vehicle.driverLicenseValidUntil);
+
+  requireValue("Marka vozila", vehicle.make);
+  requireValue("Model vozila", vehicle.model);
+  requireValue("Tip vozila", vehicle.type);
+  requireValue("Registarska oznaka", vehicle.plate);
+  requireValue("Država registracije", vehicle.registrationCountry);
+
+  requireValue("Prezime ugovarača", vehicle.ownerLastName);
+  requireValue("Ime ugovarača", vehicle.ownerFirstName);
+  requireValue("Adresa ugovarača", vehicle.ownerAddress);
+  requireValue("Grad ugovarača", vehicle.ownerCity);
+  requireValue("Poštanski broj ugovarača", vehicle.ownerPostalCode);
+  requireValue("Država ugovarača", vehicle.ownerCountry);
+
+  requireValue("Osiguravajuća kuća", vehicle.insurer);
+  requireValue("Broj ugovora", vehicle.policyNumber);
+  requireValue("Polisa važi od", vehicle.policyValidFrom);
+  requireValue("Polisa važi do", vehicle.policyValidUntil);
+  requireValue("Filijala / posrednik", vehicle.insuranceBranch);
+  requireValue("Naziv filijale", vehicle.insuranceOfficeName);
+  requireValue("Adresa osiguranja", vehicle.insuranceAddress);
+  requireValue("Grad osiguranja", vehicle.insuranceCity);
+  requireValue("Država osiguranja", vehicle.insuranceCountry);
+
+  return missing;
 }
 
 export function deriveReportStatus(report: ReportDraft): ReportStatus {

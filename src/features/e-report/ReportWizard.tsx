@@ -305,8 +305,6 @@ export default function ReportWizard({
       case "Opis dogadjaja":
         return (
           <AccidentDetails
-            note={report.note}
-            onNoteChange={(note) => updateReport({ note })}
             onOptionsChange={(circumstances) => updateReport({ circumstances })}
             onVehicleANoteChange={(note) =>
               updateReport({
