@@ -9,6 +9,7 @@ import { generateQrCodeDataUrl } from "../../lib/qr";
 import {
   deriveReportStatus,
   getFinalReportUrl,
+  getVehicleMissingFields,
   isReportReadyForSignature,
   nowIso,
   reportTitle
@@ -236,6 +237,10 @@ export default function ReportWizard({
         );
       case "Lokacija i vreme":
         return Boolean(report.location.date && report.location.time && report.location.address);
+      case "Vozilo A":
+        return getVehicleMissingFields(report.vehicleA).length === 0;
+      case "Vozilo B":
+        return getVehicleMissingFields(report.vehicleB).length === 0;
       case "Potpisi":
         return false;
       case "Zavrseno":

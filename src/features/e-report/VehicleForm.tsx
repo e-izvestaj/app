@@ -49,7 +49,8 @@ function Field({
   readOnly = false,
   type = "text",
   list,
-  placeholder
+  placeholder,
+  invalid = false
 }: {
   label: string;
   value: string;
@@ -58,15 +59,16 @@ function Field({
   type?: string;
   list?: string;
   placeholder?: string;
+  invalid?: boolean;
 }) {
   return (
     <label className="space-y-2">
-      <span className="text-sm text-white/60">{label}</span>
+      <span className={`text-sm ${invalid ? "text-red-200" : "text-white/60"}`}>{label}</span>
       <input
-        className="input-glass"
+        className={`input-glass ${invalid ? "border border-red-400/70 bg-red-500/8 placeholder:text-red-200/80" : ""}`}
         disabled={readOnly}
         list={list}
-        placeholder={placeholder}
+        placeholder={invalid ? placeholder || "Obavezno polje" : placeholder}
         type={type}
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -122,23 +124,6 @@ function ReviewCard({
   );
 }
 
-function SectionWarning({ title, items }: { title: string; items: string[] }) {
-  if (!items.length) {
-    return (
-      <div className="rounded-[22px] border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-        {title} je spreman za nastavak.
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-[22px] border border-amber-400/25 bg-amber-500/12 px-4 py-3 text-sm text-amber-100">
-      <div className="font-medium text-white">Nedostaju obavezni podaci</div>
-      <div className="mt-1 text-white/75">{items.join(", ")}</div>
-    </div>
-  );
-}
-
 export default function VehicleForm({ title, value, onChange, readOnly = false }: Props) {
   const [isReading, setIsReading] = useState<DocumentType | null>(null);
   const insurerListId = useMemo(() => `insurer-${value.side}`, [value.side]);
@@ -189,6 +174,8 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
       "Država osiguranja"
     ].includes(field)
   );
+
+  const isMissing = (label: string) => missingFields.includes(label);
 
   const documentPhotosFor = (documentType: DocumentType) =>
     value.documentPhotos.filter((photo) => photo.documentType === documentType);
@@ -352,31 +339,35 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
         </p>
       </div>
 
-      <Card className="space-y-3 border border-white/10 bg-white/6">
-        <div className="text-sm uppercase tracking-[0.24em] text-white/45">Status unosa</div>
-        <SectionWarning title="Forma" items={missingFields} />
-      </Card>
-
       <section className="grid gap-4 lg:grid-cols-[1.4fr_0.9fr]">
         <Card className="space-y-4">
           <div className="text-sm uppercase tracking-[0.24em] text-white/40">Vozač {value.side}</div>
-          <SectionWarning title="Vozač" items={driverMissing} />
+          {driverMissing.length ? (
+            <div className="rounded-[18px] border border-red-400/25 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+              Nedostaju obavezni podaci za vozača. Obeležena polja treba dopuniti.
+            </div>
+          ) : null}
           <div className="grid grid-cols-2 gap-3">
             <Field
+              invalid={isMissing("Prezime vozača")}
               label="Prezime"
               onChange={(driverLastName) => onChange({ ...value, driverLastName })}
+              placeholder="Prezime"
               readOnly={readOnly}
               value={value.driverLastName}
             />
             <Field
+              invalid={isMissing("Ime vozača")}
               label="Ime"
               onChange={(driverFirstName) => onChange({ ...value, driverFirstName })}
+              placeholder="Ime"
               readOnly={readOnly}
               value={value.driverFirstName}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field
+              invalid={isMissing("Datum rođenja")}
               label="Datum rođenja"
               onChange={(driverBirthDate) => onChange({ ...value, driverBirthDate })}
               readOnly={readOnly}
@@ -384,29 +375,37 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
               value={value.driverBirthDate}
             />
             <Field
+              invalid={isMissing("Grad vozača")}
               label="Grad"
               onChange={(driverCity) => onChange({ ...value, driverCity })}
+              placeholder="Grad"
               readOnly={readOnly}
               value={value.driverCity}
             />
           </div>
           <Field
+            invalid={isMissing("Adresa vozača")}
             label="Adresa"
             onChange={(driverAddress) => onChange({ ...value, driverAddress })}
+            placeholder="Adresa"
             readOnly={readOnly}
             value={value.driverAddress}
           />
           <div className="grid grid-cols-2 gap-3">
             <Field
+              invalid={isMissing("Telefon vozača")}
               label="Telefon"
               onChange={(driverPhone) => onChange({ ...value, driverPhone })}
+              placeholder="Telefon"
               readOnly={readOnly}
               type="tel"
               value={value.driverPhone}
             />
             <Field
+              invalid={isMissing("E-mail vozača")}
               label="E-mail"
               onChange={(driverEmail) => onChange({ ...value, driverEmail })}
+              placeholder="E-mail"
               readOnly={readOnly}
               type="email"
               value={value.driverEmail}
@@ -414,12 +413,15 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field
+              invalid={isMissing("Broj vozačke dozvole")}
               label="Vozačka dozvola br."
               onChange={(driverLicenseNumber) => onChange({ ...value, driverLicenseNumber })}
+              placeholder="Broj dozvole"
               readOnly={readOnly}
               value={value.driverLicenseNumber}
             />
             <Field
+              invalid={isMissing("Kategorija dozvole")}
               label="Kategorija"
               onChange={(driverLicenseCategory) => onChange({ ...value, driverLicenseCategory })}
               readOnly={readOnly}
@@ -428,6 +430,7 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
             />
           </div>
           <Field
+            invalid={isMissing("Važenje vozačke dozvole")}
             label="Vozačka dozvola važi do"
             onChange={(driverLicenseValidUntil) => onChange({ ...value, driverLicenseValidUntil })}
             readOnly={readOnly}
@@ -447,37 +450,50 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
       <section className="grid gap-4 lg:grid-cols-[1.4fr_0.9fr]">
         <Card className="space-y-4">
           <div className="text-sm uppercase tracking-[0.24em] text-white/40">Vozilo {value.side}</div>
-          <SectionWarning title="Vozilo" items={registrationMissing} />
+          {registrationMissing.length ? (
+            <div className="rounded-[18px] border border-red-400/25 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+              Dopuni obavezna polja za vozilo pre nastavka.
+            </div>
+          ) : null}
           <div className="grid grid-cols-2 gap-3">
             <Field
+              invalid={isMissing("Marka vozila")}
               label="Marka"
               onChange={(make) => onChange({ ...value, make })}
+              placeholder="Marka"
               readOnly={readOnly}
               value={value.make}
             />
             <Field
+              invalid={isMissing("Model vozila")}
               label="Model"
               onChange={(model) => onChange({ ...value, model })}
+              placeholder="Model"
               readOnly={readOnly}
               value={value.model}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field
+              invalid={isMissing("Tip vozila")}
               label="Tip"
               onChange={(type) => onChange({ ...value, type })}
+              placeholder="Tip"
               readOnly={readOnly}
               value={value.type}
             />
             <Field
+              invalid={isMissing("Registarska oznaka")}
               label="Registarska oznaka"
               onChange={(plate) => onChange({ ...value, plate })}
+              placeholder="Registarska oznaka"
               readOnly={readOnly}
               value={value.plate}
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field
+              invalid={isMissing("Država registracije")}
               label="Država registracije"
               onChange={(registrationCountry) => onChange({ ...value, registrationCountry })}
               readOnly={readOnly}
@@ -520,42 +536,57 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
       <section className="grid gap-4 lg:grid-cols-[1.4fr_0.9fr]">
         <Card className="space-y-4">
           <div className="text-sm uppercase tracking-[0.24em] text-white/40">Osiguravač i polisa</div>
-          <SectionWarning title="Osiguranje" items={policyMissing} />
+          {policyMissing.length ? (
+            <div className="rounded-[18px] border border-red-400/25 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+              Dopuni obavezna polja za osiguranje pre nastavka.
+            </div>
+          ) : null}
           <div className="text-sm font-medium text-white/75">Ugovarač osiguranja</div>
           <div className="grid grid-cols-2 gap-3">
             <Field
+              invalid={isMissing("Prezime ugovarača")}
               label="Prezime"
               onChange={(ownerLastName) => onChange({ ...value, ownerLastName })}
+              placeholder="Prezime"
               readOnly={readOnly}
               value={value.ownerLastName}
             />
             <Field
+              invalid={isMissing("Ime ugovarača")}
               label="Ime"
               onChange={(ownerFirstName) => onChange({ ...value, ownerFirstName })}
+              placeholder="Ime"
               readOnly={readOnly}
               value={value.ownerFirstName}
             />
           </div>
           <Field
+            invalid={isMissing("Adresa ugovarača")}
             label="Adresa"
             onChange={(ownerAddress) => onChange({ ...value, ownerAddress })}
+            placeholder="Adresa"
             readOnly={readOnly}
             value={value.ownerAddress}
           />
           <div className="grid grid-cols-3 gap-3">
             <Field
+              invalid={isMissing("Grad ugovarača")}
               label="Grad"
               onChange={(ownerCity) => onChange({ ...value, ownerCity })}
+              placeholder="Grad"
               readOnly={readOnly}
               value={value.ownerCity}
             />
             <Field
+              invalid={isMissing("Poštanski broj ugovarača")}
               label="Poštanski broj"
               onChange={(ownerPostalCode) => onChange({ ...value, ownerPostalCode })}
+              placeholder="Poštanski broj"
               readOnly={readOnly}
               value={value.ownerPostalCode}
             />
             <Field
+              invalid={isMissing("Država ugovarača")}
               label="Država"
               onChange={(ownerCountry) => onChange({ ...value, ownerCountry })}
               readOnly={readOnly}
@@ -581,16 +612,20 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
 
           <div className="text-sm font-medium text-white/75">Osiguravajuća kuća</div>
           <Field
+            invalid={isMissing("Osiguravajuća kuća")}
             label="Naziv osiguravajuće kuće"
             list={insurerListId}
             onChange={(insurer) => onChange({ ...value, insurer })}
+            placeholder="Osiguravajuća kuća"
             readOnly={readOnly}
             value={value.insurer}
           />
           <div className="grid grid-cols-2 gap-3">
             <Field
+              invalid={isMissing("Broj ugovora")}
               label="Broj ugovora"
               onChange={(policyNumber) => onChange({ ...value, policyNumber })}
+              placeholder="Broj ugovora"
               readOnly={readOnly}
               value={value.policyNumber}
             />
@@ -603,6 +638,7 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field
+              invalid={isMissing("Polisa važi od")}
               label="Polisa važi od"
               onChange={(policyValidFrom) => onChange({ ...value, policyValidFrom })}
               readOnly={readOnly}
@@ -610,6 +646,7 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
               value={value.policyValidFrom}
             />
             <Field
+              invalid={isMissing("Polisa važi do")}
               label="Polisa važi do"
               onChange={(policyValidUntil) => onChange({ ...value, policyValidUntil })}
               readOnly={readOnly}
@@ -619,32 +656,41 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field
+              invalid={isMissing("Filijala / posrednik")}
               label="Filijala / posrednik"
               onChange={(insuranceBranch) => onChange({ ...value, insuranceBranch })}
+              placeholder="Filijala / posrednik"
               readOnly={readOnly}
               value={value.insuranceBranch}
             />
             <Field
+              invalid={isMissing("Naziv filijale")}
               label="Naziv filijale"
               onChange={(insuranceOfficeName) => onChange({ ...value, insuranceOfficeName })}
+              placeholder="Naziv filijale"
               readOnly={readOnly}
               value={value.insuranceOfficeName}
             />
           </div>
           <Field
+            invalid={isMissing("Adresa osiguranja")}
             label="Adresa filijale"
             onChange={(insuranceAddress) => onChange({ ...value, insuranceAddress })}
+            placeholder="Adresa filijale"
             readOnly={readOnly}
             value={value.insuranceAddress}
           />
           <div className="grid grid-cols-2 gap-3">
             <Field
+              invalid={isMissing("Grad osiguranja")}
               label="Grad filijale"
               onChange={(insuranceCity) => onChange({ ...value, insuranceCity })}
+              placeholder="Grad filijale"
               readOnly={readOnly}
               value={value.insuranceCity}
             />
             <Field
+              invalid={isMissing("Država osiguranja")}
               label="Država filijale"
               onChange={(insuranceCountry) => onChange({ ...value, insuranceCountry })}
               readOnly={readOnly}
