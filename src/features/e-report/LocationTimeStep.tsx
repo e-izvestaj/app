@@ -28,6 +28,72 @@ export default function LocationTimeStep({
     return `https://www.openstreetmap.org/export/embed.html?bbox=${value.longitude - 0.01}%2C${value.latitude - 0.01}%2C${value.longitude + 0.01}%2C${value.latitude + 0.01}&layer=mapnik&marker=${value.latitude}%2C${value.longitude}`;
   }, [value.latitude, value.longitude]);
 
+  const syncAddress = (next: LocationDetails) => ({
+    ...next,
+    address: [next.street, next.streetNumber].filter(Boolean).join(" ")
+  });
+
+  const resolveAddressFromCoordinates = async (latitude: number, longitude: number) => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 8000);
+
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=sr,en`,
+        {
+          signal: controller.signal,
+          headers: {
+            Accept: "application/json"
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Reverse geocoding failed with status ${response.status}`);
+      }
+
+      const data = (await response.json()) as {
+        address?: {
+          road?: string;
+          pedestrian?: string;
+          footway?: string;
+          house_number?: string;
+          city?: string;
+          town?: string;
+          village?: string;
+          municipality?: string;
+          county?: string;
+          country?: string;
+        };
+      };
+
+      const address = data.address || {};
+      const street =
+        address.road ||
+        address.pedestrian ||
+        address.footway ||
+        "";
+      const streetNumber = address.house_number || "";
+      const city =
+        address.city ||
+        address.town ||
+        address.village ||
+        address.municipality ||
+        address.county ||
+        "";
+      const country = address.country || "";
+
+      return {
+        street,
+        streetNumber,
+        city,
+        country
+      };
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  };
+
   const handleRequestLocation = () => {
     if (!window.isSecureContext) {
       setGpsState("error");
@@ -37,47 +103,74 @@ export default function LocationTimeStep({
 
     if (!navigator.geolocation) {
       setGpsState("error");
-      setGpsMessage("Ovaj browser ne podržava GPS lokaciju.");
+      setGpsMessage("Ovaj browser ne podrzava GPS lokaciju.");
       return;
     }
 
     setGpsState("loading");
-    setGpsMessage("Tražim dozvolu i preuzimam trenutnu lokaciju...");
+    setGpsMessage("Trazim dozvolu i preuzimam trenutnu lokaciju...");
 
     navigator.geolocation.getCurrentPosition(
-      (position) => {
+      async (position) => {
         const latitude = position.coords.latitude;
         const longitude = position.coords.longitude;
 
-        setGpsState("done");
-        setGpsMessage("Lokacija je uspešno preuzeta.");
-        onChange({
-          ...value,
-          latitude,
-          longitude,
-          address: `Lat ${latitude.toFixed(5)}, Lon ${longitude.toFixed(5)}`,
-          city: value.city || "Automatski preuzeta lokacija"
-        });
+        try {
+          const resolvedAddress = await resolveAddressFromCoordinates(latitude, longitude);
+          const nextValue = syncAddress({
+            ...value,
+            latitude,
+            longitude,
+            street: resolvedAddress.street || value.street,
+            streetNumber: resolvedAddress.streetNumber || value.streetNumber,
+            address: "",
+            city: resolvedAddress.city || value.city,
+            country: resolvedAddress.country || value.country
+          });
+
+          const hasReadableAddress = Boolean(
+            resolvedAddress.street || resolvedAddress.streetNumber || resolvedAddress.city
+          );
+
+          setGpsState("done");
+          setGpsMessage(
+            hasReadableAddress
+              ? "Lokacija i adresa su uspesno preuzete."
+              : "GPS koordinate su preuzete, ali adresa nije automatski pronadjena. Proveri ulicu i broj."
+          );
+          onChange(nextValue);
+        } catch {
+          setGpsState("done");
+          setGpsMessage(
+            "GPS koordinate su preuzete, ali adresa nije automatski pronadjena. Proveri ulicu i broj."
+          );
+          onChange({
+            ...value,
+            latitude,
+            longitude,
+            address: value.address || `Lat ${latitude.toFixed(5)}, Lon ${longitude.toFixed(5)}`
+          });
+        }
       },
       (error) => {
         setGpsState("error");
 
         if (error.code === error.PERMISSION_DENIED) {
-          setGpsMessage("Dozvola za lokaciju je odbijena. Omogući je u browseru i pokušaj ponovo.");
+          setGpsMessage("Dozvola za lokaciju je odbijena. Omoguci je u browseru i pokusaj ponovo.");
           return;
         }
 
         if (error.code === error.TIMEOUT) {
-          setGpsMessage("GPS nije odgovorio na vreme. Pokušaj ponovo.");
+          setGpsMessage("GPS nije odgovorio na vreme. Pokusaj ponovo.");
           return;
         }
 
         if (error.code === error.POSITION_UNAVAILABLE) {
-          setGpsMessage("Lokacija trenutno nije dostupna na ovom uređaju.");
+          setGpsMessage("Lokacija trenutno nije dostupna na ovom uredjaju.");
           return;
         }
 
-        setGpsMessage("Ne mogu da preuzmem lokaciju. Pokušaj ponovo.");
+        setGpsMessage("Ne mogu da preuzmem lokaciju. Pokusaj ponovo.");
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
@@ -86,9 +179,12 @@ export default function LocationTimeStep({
   return (
     <div className="space-y-4">
       <div className="space-y-1">
-        <h2 className="text-[30px] font-semibold text-white">Lokacija i vreme.</h2>
-        <p className="text-sm text-white/60">Polja 1, 2, 4 i 5 evropskog obrasca.</p>
+        <h2 className="text-[30px] font-semibold text-white">Vreme i mesto nezgode</h2>
+        <p className="text-sm text-white/60">
+          Datum i vreme su preuzeti sa uredjaja, a lokaciju mozes da dobijes GPS-om ili da je uneses rucno.
+        </p>
       </div>
+
       <Card className="grid grid-cols-2 gap-3">
         <label className="space-y-2">
           <span className="text-sm text-white/60">Datum</span>
@@ -110,14 +206,38 @@ export default function LocationTimeStep({
             onChange={(event) => onChange({ ...value, time: event.target.value })}
           />
         </label>
-        <label className="col-span-2 space-y-2">
-          <span className="text-sm text-white/60">Mesto</span>
-          <textarea
-            className="input-glass min-h-[110px]"
+        <div className="col-span-2">
+          <Button
+            disabled={gpsState === "loading" || readOnly}
+            onClick={handleRequestLocation}
+            type="button"
+            variant="secondary"
+          >
+            {gpsState === "loading"
+              ? "Preuzimam GPS..."
+              : gpsState === "done"
+                ? "Osvezi GPS lokaciju"
+                : "Preuzmi GPS lokaciju"}
+          </Button>
+        </div>
+        <label className="space-y-2">
+          <span className="text-sm text-white/60">Ulica</span>
+          <input
+            className="input-glass"
             disabled={readOnly}
-            placeholder="Adresa ili opis lokacije"
-            value={value.address}
-            onChange={(event) => onChange({ ...value, address: event.target.value })}
+            placeholder="Ulica"
+            value={value.street}
+            onChange={(event) => onChange(syncAddress({ ...value, street: event.target.value }))}
+          />
+        </label>
+        <label className="space-y-2">
+          <span className="text-sm text-white/60">Broj</span>
+          <input
+            className="input-glass"
+            disabled={readOnly}
+            placeholder="Broj"
+            value={value.streetNumber}
+            onChange={(event) => onChange(syncAddress({ ...value, streetNumber: event.target.value }))}
           />
         </label>
         <label className="space-y-2">
@@ -125,12 +245,13 @@ export default function LocationTimeStep({
           <input
             className="input-glass"
             disabled={readOnly}
+            placeholder="Grad"
             value={value.city}
             onChange={(event) => onChange({ ...value, city: event.target.value })}
           />
         </label>
         <label className="space-y-2">
-          <span className="text-sm text-white/60">Država</span>
+          <span className="text-sm text-white/60">Drzava</span>
           <input
             className="input-glass"
             disabled={readOnly}
@@ -149,18 +270,7 @@ export default function LocationTimeStep({
           />
         </label>
       </Card>
-      <Button
-        variant="secondary"
-        onClick={handleRequestLocation}
-        type="button"
-        disabled={gpsState === "loading" || readOnly}
-      >
-        {gpsState === "loading"
-          ? "Preuzimam GPS..."
-          : gpsState === "done"
-            ? "Osveži GPS lokaciju"
-            : "Preuzmi GPS lokaciju"}
-      </Button>
+
       {gpsMessage ? (
         <div
           className={`rounded-[20px] px-4 py-3 text-sm ${
@@ -174,6 +284,7 @@ export default function LocationTimeStep({
           {gpsMessage}
         </div>
       ) : null}
+
       {mapUrl ? (
         <Card className="space-y-3 overflow-hidden p-0">
           <div className="px-5 pt-5">

@@ -107,7 +107,7 @@ export default function AccidentDetails({
       <div className="space-y-1">
         <h2 className="text-[30px] font-semibold text-white">Okolnosti nezgode</h2>
         <p className="text-sm text-white/60">
-          Polje 12 je odvojeno za vozilo A i vozilo B. Svaka strana nezavisno označava svoja polja.
+          Prvo čekira vozilo A, zatim vozilo B. Svaka strana nezavisno označava svoja polja iz obrasca.
         </p>
       </div>
 
@@ -127,9 +127,9 @@ export default function AccidentDetails({
       </div>
 
       <Card className="space-y-4">
-        <div className="text-sm uppercase tracking-[0.24em] text-white/40">Opcione napomene (polje 14)</div>
+        <div className="text-sm uppercase tracking-[0.24em] text-white/40">Napomene vozača (polje 14)</div>
         <div className="text-sm text-white/60">
-          Ovo nije zamena za okolnosti. Koristi se samo ako učesnici žele dodatnu napomenu uz obrazac.
+          Ovo nije zamena za okolnosti. Koristi se samo za dodatnu belešku uz obrazac.
         </div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label className="space-y-2">

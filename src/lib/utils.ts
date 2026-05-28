@@ -8,6 +8,8 @@ import type {
   VehicleDraft
 } from "../types";
 
+export type VehicleSection = "driver" | "vehicle" | "policy";
+
 export const INSURER_OPTIONS = [
   "Dunav",
   "DDOR",
@@ -176,6 +178,8 @@ export function createEmptyReport(): ReportDraft {
       date: formatDate(now),
       time: formatTime(now),
       address: "",
+      street: "",
+      streetNumber: "",
       city: "",
       country: "Srbija"
     },
@@ -188,6 +192,10 @@ export function createEmptyReport(): ReportDraft {
     annotatedPhotoDataUrl: null,
     sceneSketch: emptySceneSketch(),
     signatures: {
+      a: null,
+      b: null
+    },
+    signatureTimestamps: {
       a: null,
       b: null
     },
@@ -240,6 +248,10 @@ export function normalizeReport(report: ReportDraft): ReportDraft {
     sceneSketch: {
       ...empty.sceneSketch,
       ...report.sceneSketch
+    },
+    signatureTimestamps: {
+      ...empty.signatureTimestamps,
+      ...report.signatureTimestamps
     }
   };
 
@@ -309,6 +321,59 @@ export function getVehicleMissingFields(vehicle: VehicleDraft) {
   requireValue("Država osiguranja", vehicle.insuranceCountry);
 
   return missing;
+}
+
+export function getVehicleSectionMissingFields(vehicle: VehicleDraft, section: VehicleSection) {
+  const missing = getVehicleMissingFields(vehicle);
+
+  if (section === "driver") {
+    return missing.filter((field) =>
+      [
+        "Prezime vozaÄa",
+        "Ime vozaÄa",
+        "Datum roÄ‘enja",
+        "Adresa vozaÄa",
+        "Grad vozaÄa",
+        "Telefon vozaÄa",
+        "E-mail vozaÄa",
+        "Broj vozaÄke dozvole",
+        "Kategorija dozvole",
+        "VaÅ¾enje vozaÄke dozvole"
+      ].includes(field)
+    );
+  }
+
+  if (section === "vehicle") {
+    return missing.filter((field) =>
+      [
+        "Marka vozila",
+        "Model vozila",
+        "Tip vozila",
+        "Registarska oznaka",
+        "DrÅ¾ava registracije"
+      ].includes(field)
+    );
+  }
+
+  return missing.filter((field) =>
+    [
+      "Prezime ugovaraÄa",
+      "Ime ugovaraÄa",
+      "Adresa ugovaraÄa",
+      "Grad ugovaraÄa",
+      "PoÅ¡tanski broj ugovaraÄa",
+      "DrÅ¾ava ugovaraÄa",
+      "OsiguravajuÄ‡a kuÄ‡a",
+      "Broj ugovora",
+      "Polisa vaÅ¾i od",
+      "Polisa vaÅ¾i do",
+      "Filijala / posrednik",
+      "Naziv filijale",
+      "Adresa osiguranja",
+      "Grad osiguranja",
+      "DrÅ¾ava osiguranja"
+    ].includes(field)
+  );
 }
 
 export function deriveReportStatus(report: ReportDraft): ReportStatus {

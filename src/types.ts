@@ -84,6 +84,8 @@ export type LocationDetails = {
   date: string;
   time: string;
   address: string;
+  street: string;
+  streetNumber: string;
   city: string;
   country: string;
   latitude?: number;
@@ -169,6 +171,10 @@ export type ReportDraft = {
   annotatedPhotoDataUrl: string | null;
   sceneSketch: SceneSketchSuggestion;
   signatures: {
+    a: string | null;
+    b: string | null;
+  };
+  signatureTimestamps: {
     a: string | null;
     b: string | null;
   };

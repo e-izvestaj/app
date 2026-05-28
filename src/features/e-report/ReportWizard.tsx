@@ -9,21 +9,22 @@ import { generateQrCodeDataUrl } from "../../lib/qr";
 import {
   deriveReportStatus,
   getFinalReportUrl,
-  getVehicleMissingFields,
+  getVehicleSectionMissingFields,
   isReportReadyForSignature,
   nowIso,
   reportTitle
 } from "../../lib/utils";
 import type { ReportDraft } from "../../types";
 import AccidentDetails from "./AccidentDetails";
+import { stepTitles, type StepTitle } from "./constants";
+import DamageCaptureStep from "./DamageCaptureStep";
 import LocationTimeStep from "./LocationTimeStep";
-import PhotoAnnotator from "./PhotoAnnotator";
-import SceneCapture from "./SceneCapture";
+import ReviewStep from "./ReviewStep";
+import SafetyCheckStep from "./SafetyCheckStep";
+import SceneSituationStep from "./SceneSituationStep";
 import ShareStep from "./ShareStep";
 import SignatureStep from "./SignatureStep";
-import SafetyCheckStep from "./SafetyCheckStep";
 import VehicleForm from "./VehicleForm";
-import { getActiveStepTitles } from "./reportSteps";
 
 type Props = {
   report: ReportDraft;
@@ -42,7 +43,7 @@ export default function ReportWizard({
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
   const [isLocking, setIsLocking] = useState(false);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
-  const activeSteps = useMemo(() => getActiveStepTitles(report), [report]);
+  const activeSteps = useMemo(() => [...stepTitles], []);
   const currentStep = activeSteps[stepIndex];
   const readOnly = forceReadOnly || report.status === "locked";
   const reportUrl = getFinalReportUrl(report.id);
@@ -55,9 +56,9 @@ export default function ReportWizard({
 
   useEffect(() => {
     if (report.status === "locked") {
-      setStepIndex(activeSteps.length - 1);
+      setStepIndex(activeSteps.indexOf("Finalizacija"));
     }
-  }, [activeSteps.length, report.status]);
+  }, [activeSteps, report.status]);
 
   useEffect(() => {
     if (report.pdfDataUrl && !pdfUrl) {
@@ -126,11 +127,11 @@ export default function ReportWizard({
       onReportChange(finalizedReport);
       await saveReport(finalizedReport);
       await setActiveDraftId(null);
-      setStepIndex(activeSteps.length - 1);
+      setStepIndex(activeSteps.indexOf("Finalizacija"));
       setIsLocking(false);
     })();
   }, [
-    activeSteps.length,
+    activeSteps,
     isLocking,
     onReportChange,
     report,
@@ -169,6 +170,13 @@ export default function ReportWizard({
     }
 
     setStepIndex((current) => Math.max(current - 1, 0));
+  };
+
+  const goToStep = (step: StepTitle) => {
+    const index = activeSteps.indexOf(step);
+    if (index >= 0) {
+      setStepIndex(index);
+    }
   };
 
   const sharePdf = async () => {
@@ -235,15 +243,34 @@ export default function ReportWizard({
           report.safety.damageOtherVehicles !== null &&
           report.safety.damageOtherObjects !== null
         );
-      case "Lokacija i vreme":
-        return Boolean(report.location.date && report.location.time && report.location.address);
+      case "Vreme i lokacija":
+        return Boolean(report.location.date && report.location.time && (report.location.address || report.location.latitude));
+      case "Vozač A":
+        return getVehicleSectionMissingFields(report.vehicleA, "driver").length === 0;
       case "Vozilo A":
-        return getVehicleMissingFields(report.vehicleA).length === 0;
+        return getVehicleSectionMissingFields(report.vehicleA, "vehicle").length === 0;
+      case "Polisa A":
+        return getVehicleSectionMissingFields(report.vehicleA, "policy").length === 0;
+      case "Vozač B":
+        return getVehicleSectionMissingFields(report.vehicleB, "driver").length === 0;
       case "Vozilo B":
-        return getVehicleMissingFields(report.vehicleB).length === 0;
+        return getVehicleSectionMissingFields(report.vehicleB, "vehicle").length === 0;
+      case "Polisa B":
+        return getVehicleSectionMissingFields(report.vehicleB, "policy").length === 0;
+      case "Fotografije oštećenja":
+        return Boolean(
+          report.scenePhotos.some((photo) => photo.kind === "damage-a") &&
+            report.scenePhotos.some((photo) => photo.kind === "damage-b")
+        );
+      case "Okolnosti nezgode":
+        return true;
+      case "Fotografija cele situacije":
+        return Boolean(report.scenePhotos.some((photo) => photo.kind === "scene"));
+      case "Pregled izveštaja":
+        return true;
       case "Potpisi":
         return false;
-      case "Zavrseno":
+      case "Finalizacija":
         return Boolean(report.pdfDataUrl || pdfUrl);
       default:
         return true;
@@ -260,26 +287,7 @@ export default function ReportWizard({
             value={report.safety}
           />
         );
-      case "Scene Capture":
-        return (
-          <SceneCapture
-            onChange={(scenePhotos) =>
-              updateReport({
-                scenePhotos,
-                selectedPhotoId: report.selectedPhotoId || scenePhotos[0]?.id || null
-              })
-            }
-            onSceneSketchChange={(sceneSketch) => updateReport({ sceneSketch })}
-            onVehicleAChange={(vehicleA) => updateReport({ vehicleA })}
-            onVehicleBChange={(vehicleB) => updateReport({ vehicleB })}
-            photos={report.scenePhotos}
-            readOnly={readOnly}
-            sceneSketch={report.sceneSketch}
-            vehicleA={report.vehicleA}
-            vehicleB={report.vehicleB}
-          />
-        );
-      case "Lokacija i vreme":
+      case "Vreme i lokacija":
         return (
           <LocationTimeStep
             onChange={(location) => updateReport({ location })}
@@ -289,25 +297,85 @@ export default function ReportWizard({
             witnessInfo={report.witnessInfo}
           />
         );
+      case "Vozač A":
+        return (
+          <VehicleForm
+            accent="red"
+            onChange={(vehicleA) => updateReport({ vehicleA })}
+            readOnly={readOnly}
+            section="driver"
+            title="Vozač A"
+            value={report.vehicleA}
+          />
+        );
       case "Vozilo A":
         return (
           <VehicleForm
+            accent="red"
             onChange={(vehicleA) => updateReport({ vehicleA })}
             readOnly={readOnly}
+            section="vehicle"
             title="Vozilo A"
             value={report.vehicleA}
+          />
+        );
+      case "Polisa A":
+        return (
+          <VehicleForm
+            accent="red"
+            onChange={(vehicleA) => updateReport({ vehicleA })}
+            readOnly={readOnly}
+            section="policy"
+            title="Polisa osiguranja A"
+            value={report.vehicleA}
+          />
+        );
+      case "Vozač B":
+        return (
+          <VehicleForm
+            accent="blue"
+            onChange={(vehicleB) => updateReport({ vehicleB })}
+            readOnly={readOnly}
+            section="driver"
+            title="Vozač B"
+            value={report.vehicleB}
           />
         );
       case "Vozilo B":
         return (
           <VehicleForm
+            accent="blue"
             onChange={(vehicleB) => updateReport({ vehicleB })}
             readOnly={readOnly}
+            section="vehicle"
             title="Vozilo B"
             value={report.vehicleB}
           />
         );
-      case "Opis dogadjaja":
+      case "Polisa B":
+        return (
+          <VehicleForm
+            accent="blue"
+            onChange={(vehicleB) => updateReport({ vehicleB })}
+            readOnly={readOnly}
+            section="policy"
+            title="Polisa osiguranja B"
+            value={report.vehicleB}
+          />
+        );
+      case "Fotografije oštećenja":
+        return (
+          <DamageCaptureStep
+            onChange={(scenePhotos) => updateReport({ scenePhotos })}
+            onVehicleAChange={(vehicleA) => updateReport({ vehicleA })}
+            onVehicleBChange={(vehicleB) => updateReport({ vehicleB })}
+            photos={report.scenePhotos}
+            readOnly={readOnly}
+            vehicleA={report.vehicleA}
+            vehicleB={report.vehicleB}
+          />
+        );
+      case "Okolnosti nezgode":
         return (
           <AccidentDetails
             onOptionsChange={(circumstances) => updateReport({ circumstances })}
@@ -333,23 +401,35 @@ export default function ReportWizard({
             vehicleBNote={report.vehicleB.note}
           />
         );
-      case "Oznacavanje fotografije":
+      case "Fotografija cele situacije":
         return (
-          <PhotoAnnotator
+          <SceneSituationStep
+            annotatedPhotoDataUrl={report.annotatedPhotoDataUrl}
             markers={report.photoMarkers}
+            onChange={(scenePhotos) => updateReport({ scenePhotos })}
             onMarkersChange={(photoMarkers) => updateReport({ photoMarkers })}
             onSaveFlattened={(annotatedPhotoDataUrl) => updateReport({ annotatedPhotoDataUrl })}
+            onSceneSketchChange={(sceneSketch) => updateReport({ sceneSketch })}
             onSelectedPhotoIdChange={(selectedPhotoId) => updateReport({ selectedPhotoId })}
             photos={report.scenePhotos}
             readOnly={readOnly}
+            sceneSketch={report.sceneSketch}
             selectedPhotoId={report.selectedPhotoId}
           />
         );
+      case "Pregled izveštaja":
+        return <ReviewStep onEditStep={goToStep} report={report} />;
       case "Potpisi":
         return (
           <SignatureStep
-            onChange={(signatures) => updateReport({ signatures })}
+            onChange={(signatures, signatureTimestamps) =>
+              updateReport({
+                signatures,
+                signatureTimestamps: signatureTimestamps || report.signatureTimestamps
+              })
+            }
             readOnly={readOnly || report.status === "locked"}
+            signatureTimestamps={report.signatureTimestamps}
             signatures={report.signatures}
             statusLabel={
               report.status === "ready_for_signature"
@@ -360,7 +440,7 @@ export default function ReportWizard({
             }
           />
         );
-      case "Zavrseno":
+      case "Finalizacija":
         return (
           <ShareStep
             onCopyReportId={copyReportId}
@@ -387,16 +467,12 @@ export default function ReportWizard({
         </button>
         <div className="text-right text-sm text-white/45">
           <div>{report.publicId}</div>
-          <div>{reportTitle(report)}</div>
+          <div>{stepIndex + 1}/{activeSteps.length}</div>
         </div>
       </div>
 
       <Card className="mb-5 space-y-3">
-        <ProgressBar
-          current={stepIndex + 1}
-          label={currentStep}
-          total={activeSteps.length}
-        />
+        <ProgressBar current={stepIndex + 1} label={currentStep} total={activeSteps.length} />
         <div className="flex items-center justify-between text-xs uppercase tracking-[0.26em] text-white/40">
           <span>Status</span>
           <span>{report.status === "completed" ? "locked" : report.status}</span>
@@ -418,9 +494,9 @@ export default function ReportWizard({
               ? "Zakljucavam izvestaj..."
               : report.status === "locked"
                 ? "Izvestaj je zakljucan"
-                : "Nakon drugog potpisa izvestaj se automatski zakljucava"}
+                : "Izvestaj se zakljucava tek kada oba potpisa budu potvrdena"}
           </Button>
-        ) : currentStep !== "Zavrseno" ? (
+        ) : currentStep !== "Finalizacija" ? (
           <Button disabled={!canProceed() || readOnly} onClick={goNext} type="button">
             Nastavi
           </Button>
