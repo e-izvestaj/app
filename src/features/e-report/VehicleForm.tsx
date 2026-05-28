@@ -1,10 +1,16 @@
 import { useMemo, useState } from "react";
 import Button from "../../components/Button";
-import Card from "../../components/Card";
 import Camera from "../../components/Camera";
+import Card from "../../components/Card";
 import { mockOcrFromPhoto } from "../../lib/ocr";
 import { INSURER_OPTIONS, createId } from "../../lib/utils";
-import type { PhotoAsset, PhotoKind, VehicleDraft } from "../../types";
+import type {
+  DocumentSuggestion,
+  DocumentType,
+  PhotoAsset,
+  PhotoKind,
+  VehicleDraft
+} from "../../types";
 
 type Props = {
   title: string;
@@ -12,6 +18,28 @@ type Props = {
   onChange: (value: VehicleDraft) => void;
   readOnly?: boolean;
 };
+
+const documentConfig: Array<{
+  type: DocumentType;
+  title: string;
+  helper: string;
+}> = [
+  {
+    type: "driver-license",
+    title: "Vozačka dozvola",
+    helper: "Pokušaj OCR ekstrakcije imena, adrese i broja dozvole."
+  },
+  {
+    type: "registration",
+    title: "Saobraćajna dozvola",
+    helper: "Pokušaj OCR ekstrakcije registracije, marke, modela i VIN-a."
+  },
+  {
+    type: "policy",
+    title: "Polisa osiguranja",
+    helper: "Pokušaj OCR ekstrakcije osiguravača, broja polise i važenja."
+  }
+];
 
 async function fileToDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
@@ -52,17 +80,83 @@ function Field({
   );
 }
 
+function SuggestionReview({
+  suggestion,
+  onFieldChange,
+  onConfirm,
+  onClear,
+  readOnly = false
+}: {
+  suggestion: DocumentSuggestion;
+  onFieldChange: (key: string, value: string) => void;
+  onConfirm: () => void;
+  onClear: () => void;
+  readOnly?: boolean;
+}) {
+  return (
+    <Card className="space-y-4 border border-accent/20 bg-accent/8">
+      <div className="space-y-1">
+        <div className="text-xs uppercase tracking-[0.26em] text-accent">OCR assist</div>
+        <div className="text-lg font-semibold text-white">Proverite prepoznate podatke</div>
+        <div className="text-sm text-white/60">
+          OCR je samo predlog. Svako polje može da se potvrdi, ispravi ili obriše.
+        </div>
+      </div>
+      <div className="grid grid-cols-1 gap-3">
+        {suggestion.fields.map((field) => (
+          <Field
+            key={field.key}
+            label={field.label}
+            onChange={(value) => onFieldChange(field.key, value)}
+            readOnly={readOnly}
+            value={field.value}
+          />
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Button disabled={readOnly} onClick={onConfirm} type="button">
+          Potvrdi podatke
+        </Button>
+        <Button disabled={readOnly} onClick={onClear} type="button" variant="secondary">
+          Obriši predlog
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 export default function VehicleForm({ title, value, onChange, readOnly = false }: Props) {
-  const [isReading, setIsReading] = useState(false);
+  const [isReading, setIsReading] = useState<DocumentType | null>(null);
   const insurerListId = useMemo(() => `insurer-${value.side}`, [value.side]);
 
-  const handleCapture = async (files: FileList) => {
+  const vehicleDocumentKind: PhotoKind = value.side === "A" ? "document-a" : "document-b";
+
+  const documentPhotosFor = (documentType: DocumentType) =>
+    value.documentPhotos.filter((photo) => photo.documentType === documentType);
+
+  const updateSuggestion = (documentType: DocumentType, suggestion: DocumentSuggestion | null) => {
+    const nextSuggestions = { ...value.ocrSuggestions };
+    if (suggestion) {
+      nextSuggestions[documentType] = suggestion;
+    } else {
+      delete nextSuggestions[documentType];
+    }
+
+    onChange({
+      ...value,
+      ocrSuggestions: nextSuggestions,
+      ocrStatus: suggestion ? "ready" : value.ocrStatus
+    });
+  };
+
+  const handleCapture = (documentType: DocumentType) => async (files: FileList) => {
     const uploads = await Promise.all(
       Array.from(files).map(async (file) => ({
         id: createId("doc"),
         dataUrl: await fileToDataUrl(file),
         label: file.name,
-        kind: (value.side === "A" ? "document-a" : "document-b") as PhotoKind
+        kind: vehicleDocumentKind,
+        documentType
       }))
     );
 
@@ -72,24 +166,52 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
     });
   };
 
-  const runMockOcr = async () => {
-    setIsReading(true);
-    const result = await mockOcrFromPhoto(value.documentPhotos[0]);
-    setIsReading(false);
+  const runMockOcr = async (documentType: DocumentType) => {
+    const latestPhoto = [...documentPhotosFor(documentType)].pop();
+    if (!latestPhoto) {
+      return;
+    }
+
+    setIsReading(documentType);
+    const suggestion = await mockOcrFromPhoto(latestPhoto, documentType);
+    setIsReading(null);
+    updateSuggestion(documentType, suggestion);
+  };
+
+  const changeSuggestionField = (documentType: DocumentType, key: string, nextValue: string) => {
+    const suggestion = value.ocrSuggestions[documentType];
+    if (!suggestion) {
+      return;
+    }
+
+    updateSuggestion(documentType, {
+      ...suggestion,
+      fields: suggestion.fields.map((field) =>
+        field.key === key ? { ...field, value: nextValue } : field
+      )
+    });
+  };
+
+  const confirmSuggestion = (documentType: DocumentType) => {
+    const suggestion = value.ocrSuggestions[documentType];
+    if (!suggestion) {
+      return;
+    }
+
+    const updates = suggestion.fields.reduce<Record<string, string>>((acc, field) => {
+      acc[field.key] = field.value;
+      return acc;
+    }, {});
+
     onChange({
       ...value,
-      make: result.make,
-      model: result.model,
-      plate: result.plate,
-      policyNumber: result.policyNumber,
-      insurer: result.insurer,
-      ownerFirstName: value.ownerFirstName || "Ime",
-      ownerLastName: value.ownerLastName || "Prezime",
-      driverFirstName: value.driverFirstName || "Ime",
-      driverLastName: value.driverLastName || "Prezime",
-      driverLicenseNumber: value.driverLicenseNumber || `DL-${result.plate}`,
-      ocrStatus: "mocked"
-    });
+      ...updates,
+      ocrSuggestions: {
+        ...value.ocrSuggestions,
+        [documentType]: { ...suggestion, status: "confirmed" }
+      },
+      ocrStatus: "ready"
+    } as VehicleDraft);
   };
 
   const renderThumb = (photo: PhotoAsset) => (
@@ -106,7 +228,7 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
           }
           type="button"
         >
-          Obrisi
+          Obriši
         </button>
       )}
     </div>
@@ -116,23 +238,51 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
     <div className="space-y-4">
       <div className="space-y-1">
         <h2 className="text-[30px] font-semibold text-white">{title}</h2>
-        <p className="text-sm text-white/60">Sekcije 6, 7, 8, 9, 10, 11 i 14 obrasca.</p>
+        <p className="text-sm text-white/60">OCR assist preko tri dokumenta, uz obaveznu potvrdu korisnika.</p>
       </div>
 
-      <Camera
-        disabled={readOnly}
-        title="Polisa osiguranja / vozacka dozvola"
-        helper="OCR ostaje placeholder, ali podatke mozemo potvrditi i rucno korigovati."
-        onCapture={handleCapture}
-      />
+      {documentConfig.map((document) => {
+        const photos = documentPhotosFor(document.type);
+        const suggestion = value.ocrSuggestions[document.type];
 
-      {value.documentPhotos.length ? (
-        <Button disabled={readOnly} variant="secondary" onClick={runMockOcr} type="button">
-          {isReading ? "Citam dokument..." : "Popuni preko OCR placeholder-a"}
-        </Button>
-      ) : null}
+        return (
+          <div key={document.type} className="space-y-3">
+            <Camera
+              disabled={readOnly}
+              helper={document.helper}
+              onCapture={handleCapture(document.type)}
+              title={document.title}
+            />
 
-      <div className="grid grid-cols-2 gap-3">{value.documentPhotos.map(renderThumb)}</div>
+            {photos.length ? (
+              <>
+                <div className="grid grid-cols-2 gap-3">{photos.map(renderThumb)}</div>
+                <Button
+                  disabled={readOnly}
+                  fullWidth={false}
+                  onClick={() => void runMockOcr(document.type)}
+                  type="button"
+                  variant="secondary"
+                >
+                  {isReading === document.type ? "Čitam dokument..." : "Pokreni OCR ekstrakciju"}
+                </Button>
+              </>
+            ) : null}
+
+            {suggestion ? (
+              <SuggestionReview
+                onClear={() => updateSuggestion(document.type, null)}
+                onConfirm={() => confirmSuggestion(document.type)}
+                onFieldChange={(key, nextValue) =>
+                  changeSuggestionField(document.type, key, nextValue)
+                }
+                readOnly={readOnly}
+                suggestion={suggestion}
+              />
+            ) : null}
+          </div>
+        );
+      })}
 
       <datalist id={insurerListId}>
         {INSURER_OPTIONS.map((option) => (
@@ -141,7 +291,7 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
       </datalist>
 
       <Card className="space-y-4">
-        <div className="text-sm uppercase tracking-[0.24em] text-white/40">Ugovarac osiguranja</div>
+        <div className="text-sm uppercase tracking-[0.24em] text-white/40">Ugovarač osiguranja</div>
         <div className="grid grid-cols-2 gap-3">
           <Field
             label="Prezime"
@@ -164,14 +314,14 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
         />
         <div className="grid grid-cols-3 gap-3">
           <Field
-            label="Postanski broj"
+            label="Poštanski broj"
             onChange={(ownerPostalCode) => onChange({ ...value, ownerPostalCode })}
             readOnly={readOnly}
             value={value.ownerPostalCode}
           />
           <div className="col-span-2">
             <Field
-              label="Drzava"
+              label="Država"
               onChange={(ownerCountry) => onChange({ ...value, ownerCountry })}
               readOnly={readOnly}
               value={value.ownerCountry}
@@ -218,24 +368,30 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Field
-            label="Drzava registracije"
+            label="VIN"
+            onChange={(vin) => onChange({ ...value, vin })}
+            readOnly={readOnly}
+            value={value.vin}
+          />
+          <Field
+            label="Država registracije"
             onChange={(registrationCountry) => onChange({ ...value, registrationCountry })}
             readOnly={readOnly}
             value={value.registrationCountry}
           />
-          <Field
-            label="Prikolica"
-            onChange={(trailerPlate) => onChange({ ...value, trailerPlate })}
-            readOnly={readOnly}
-            value={value.trailerPlate}
-          />
         </div>
+        <Field
+          label="Prikolica"
+          onChange={(trailerPlate) => onChange({ ...value, trailerPlate })}
+          readOnly={readOnly}
+          value={value.trailerPlate}
+        />
       </Card>
 
       <Card className="space-y-4">
         <div className="text-sm uppercase tracking-[0.24em] text-white/40">Osiguranje</div>
         <Field
-          label="Osiguravajuca kuca"
+          label="Osiguravajuća kuća"
           list={insurerListId}
           onChange={(insurer) => onChange({ ...value, insurer })}
           readOnly={readOnly}
@@ -257,14 +413,14 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Field
-            label="Vazi od"
+            label="Važi od"
             onChange={(policyValidFrom) => onChange({ ...value, policyValidFrom })}
             readOnly={readOnly}
             type="date"
             value={value.policyValidFrom}
           />
           <Field
-            label="Vazi do"
+            label="Važi do"
             onChange={(policyValidUntil) => onChange({ ...value, policyValidUntil })}
             readOnly={readOnly}
             type="date"
@@ -290,7 +446,7 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
           value={value.insuranceContact}
         />
         <div className="space-y-2">
-          <div className="text-sm text-white/60">Materijalna steta na vozilu pokrivena?</div>
+          <div className="text-sm text-white/60">Materijalna šteta na vozilu pokrivena?</div>
           <div className="grid grid-cols-2 gap-3">
             <Button
               disabled={readOnly}
@@ -313,7 +469,7 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
       </Card>
 
       <Card className="space-y-4">
-        <div className="text-sm uppercase tracking-[0.24em] text-white/40">Vozac</div>
+        <div className="text-sm uppercase tracking-[0.24em] text-white/40">Vozač</div>
         <div className="grid grid-cols-2 gap-3">
           <Field
             label="Prezime"
@@ -330,14 +486,14 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Field
-            label="Datum rodjenja"
+            label="Datum rođenja"
             onChange={(driverBirthDate) => onChange({ ...value, driverBirthDate })}
             readOnly={readOnly}
             type="date"
             value={value.driverBirthDate}
           />
           <Field
-            label="Drzava"
+            label="Država"
             onChange={(driverCountry) => onChange({ ...value, driverCountry })}
             readOnly={readOnly}
             value={value.driverCountry}
@@ -357,7 +513,7 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
         />
         <div className="grid grid-cols-2 gap-3">
           <Field
-            label="Vozacka dozvola br."
+            label="Vozačka dozvola br."
             onChange={(driverLicenseNumber) => onChange({ ...value, driverLicenseNumber })}
             readOnly={readOnly}
             value={value.driverLicenseNumber}
@@ -370,7 +526,7 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
           />
         </div>
         <Field
-          label="Vozacka dozvola vazi do"
+          label="Vozačka dozvola važi do"
           onChange={(driverLicenseValidUntil) =>
             onChange({ ...value, driverLicenseValidUntil })
           }
@@ -381,8 +537,14 @@ export default function VehicleForm({ title, value, onChange, readOnly = false }
       </Card>
 
       <Card className="space-y-4">
+        <Field
+          label="Detektovano mesto oštećenja"
+          onChange={(impactZone) => onChange({ ...value, impactZone: impactZone as VehicleDraft["impactZone"] })}
+          readOnly={readOnly}
+          value={value.impactZone}
+        />
         <label className="space-y-2">
-          <span className="text-sm text-white/60">Vidljiva ostecenja</span>
+          <span className="text-sm text-white/60">Vidljiva oštećenja</span>
           <textarea
             className="input-glass min-h-[120px]"
             disabled={readOnly}

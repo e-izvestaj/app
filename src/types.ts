@@ -9,11 +9,58 @@ export type PhotoKind =
   | "document-a"
   | "document-b";
 
+export type DocumentType = "driver-license" | "registration" | "policy";
+
+export type DamageZone =
+  | "prednji branik"
+  | "zadnji branik"
+  | "prednji levi ugao"
+  | "prednji desni ugao"
+  | "zadnji levi ugao"
+  | "zadnji desni ugao"
+  | "leva strana"
+  | "desna strana"
+  | "vrata"
+  | "blatobran"
+  | "hauba"
+  | "gepek";
+
+export type ExtractedField = {
+  key: string;
+  label: string;
+  value: string;
+};
+
+export type DocumentSuggestion = {
+  documentType: DocumentType;
+  status: "idle" | "pending" | "confirmed";
+  fields: ExtractedField[];
+  sourcePhotoId: string | null;
+};
+
+export type DamageSuggestion = {
+  status: "idle" | "pending" | "confirmed";
+  sourcePhotoId: string | null;
+  suggestedZone: DamageZone | "";
+  manualZone: DamageZone | "";
+};
+
+export type SceneSketchSuggestion = {
+  status: "idle" | "pending" | "confirmed";
+  scenePhotoId: string | null;
+  summary: string;
+  svgDataUrl: string | null;
+  laneType: "straight" | "intersection" | "parking";
+  vehicleAPosition: "left" | "center" | "right";
+  vehicleBPosition: "left" | "center" | "right";
+};
+
 export type PhotoAsset = {
   id: string;
   dataUrl: string;
   label?: string;
   kind?: PhotoKind;
+  documentType?: DocumentType;
 };
 
 export type MarkerType = "arrow-a" | "arrow-b" | "impact" | "label-a" | "label-b";
@@ -49,6 +96,7 @@ export type VehicleDraft = {
   make: string;
   model: string;
   type: string;
+  vin: string;
   trailerPlate: string;
   insurer: string;
   policyNumber: string;
@@ -74,10 +122,13 @@ export type VehicleDraft = {
   driverLicenseNumber: string;
   driverLicenseCategory: string;
   driverLicenseValidUntil: string;
+  impactZone: DamageZone | "";
   visibleDamage: string;
   note: string;
   documentPhotos: PhotoAsset[];
   ocrStatus: "idle" | "mocked" | "ready";
+  ocrSuggestions: Partial<Record<DocumentType, DocumentSuggestion>>;
+  damageSuggestion: DamageSuggestion;
 };
 
 export type ScenarioOption = {
@@ -105,6 +156,7 @@ export type ReportDraft = {
   selectedPhotoId: string | null;
   photoMarkers: PhotoMarker[];
   annotatedPhotoDataUrl: string | null;
+  sceneSketch: SceneSketchSuggestion;
   signatures: {
     a: string | null;
     b: string | null;

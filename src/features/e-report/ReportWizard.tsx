@@ -264,8 +264,14 @@ export default function ReportWizard({
                 selectedPhotoId: report.selectedPhotoId || scenePhotos[0]?.id || null
               })
             }
+            onSceneSketchChange={(sceneSketch) => updateReport({ sceneSketch })}
+            onVehicleAChange={(vehicleA) => updateReport({ vehicleA })}
+            onVehicleBChange={(vehicleB) => updateReport({ vehicleB })}
             photos={report.scenePhotos}
             readOnly={readOnly}
+            sceneSketch={report.sceneSketch}
+            vehicleA={report.vehicleA}
+            vehicleB={report.vehicleB}
           />
         );
       case "Lokacija i vreme":

@@ -1,4 +1,12 @@
-import type { ReportDraft, ReportStatus, ScenarioOption, VehicleDraft } from "../types";
+import type {
+  DamageSuggestion,
+  DamageZone,
+  ReportDraft,
+  ReportStatus,
+  ScenarioOption,
+  SceneSketchSuggestion,
+  VehicleDraft
+} from "../types";
 
 export const INSURER_OPTIONS = [
   "Dunav",
@@ -9,6 +17,21 @@ export const INSURER_OPTIONS = [
   "Triglav",
   "Drugo"
 ] as const;
+
+export const DAMAGE_ZONE_OPTIONS: DamageZone[] = [
+  "prednji branik",
+  "zadnji branik",
+  "prednji levi ugao",
+  "prednji desni ugao",
+  "zadnji levi ugao",
+  "zadnji desni ugao",
+  "leva strana",
+  "desna strana",
+  "vrata",
+  "blatobran",
+  "hauba",
+  "gepek"
+];
 
 export function createId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
@@ -30,6 +53,27 @@ export function formatTime(date: Date) {
   return date.toTimeString().slice(0, 5);
 }
 
+export function emptyDamageSuggestion(): DamageSuggestion {
+  return {
+    status: "idle",
+    sourcePhotoId: null,
+    suggestedZone: "",
+    manualZone: ""
+  };
+}
+
+export function emptySceneSketch(): SceneSketchSuggestion {
+  return {
+    status: "idle",
+    scenePhotoId: null,
+    summary: "",
+    svgDataUrl: null,
+    laneType: "straight",
+    vehicleAPosition: "left",
+    vehicleBPosition: "right"
+  };
+}
+
 export function defaultVehicle(side: "A" | "B"): VehicleDraft {
   return {
     side,
@@ -38,6 +82,7 @@ export function defaultVehicle(side: "A" | "B"): VehicleDraft {
     make: "",
     model: "",
     type: "",
+    vin: "",
     trailerPlate: "",
     insurer: "",
     policyNumber: "",
@@ -63,22 +108,25 @@ export function defaultVehicle(side: "A" | "B"): VehicleDraft {
     driverLicenseNumber: "",
     driverLicenseCategory: "",
     driverLicenseValidUntil: "",
+    impactZone: "",
     visibleDamage: "",
     note: "",
     documentPhotos: [],
-    ocrStatus: "idle"
+    ocrStatus: "idle",
+    ocrSuggestions: {},
+    damageSuggestion: emptyDamageSuggestion()
   };
 }
 
 export function defaultCircumstances(): ScenarioOption[] {
   return [
     "parkiran / zaustavljen",
-    "napustao parking / otvarao vrata",
+    "napuštao parking / otvarao vrata",
     "parkirao",
-    "napustao parking, privatni posed, put",
-    "poceo da skrece na parking, privatni posed, put",
-    "upravo ulazio u kruzni tok",
-    "prolazio kroz kruzni tok",
+    "napuštao parking, privatni posed, put",
+    "počeo da skreće na parking, privatni posed, put",
+    "upravo ulazio u kružni tok",
+    "prolazio kroz kružni tok",
     "naleteo u istoj traci pozadi",
     "vozio u istom smeru, u drugoj traci",
     "menjao traku",
@@ -86,9 +134,8 @@ export function defaultCircumstances(): ScenarioOption[] {
     "skretao udesno",
     "skretao ulevo",
     "vozio unazad",
-    "presao u traku suprotnog smera",
-    "dolazio sa desne strane",
-    "nije postovao znak prvenstva / crveno"
+    "prešao u traku suprotnog smera",
+    "nije poštovao znak prvenstva / crveno"
   ].map((label) => ({
     id: createId("circ"),
     label,
@@ -129,6 +176,7 @@ export function createEmptyReport(): ReportDraft {
     selectedPhotoId: null,
     photoMarkers: [],
     annotatedPhotoDataUrl: null,
+    sceneSketch: emptySceneSketch(),
     signatures: {
       a: null,
       b: null
@@ -157,11 +205,31 @@ export function normalizeReport(report: ReportDraft): ReportDraft {
     },
     vehicleA: {
       ...empty.vehicleA,
-      ...report.vehicleA
+      ...report.vehicleA,
+      ocrSuggestions: {
+        ...empty.vehicleA.ocrSuggestions,
+        ...report.vehicleA?.ocrSuggestions
+      },
+      damageSuggestion: {
+        ...empty.vehicleA.damageSuggestion,
+        ...report.vehicleA?.damageSuggestion
+      }
     },
     vehicleB: {
       ...empty.vehicleB,
-      ...report.vehicleB
+      ...report.vehicleB,
+      ocrSuggestions: {
+        ...empty.vehicleB.ocrSuggestions,
+        ...report.vehicleB?.ocrSuggestions
+      },
+      damageSuggestion: {
+        ...empty.vehicleB.damageSuggestion,
+        ...report.vehicleB?.damageSuggestion
+      }
+    },
+    sceneSketch: {
+      ...empty.sceneSketch,
+      ...report.sceneSketch
     }
   };
 
