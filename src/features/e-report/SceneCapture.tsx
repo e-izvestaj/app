@@ -1,11 +1,12 @@
 import Camera from "../../components/Camera";
 import Card from "../../components/Card";
-import type { PhotoAsset } from "../../types";
+import type { PhotoAsset, PhotoKind } from "../../types";
 import { createId } from "../../lib/utils";
 
 type Props = {
   photos: PhotoAsset[];
   onChange: (photos: PhotoAsset[]) => void;
+  readOnly?: boolean;
 };
 
 async function fileToDataUrl(file: File) {
@@ -17,14 +18,27 @@ async function fileToDataUrl(file: File) {
   });
 }
 
-export default function SceneCapture({ photos, onChange }: Props) {
+export default function SceneCapture({ photos, onChange, readOnly = false }: Props) {
   const handleCapture = async (files: FileList) => {
     const nextPhotos = await Promise.all(
-      Array.from(files).map(async (file) => ({
-        id: createId("scene"),
-        dataUrl: await fileToDataUrl(file),
-        label: file.name
-      }))
+      Array.from(files).map(async (file, index) => {
+        const absoluteIndex = photos.length + index;
+        const kind: PhotoKind =
+          absoluteIndex === 0
+            ? "scene"
+            : absoluteIndex === 1
+              ? "damage-a"
+              : absoluteIndex === 2
+                ? "damage-b"
+                : "scene";
+
+        return {
+          id: createId("scene"),
+          dataUrl: await fileToDataUrl(file),
+          label: file.name,
+          kind
+        };
+      })
     );
 
     onChange([...photos, ...nextPhotos]);
@@ -34,19 +48,20 @@ export default function SceneCapture({ photos, onChange }: Props) {
     <div className="space-y-4">
       <div className="space-y-1">
         <h2 className="text-[30px] font-semibold text-white">Dokumentuj scenu.</h2>
-        <p className="text-sm text-white/60">Oba vozila, panorama i ostecenje.</p>
+        <p className="text-sm text-white/60">Jedan siri kadar i kljucna ostecenja za PDF prilog.</p>
       </div>
       <Card className="space-y-2">
         <div className="text-sm text-white/85">Checklist</div>
         <ul className="space-y-2 text-sm text-white/60">
-          <li>Oba vozila u kadru</li>
-          <li>Panorama mesta dogadjaja</li>
-          <li>Ostecenje vozila</li>
+          <li>1 fotografija sire scene nezgode</li>
+          <li>1 fotografija ostecenja vozila A</li>
+          <li>1 fotografija ostecenja vozila B</li>
         </ul>
       </Card>
       <Camera
-        title="Fullscreen camera-first capture"
-        helper="Na mobilnom uredjaju otvara zadnju kameru kada je dostupna."
+        disabled={readOnly}
+        title="Fotografije za izvestaj"
+        helper="Koristi native kameru ili galeriju. Sve slike ostaju u draft storage-u."
         onCapture={handleCapture}
       />
       <div className="grid grid-cols-3 gap-3">
@@ -57,13 +72,15 @@ export default function SceneCapture({ photos, onChange }: Props) {
               className="aspect-square h-full w-full object-cover"
               src={photo.dataUrl}
             />
-            <button
-              className="absolute right-2 top-2 rounded-full bg-black/55 px-2 py-1 text-xs text-white"
-              onClick={() => onChange(photos.filter((item) => item.id !== photo.id))}
-              type="button"
-            >
-              Obrisi
-            </button>
+            {readOnly ? null : (
+              <button
+                className="absolute right-2 top-2 rounded-full bg-black/55 px-2 py-1 text-xs text-white"
+                onClick={() => onChange(photos.filter((item) => item.id !== photo.id))}
+                type="button"
+              >
+                Obrisi
+              </button>
+            )}
           </div>
         ))}
       </div>

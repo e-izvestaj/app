@@ -7,6 +7,5 @@ export const stepTitles = [
   "Opis dogadjaja",
   "Oznacavanje fotografije",
   "Potpisi",
-  "PDF preview",
-  "Share"
+  "Zavrseno"
 ] as const;

@@ -6,9 +6,10 @@ type Props = {
   title: string;
   onCapture: (files: FileList) => Promise<void> | void;
   helper?: string;
+  disabled?: boolean;
 };
 
-export default function Camera({ title, onCapture, helper }: Props) {
+export default function Camera({ title, onCapture, helper, disabled = false }: Props) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [isPicking, setIsPicking] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -37,6 +38,12 @@ export default function Camera({ title, onCapture, helper }: Props) {
   }, [isPicking]);
 
   const handleOpenPicker = () => {
+    if (disabled) {
+      setStatusTone("neutral");
+      setStatusMessage("Ovaj deo zapisnika je zakljucan i vise nije moguce dodavati fotografije.");
+      return;
+    }
+
     if (!inputRef.current) {
       setStatusTone("error");
       setStatusMessage("Browser ne podrzava otvaranje kamere iz ovog prikaza.");
@@ -92,7 +99,7 @@ export default function Camera({ title, onCapture, helper }: Props) {
         multiple
         onChange={handleChange}
       />
-      <Button onClick={handleOpenPicker} type="button">
+      <Button disabled={disabled} onClick={handleOpenPicker} type="button">
         {isPicking ? "Otvaram kameru..." : "Otvori kameru"}
       </Button>
       {statusMessage ? (

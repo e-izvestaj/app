@@ -3,7 +3,7 @@ import { useLocation, useParams } from "react-router-dom";
 import Card from "../components/Card";
 import ReportWizard from "../features/e-report/ReportWizard";
 import { getReport, saveReport, setActiveDraftId } from "../lib/indexedDb";
-import { createEmptyReport } from "../lib/utils";
+import { createEmptyReport, normalizeReport } from "../lib/utils";
 import type { ReportDraft } from "../types";
 
 type LocationState = {
@@ -14,23 +14,24 @@ export default function ReportPage() {
   const { reportId } = useParams();
   const location = useLocation();
   const [report, setReport] = useState<ReportDraft | null>(null);
+  const forceReadOnly = new URLSearchParams(location.search).get("view") === "final";
 
   useEffect(() => {
     void (async () => {
       const routeState = location.state as LocationState | null;
 
       if (routeState?.report) {
-        const seeded = routeState.report;
+        const seeded = normalizeReport(routeState.report);
         setReport(seeded);
         await saveReport(seeded);
-        await setActiveDraftId(seeded.id);
+        await setActiveDraftId(seeded.status === "locked" ? null : seeded.id);
         return;
       }
 
       if (reportId) {
         const existing = await getReport(reportId);
         if (existing) {
-          setReport(existing);
+          setReport(normalizeReport(existing));
           return;
         }
       }
@@ -40,7 +41,7 @@ export default function ReportPage() {
       await saveReport(empty);
       await setActiveDraftId(empty.id);
     })();
-  }, [location.state, reportId]);
+  }, [location.search, location.state, reportId]);
 
   if (!report) {
     return (
@@ -50,5 +51,5 @@ export default function ReportPage() {
     );
   }
 
-  return <ReportWizard onReportChange={setReport} report={report} />;
+  return <ReportWizard forceReadOnly={forceReadOnly} onReportChange={setReport} report={report} />;
 }

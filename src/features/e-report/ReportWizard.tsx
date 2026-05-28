@@ -5,11 +5,17 @@ import Card from "../../components/Card";
 import ProgressBar from "../../components/ProgressBar";
 import { saveReport, setActiveDraftId } from "../../lib/indexedDb";
 import { generatePdf } from "../../lib/pdf";
-import { nowIso, reportTitle } from "../../lib/utils";
+import { generateQrCodeDataUrl } from "../../lib/qr";
+import {
+  deriveReportStatus,
+  getFinalReportUrl,
+  isReportReadyForSignature,
+  nowIso,
+  reportTitle
+} from "../../lib/utils";
 import type { ReportDraft } from "../../types";
 import AccidentDetails from "./AccidentDetails";
 import LocationTimeStep from "./LocationTimeStep";
-import PdfPreview from "./PdfPreview";
 import PhotoAnnotator from "./PhotoAnnotator";
 import SceneCapture from "./SceneCapture";
 import ShareStep from "./ShareStep";
@@ -21,15 +27,24 @@ import { getActiveStepTitles } from "./reportSteps";
 type Props = {
   report: ReportDraft;
   onReportChange: (report: ReportDraft) => void;
+  forceReadOnly?: boolean;
 };
 
-export default function ReportWizard({ report, onReportChange }: Props) {
+export default function ReportWizard({
+  report,
+  onReportChange,
+  forceReadOnly = false
+}: Props) {
   const navigate = useNavigate();
   const [stepIndex, setStepIndex] = useState(0);
   const [pdfUrl, setPdfUrl] = useState<string | null>(report.pdfDataUrl);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
+  const [isLocking, setIsLocking] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const activeSteps = useMemo(() => getActiveStepTitles(report), [report]);
   const currentStep = activeSteps[stepIndex];
+  const readOnly = forceReadOnly || report.status === "locked";
+  const reportUrl = getFinalReportUrl(report.id);
 
   useEffect(() => {
     if (stepIndex >= activeSteps.length) {
@@ -38,22 +53,107 @@ export default function ReportWizard({ report, onReportChange }: Props) {
   }, [activeSteps.length, stepIndex]);
 
   useEffect(() => {
-    if (report.status === "completed") {
+    if (report.status === "locked") {
       setStepIndex(activeSteps.length - 1);
     }
   }, [activeSteps.length, report.status]);
 
   useEffect(() => {
+    if (report.pdfDataUrl && !pdfUrl) {
+      setPdfUrl(report.pdfDataUrl);
+    }
+  }, [pdfUrl, report.pdfDataUrl]);
+
+  useEffect(() => {
+    if (report.status !== "locked" && !forceReadOnly) {
+      const nextStatus = deriveReportStatus(report);
+      const shouldSetReadyAt =
+        nextStatus === "ready_for_signature" && !report.readyForSignatureAt;
+      const shouldClearReadyAt = nextStatus === "draft" && report.readyForSignatureAt;
+
+      if (report.status !== nextStatus || shouldSetReadyAt || shouldClearReadyAt) {
+        onReportChange({
+          ...report,
+          status: nextStatus,
+          readyForSignatureAt: shouldSetReadyAt
+            ? nowIso()
+            : nextStatus === "draft"
+              ? null
+              : report.readyForSignatureAt,
+          updatedAt: nowIso()
+        });
+      }
+    }
+  }, [forceReadOnly, onReportChange, report]);
+
+  useEffect(() => {
+    if (report.status === "locked") {
+      void generateQrCodeDataUrl(reportUrl).then(setQrCodeDataUrl);
+    }
+  }, [report.status, reportUrl]);
+
+  useEffect(() => {
+    if (!report.signatures.a || !report.signatures.b || report.status === "locked" || isLocking) {
+      return;
+    }
+
+    if (!isReportReadyForSignature(report)) {
+      return;
+    }
+
+    void (async () => {
+      setIsLocking(true);
+      const lockedReport: ReportDraft = {
+        ...report,
+        status: "locked",
+        lockedAt: report.lockedAt || nowIso(),
+        readyForSignatureAt: report.readyForSignatureAt || nowIso(),
+        updatedAt: nowIso()
+      };
+      const [pdfResult, nextQrCodeDataUrl] = await Promise.all([
+        generatePdf(lockedReport),
+        generateQrCodeDataUrl(reportUrl)
+      ]);
+
+      const finalizedReport = {
+        ...lockedReport,
+        pdfDataUrl: pdfResult.dataUrl
+      };
+
+      setPdfUrl(pdfResult.url);
+      setQrCodeDataUrl(nextQrCodeDataUrl);
+      onReportChange(finalizedReport);
+      await saveReport(finalizedReport);
+      await setActiveDraftId(null);
+      setStepIndex(activeSteps.length - 1);
+      setIsLocking(false);
+    })();
+  }, [
+    activeSteps.length,
+    isLocking,
+    onReportChange,
+    report,
+    report.signatures.a,
+    report.signatures.b,
+    report.status,
+    reportUrl
+  ]);
+
+  useEffect(() => {
     const next = { ...report, updatedAt: nowIso() };
     const timeout = window.setTimeout(() => {
       void saveReport(next);
-      void setActiveDraftId(next.status === "draft" ? next.id : null);
+      void setActiveDraftId(next.status === "locked" ? null : next.id);
     }, 300);
 
     return () => window.clearTimeout(timeout);
   }, [report]);
 
   const updateReport = (patch: Partial<ReportDraft>) => {
+    if (readOnly) {
+      return;
+    }
+
     onReportChange({ ...report, ...patch, updatedAt: nowIso() });
   };
 
@@ -70,25 +170,6 @@ export default function ReportWizard({ report, onReportChange }: Props) {
     setStepIndex((current) => Math.max(current - 1, 0));
   };
 
-  const handleGeneratePdf = async () => {
-    setIsGenerating(true);
-    const result = await generatePdf(report);
-    setPdfUrl(result.url);
-    updateReport({
-      status: "completed",
-      pdfDataUrl: result.dataUrl
-    });
-    await saveReport({
-      ...report,
-      status: "completed",
-      pdfDataUrl: result.dataUrl,
-      updatedAt: nowIso()
-    });
-    await setActiveDraftId(null);
-    setIsGenerating(false);
-    setStepIndex(activeSteps.length - 1);
-  };
-
   const sharePdf = async () => {
     if (!pdfUrl) {
       return;
@@ -103,7 +184,7 @@ export default function ReportWizard({ report, onReportChange }: Props) {
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({
           title: reportTitle(report),
-          text: "e-Izvestaj",
+          text: `${report.publicId} - e-Izvestaj`,
           files: [file]
         });
         return;
@@ -122,32 +203,43 @@ export default function ReportWizard({ report, onReportChange }: Props) {
 
     const link = document.createElement("a");
     link.href = pdfUrl;
-    link.download = `${reportTitle(report)}.pdf`;
+    link.download = `${report.publicId}.pdf`;
     link.click();
   };
 
   const emailPdf = () => {
-    window.location.href = `mailto:?subject=${encodeURIComponent(reportTitle(report))}&body=${encodeURIComponent("PDF je generisan u aplikaciji e-Izvestaj.")}`;
+    window.location.href = `mailto:?subject=${encodeURIComponent(report.publicId)}&body=${encodeURIComponent(`Read-only primerak: ${reportUrl}`)}`;
   };
 
   const whatsappPdf = () => {
     window.open(
-      `https://wa.me/?text=${encodeURIComponent("e-Izvestaj je spreman za deljenje.")}`,
+      `https://wa.me/?text=${encodeURIComponent(`${report.publicId} - ${reportUrl}`)}`,
       "_blank",
       "noopener,noreferrer"
     );
   };
 
+  const copyReportId = async () => {
+    await navigator.clipboard.writeText(report.publicId);
+    setCopyStatus("Report ID je kopiran.");
+    window.setTimeout(() => setCopyStatus(null), 2200);
+  };
+
   const canProceed = () => {
     switch (currentStep) {
       case "Bezbednost":
-        return report.safety.injured !== null && report.safety.vehiclesInPosition !== null;
+        return (
+          report.safety.injured !== null &&
+          report.safety.vehiclesInPosition !== null &&
+          report.safety.damageOtherVehicles !== null &&
+          report.safety.damageOtherObjects !== null
+        );
       case "Lokacija i vreme":
-        return Boolean(report.location.date && report.location.time);
-      case "PDF preview":
-        return true;
-      case "Share":
-        return Boolean(pdfUrl);
+        return Boolean(report.location.date && report.location.time && report.location.address);
+      case "Potpisi":
+        return false;
+      case "Zavrseno":
+        return Boolean(report.pdfDataUrl || pdfUrl);
       default:
         return true;
     }
@@ -158,43 +250,50 @@ export default function ReportWizard({ report, onReportChange }: Props) {
       case "Bezbednost":
         return (
           <SafetyCheckStep
-            value={report.safety}
             onChange={(safety) => updateReport({ safety })}
+            readOnly={readOnly}
+            value={report.safety}
           />
         );
       case "Scene Capture":
         return (
           <SceneCapture
-            photos={report.scenePhotos}
             onChange={(scenePhotos) =>
               updateReport({
                 scenePhotos,
                 selectedPhotoId: report.selectedPhotoId || scenePhotos[0]?.id || null
               })
             }
+            photos={report.scenePhotos}
+            readOnly={readOnly}
           />
         );
       case "Lokacija i vreme":
         return (
           <LocationTimeStep
-            value={report.location}
             onChange={(location) => updateReport({ location })}
+            onWitnessInfoChange={(witnessInfo) => updateReport({ witnessInfo })}
+            readOnly={readOnly}
+            value={report.location}
+            witnessInfo={report.witnessInfo}
           />
         );
       case "Vozilo A":
         return (
           <VehicleForm
+            onChange={(vehicleA) => updateReport({ vehicleA })}
+            readOnly={readOnly}
             title="Vozilo A"
             value={report.vehicleA}
-            onChange={(vehicleA) => updateReport({ vehicleA })}
           />
         );
       case "Vozilo B":
         return (
           <VehicleForm
+            onChange={(vehicleB) => updateReport({ vehicleB })}
+            readOnly={readOnly}
             title="Vozilo B"
             value={report.vehicleB}
-            onChange={(vehicleB) => updateReport({ vehicleB })}
           />
         );
       case "Opis dogadjaja":
@@ -204,6 +303,7 @@ export default function ReportWizard({ report, onReportChange }: Props) {
             onNoteChange={(note) => updateReport({ note })}
             onOptionsChange={(circumstances) => updateReport({ circumstances })}
             options={report.circumstances}
+            readOnly={readOnly}
           />
         );
       case "Oznacavanje fotografije":
@@ -214,32 +314,37 @@ export default function ReportWizard({ report, onReportChange }: Props) {
             onSaveFlattened={(annotatedPhotoDataUrl) => updateReport({ annotatedPhotoDataUrl })}
             onSelectedPhotoIdChange={(selectedPhotoId) => updateReport({ selectedPhotoId })}
             photos={report.scenePhotos}
+            readOnly={readOnly}
             selectedPhotoId={report.selectedPhotoId}
           />
         );
       case "Potpisi":
         return (
           <SignatureStep
-            signatures={report.signatures}
             onChange={(signatures) => updateReport({ signatures })}
+            readOnly={readOnly || report.status === "locked"}
+            signatures={report.signatures}
+            statusLabel={
+              report.status === "ready_for_signature"
+                ? "ready_for_signature"
+                : report.status === "locked"
+                  ? "locked"
+                  : "draft"
+            }
           />
         );
-      case "PDF preview":
-        return (
-          <PdfPreview
-            isGenerating={isGenerating}
-            onGeneratePdf={handleGeneratePdf}
-            report={report}
-          />
-        );
-      case "Share":
+      case "Zavrseno":
         return (
           <ShareStep
+            onCopyReportId={copyReportId}
             onEmail={emailPdf}
             onSave={savePdf}
             onShare={sharePdf}
             onWhatsApp={whatsappPdf}
             pdfUrl={pdfUrl}
+            qrCodeDataUrl={qrCodeDataUrl}
+            reportId={report.publicId}
+            reportUrl={reportUrl}
           />
         );
       default:
@@ -253,22 +358,43 @@ export default function ReportWizard({ report, onReportChange }: Props) {
         <button className="text-sm text-white/55" onClick={goBack} type="button">
           Nazad
         </button>
-        <div className="text-sm text-white/45">{reportTitle(report)}</div>
+        <div className="text-right text-sm text-white/45">
+          <div>{report.publicId}</div>
+          <div>{reportTitle(report)}</div>
+        </div>
       </div>
 
-      <Card className="mb-5">
+      <Card className="mb-5 space-y-3">
         <ProgressBar
           current={stepIndex + 1}
           label={currentStep}
           total={activeSteps.length}
         />
+        <div className="flex items-center justify-between text-xs uppercase tracking-[0.26em] text-white/40">
+          <span>Status</span>
+          <span>{report.status === "completed" ? "locked" : report.status}</span>
+        </div>
       </Card>
 
       <div className="flex-1">{renderStep()}</div>
 
+      {copyStatus ? (
+        <div className="mt-4 rounded-[20px] border border-emerald-400/25 bg-emerald-500/12 px-4 py-3 text-sm text-emerald-100">
+          {copyStatus}
+        </div>
+      ) : null}
+
       <div className="mt-6">
-        {currentStep !== "Share" ? (
-          <Button disabled={!canProceed()} onClick={goNext} type="button">
+        {currentStep === "Potpisi" ? (
+          <Button disabled type="button" variant="secondary">
+            {isLocking
+              ? "Zakljucavam izvestaj..."
+              : report.status === "locked"
+                ? "Izvestaj je zakljucan"
+                : "Nakon drugog potpisa izvestaj se automatski zakljucava"}
+          </Button>
+        ) : currentStep !== "Zavrseno" ? (
+          <Button disabled={!canProceed() || readOnly} onClick={goNext} type="button">
             Nastavi
           </Button>
         ) : (

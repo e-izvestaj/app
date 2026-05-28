@@ -11,6 +11,7 @@ type Props = {
   onSelectedPhotoIdChange: (photoId: string) => void;
   onMarkersChange: (markers: PhotoMarker[]) => void;
   onSaveFlattened: (dataUrl: string) => void;
+  readOnly?: boolean;
 };
 
 const markerMap: Record<MarkerType, string> = {
@@ -27,7 +28,8 @@ export default function PhotoAnnotator({
   markers,
   onSelectedPhotoIdChange,
   onMarkersChange,
-  onSaveFlattened
+  onSaveFlattened,
+  readOnly = false
 }: Props) {
   const [activeType, setActiveType] = useState<MarkerType>("arrow-a");
   const selectedPhoto = useMemo(
@@ -36,7 +38,7 @@ export default function PhotoAnnotator({
   );
 
   const addMarker = (event: MouseEvent<HTMLDivElement>) => {
-    if (!selectedPhoto) {
+    if (!selectedPhoto || readOnly) {
       return;
     }
 
@@ -90,7 +92,7 @@ export default function PhotoAnnotator({
     <div className="space-y-4">
       <div className="space-y-1">
         <h2 className="text-[30px] font-semibold text-white">Oznaci fotografiju.</h2>
-        <p className="text-sm text-white/60">Dodaj smer kretanja i mesto kontakta tap-om.</p>
+        <p className="text-sm text-white/60">Skica udara za standardni obrazac i PDF prilog.</p>
       </div>
       <Card className="space-y-4">
         <div className="flex flex-wrap gap-2">
@@ -99,7 +101,8 @@ export default function PhotoAnnotator({
               key={type}
               className={`rounded-full px-4 py-2 text-sm ${
                 activeType === type ? "bg-accent text-white" : "bg-white/8 text-white/60"
-              }`}
+              } ${readOnly ? "opacity-60" : ""}`}
+              disabled={readOnly}
               onClick={() => setActiveType(type)}
               type="button"
             >
@@ -137,7 +140,9 @@ export default function PhotoAnnotator({
                 style={{ left: `${marker.x * 100}%`, top: `${marker.y * 100}%` }}
                 onClick={(event) => {
                   event.stopPropagation();
-                  onMarkersChange(markers.filter((item) => item.id !== marker.id));
+                  if (!readOnly) {
+                    onMarkersChange(markers.filter((item) => item.id !== marker.id));
+                  }
                 }}
                 type="button"
               >
@@ -151,7 +156,7 @@ export default function PhotoAnnotator({
           </div>
         )}
       </Card>
-      <Button onClick={saveFlattened} type="button" variant="secondary">
+      <Button disabled={readOnly} onClick={saveFlattened} type="button" variant="secondary">
         Sacuvaj oznacenu fotografiju
       </Button>
     </div>

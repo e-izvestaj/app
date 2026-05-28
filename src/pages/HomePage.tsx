@@ -39,8 +39,8 @@ export default function HomePage() {
     })();
   }, []);
 
-  const completedReports = useMemo(
-    () => reports.filter((report) => report.status === "completed"),
+  const lockedReports = useMemo(
+    () => reports.filter((report) => report.status === "locked" || report.status === "completed"),
     [reports]
   );
 
@@ -59,7 +59,7 @@ export default function HomePage() {
             <div className="text-sm uppercase tracking-[0.35em] text-white/35">AutoPulse</div>
             <h1 className="mt-2 text-[36px] font-semibold text-white">e-Izvestaj</h1>
             <p className="mt-3 max-w-xs text-sm leading-6 text-white/60">
-              Brz, smiren i jasan tok za dokumentovanje nezgode direktno sa telefona.
+              OCR, review, potpisi, lock, PDF i QR share u jednom mirnom mobilnom toku.
             </p>
           </div>
         </div>
@@ -95,22 +95,22 @@ export default function HomePage() {
           </Card>
 
           <Card className="space-y-4">
-            <div className="text-lg font-semibold text-white">Moji izvestaji</div>
-            {completedReports.length ? (
-              completedReports.map((report) => (
+            <div className="text-lg font-semibold text-white">Zakljucani izvestaji</div>
+            {lockedReports.length ? (
+              lockedReports.map((report) => (
                 <button
                   key={report.id}
                   className="flex w-full items-center justify-between rounded-[22px] bg-white/5 px-4 py-4 text-left"
-                  onClick={() => navigate(`/report/${report.id}`)}
+                  onClick={() => navigate(`/report/${report.id}?view=final`)}
                   type="button"
                 >
                   <span className="text-white">{reportTitle(report)}</span>
-                  <span className="text-xs text-white/45">Otvori</span>
+                  <span className="text-xs text-white/45">Read-only</span>
                 </button>
               ))
             ) : (
               <div className="rounded-[22px] border border-dashed border-white/10 px-4 py-8 text-center text-sm text-white/45">
-                Jos nema generisanih izvestaja.
+                Jos nema zakljucanih izvestaja.
               </div>
             )}
           </Card>

@@ -5,10 +5,19 @@ import type { LocationDetails } from "../../types";
 
 type Props = {
   value: LocationDetails;
+  witnessInfo: string;
+  onWitnessInfoChange: (value: string) => void;
   onChange: (value: LocationDetails) => void;
+  readOnly?: boolean;
 };
 
-export default function LocationTimeStep({ value, onChange }: Props) {
+export default function LocationTimeStep({
+  value,
+  witnessInfo,
+  onWitnessInfoChange,
+  onChange,
+  readOnly = false
+}: Props) {
   const [gpsState, setGpsState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [gpsMessage, setGpsMessage] = useState<string | null>(null);
 
@@ -39,7 +48,8 @@ export default function LocationTimeStep({ value, onChange }: Props) {
           ...value,
           latitude,
           longitude,
-          address: `Lat ${latitude.toFixed(5)}, Lon ${longitude.toFixed(5)}`
+          address: `Lat ${latitude.toFixed(5)}, Lon ${longitude.toFixed(5)}`,
+          city: value.city || "Automatski preuzeta lokacija"
         });
       },
       (error) => {
@@ -70,13 +80,14 @@ export default function LocationTimeStep({ value, onChange }: Props) {
     <div className="space-y-4">
       <div className="space-y-1">
         <h2 className="text-[30px] font-semibold text-white">Lokacija i vreme.</h2>
-        <p className="text-sm text-white/60">Automatski popunjeno, uz mogucu izmenu.</p>
+        <p className="text-sm text-white/60">Polja 1, 2, 4 i 5 evropskog obrasca.</p>
       </div>
       <Card className="grid grid-cols-2 gap-3">
         <label className="space-y-2">
           <span className="text-sm text-white/60">Datum</span>
           <input
             className="input-glass"
+            disabled={readOnly}
             type="date"
             value={value.date}
             onChange={(event) => onChange({ ...value, date: event.target.value })}
@@ -86,18 +97,48 @@ export default function LocationTimeStep({ value, onChange }: Props) {
           <span className="text-sm text-white/60">Vreme</span>
           <input
             className="input-glass"
+            disabled={readOnly}
             type="time"
             value={value.time}
             onChange={(event) => onChange({ ...value, time: event.target.value })}
           />
         </label>
         <label className="col-span-2 space-y-2">
-          <span className="text-sm text-white/60">Lokacija</span>
+          <span className="text-sm text-white/60">Mesto</span>
           <textarea
             className="input-glass min-h-[110px]"
+            disabled={readOnly}
             placeholder="Adresa ili opis lokacije"
             value={value.address}
             onChange={(event) => onChange({ ...value, address: event.target.value })}
+          />
+        </label>
+        <label className="space-y-2">
+          <span className="text-sm text-white/60">Grad</span>
+          <input
+            className="input-glass"
+            disabled={readOnly}
+            value={value.city}
+            onChange={(event) => onChange({ ...value, city: event.target.value })}
+          />
+        </label>
+        <label className="space-y-2">
+          <span className="text-sm text-white/60">Drzava</span>
+          <input
+            className="input-glass"
+            disabled={readOnly}
+            value={value.country}
+            onChange={(event) => onChange({ ...value, country: event.target.value })}
+          />
+        </label>
+        <label className="col-span-2 space-y-2">
+          <span className="text-sm text-white/60">Svedoci</span>
+          <textarea
+            className="input-glass min-h-[90px]"
+            disabled={readOnly}
+            placeholder="Imena, adrese i telefoni svedoka"
+            value={witnessInfo}
+            onChange={(event) => onWitnessInfoChange(event.target.value)}
           />
         </label>
       </Card>
@@ -105,7 +146,7 @@ export default function LocationTimeStep({ value, onChange }: Props) {
         variant="secondary"
         onClick={handleRequestLocation}
         type="button"
-        disabled={gpsState === "loading"}
+        disabled={gpsState === "loading" || readOnly}
       >
         {gpsState === "loading"
           ? "Pribavljam GPS..."
