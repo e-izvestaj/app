@@ -99,12 +99,24 @@ export async function generatePdf(report: ReportDraft) {
 
   const left = report.vehicleA;
   const right = report.vehicleB;
+  const leftOwnerLocation = [left.ownerPostalCode, left.ownerCity, left.ownerCountry]
+    .filter(Boolean)
+    .join(" ");
+  const rightOwnerLocation = [right.ownerPostalCode, right.ownerCity, right.ownerCountry]
+    .filter(Boolean)
+    .join(" ");
+  const leftOwnerContact = [left.ownerPhone, left.ownerEmail].filter(Boolean).join(" / ");
+  const rightOwnerContact = [right.ownerPhone, right.ownerEmail].filter(Boolean).join(" / ");
+  const leftInsuranceContact = [left.insurancePhone, left.insuranceEmail].filter(Boolean).join(" / ");
+  const rightInsuranceContact = [right.insurancePhone, right.insuranceEmail].filter(Boolean).join(" / ");
+  const leftDriverContact = [left.driverPhone, left.driverEmail].filter(Boolean).join(" / ");
+  const rightDriverContact = [right.driverPhone, right.driverEmail].filter(Boolean).join(" / ");
 
   drawText(page, font, left.ownerLastName, 21, 640, 8);
   drawText(page, font, left.ownerFirstName, 21, 622, 8);
   drawText(page, font, left.ownerAddress, 21, 604, 8);
-  drawText(page, font, `${left.ownerPostalCode} ${left.ownerCountry}`, 21, 584, 8);
-  drawText(page, font, left.ownerContact, 21, 566, 8);
+  drawText(page, font, leftOwnerLocation, 21, 584, 8);
+  drawText(page, font, leftOwnerContact, 21, 566, 8);
   drawText(page, font, left.type || `${left.make} ${left.model}`.trim(), 21, 523, 8);
   drawText(page, font, left.plate, 21, 485, 8);
   drawText(page, font, left.registrationCountry, 21, 455, 7);
@@ -115,16 +127,17 @@ export async function generatePdf(report: ReportDraft) {
   drawText(page, font, left.policyValidFrom, 21, 351, 8);
   drawText(page, font, left.policyValidUntil, 154, 351, 8);
   drawText(page, font, left.insuranceBranch, 21, 315, 8);
-  drawText(page, font, left.insuranceAddress, 21, 280, 8);
-  drawText(page, font, left.insuranceContact, 21, 245, 8);
+  drawText(page, font, [left.insuranceOfficeName, left.insuranceAddress].filter(Boolean).join(", "), 21, 280, 8);
+  drawText(page, font, [left.insuranceCity, left.insuranceCountry].filter(Boolean).join(", "), 21, 262, 8);
+  drawText(page, font, leftInsuranceContact, 21, 245, 8);
   drawCheck(page, font, left.coveredDamage === false, 61, 228);
   drawCheck(page, font, left.coveredDamage === true, 122, 228);
   drawText(page, font, left.driverLastName, 21, 193, 8);
   drawText(page, font, left.driverFirstName, 21, 175, 8);
   drawText(page, font, left.driverBirthDate, 21, 157, 8);
-  drawText(page, font, left.driverAddress, 21, 138, 8);
+  drawText(page, font, [left.driverAddress, left.driverCity].filter(Boolean).join(", "), 21, 138, 8);
   drawText(page, font, left.driverCountry, 145, 120, 8);
-  drawText(page, font, left.driverContact, 21, 102, 8);
+  drawText(page, font, leftDriverContact, 21, 102, 8);
   drawText(page, font, left.driverLicenseNumber, 21, 84, 8);
   drawText(page, font, left.driverLicenseCategory, 21, 66, 8);
   drawText(page, font, left.driverLicenseValidUntil, 21, 48, 8);
@@ -134,8 +147,8 @@ export async function generatePdf(report: ReportDraft) {
   drawText(page, font, right.ownerLastName, 385, 640, 8);
   drawText(page, font, right.ownerFirstName, 385, 622, 8);
   drawText(page, font, right.ownerAddress, 385, 604, 8);
-  drawText(page, font, `${right.ownerPostalCode} ${right.ownerCountry}`, 385, 584, 8);
-  drawText(page, font, right.ownerContact, 385, 566, 8);
+  drawText(page, font, rightOwnerLocation, 385, 584, 8);
+  drawText(page, font, rightOwnerContact, 385, 566, 8);
   drawText(page, font, right.type || `${right.make} ${right.model}`.trim(), 385, 523, 8);
   drawText(page, font, right.plate, 385, 485, 8);
   drawText(page, font, right.registrationCountry, 385, 455, 7);
@@ -146,16 +159,17 @@ export async function generatePdf(report: ReportDraft) {
   drawText(page, font, right.policyValidFrom, 385, 351, 8);
   drawText(page, font, right.policyValidUntil, 518, 351, 8);
   drawText(page, font, right.insuranceBranch, 385, 315, 8);
-  drawText(page, font, right.insuranceAddress, 385, 280, 8);
-  drawText(page, font, right.insuranceContact, 385, 245, 8);
+  drawText(page, font, [right.insuranceOfficeName, right.insuranceAddress].filter(Boolean).join(", "), 385, 280, 8);
+  drawText(page, font, [right.insuranceCity, right.insuranceCountry].filter(Boolean).join(", "), 385, 262, 8);
+  drawText(page, font, rightInsuranceContact, 385, 245, 8);
   drawCheck(page, font, right.coveredDamage === false, 425, 228);
   drawCheck(page, font, right.coveredDamage === true, 486, 228);
   drawText(page, font, right.driverLastName, 385, 193, 8);
   drawText(page, font, right.driverFirstName, 385, 175, 8);
   drawText(page, font, right.driverBirthDate, 385, 157, 8);
-  drawText(page, font, right.driverAddress, 385, 138, 8);
+  drawText(page, font, [right.driverAddress, right.driverCity].filter(Boolean).join(", "), 385, 138, 8);
   drawText(page, font, right.driverCountry, 508, 120, 8);
-  drawText(page, font, right.driverContact, 385, 102, 8);
+  drawText(page, font, rightDriverContact, 385, 102, 8);
   drawText(page, font, right.driverLicenseNumber, 385, 84, 8);
   drawText(page, font, right.driverLicenseCategory, 385, 66, 8);
   drawText(page, font, right.driverLicenseValidUntil, 385, 48, 8);

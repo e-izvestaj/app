@@ -308,8 +308,26 @@ export default function ReportWizard({
             note={report.note}
             onNoteChange={(note) => updateReport({ note })}
             onOptionsChange={(circumstances) => updateReport({ circumstances })}
+            onVehicleANoteChange={(note) =>
+              updateReport({
+                vehicleA: {
+                  ...report.vehicleA,
+                  note
+                }
+              })
+            }
+            onVehicleBNoteChange={(note) =>
+              updateReport({
+                vehicleB: {
+                  ...report.vehicleB,
+                  note
+                }
+              })
+            }
             options={report.circumstances}
             readOnly={readOnly}
+            vehicleANote={report.vehicleA.note}
+            vehicleBNote={report.vehicleB.note}
           />
         );
       case "Oznacavanje fotografije":
