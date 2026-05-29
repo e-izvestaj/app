@@ -18,6 +18,7 @@ type DocumentCardProps = {
   title: string;
   documentType: DocumentType;
   photoKind: PhotoKind;
+  sides: DocumentSide[];
   vehicle: VehicleDraft;
   onChange: (vehicle: VehicleDraft) => void;
   readOnly?: boolean;
@@ -49,6 +50,7 @@ function DocumentUploader({
   title,
   documentType,
   photoKind,
+  sides,
   vehicle,
   onChange,
   readOnly = false
@@ -93,7 +95,7 @@ function DocumentUploader({
     <Card className={`space-y-4 border-2 ${accentClass}`}>
       <div className="text-lg font-semibold text-white">{title}</div>
       <div className="grid gap-4">
-        {(["front", "back"] as const).map((side) => {
+        {sides.map((side) => {
           const photo = photos.find((item) => item.documentSide === side);
 
           return (
@@ -149,6 +151,7 @@ export default function DocumentationStep({
         onChange={onVehicleAChange}
         photoKind="document-a"
         readOnly={readOnly}
+        sides={["front", "back"]}
         title="Vozačka dozvola A"
         vehicle={vehicleA}
       />
@@ -158,6 +161,7 @@ export default function DocumentationStep({
         onChange={onVehicleBChange}
         photoKind="document-b"
         readOnly={readOnly}
+        sides={["front", "back"]}
         title="Vozačka dozvola B"
         vehicle={vehicleB}
       />
@@ -167,6 +171,7 @@ export default function DocumentationStep({
         onChange={onVehicleAChange}
         photoKind="document-a"
         readOnly={readOnly}
+        sides={["front", "back"]}
         title="Saobraćajna dozvola A"
         vehicle={vehicleA}
       />
@@ -176,6 +181,7 @@ export default function DocumentationStep({
         onChange={onVehicleBChange}
         photoKind="document-b"
         readOnly={readOnly}
+        sides={["front", "back"]}
         title="Saobraćajna dozvola B"
         vehicle={vehicleB}
       />
@@ -185,6 +191,7 @@ export default function DocumentationStep({
         onChange={onVehicleAChange}
         photoKind="document-a"
         readOnly={readOnly}
+        sides={["front"]}
         title="Polisa A"
         vehicle={vehicleA}
       />
@@ -194,6 +201,7 @@ export default function DocumentationStep({
         onChange={onVehicleBChange}
         photoKind="document-b"
         readOnly={readOnly}
+        sides={["front"]}
         title="Polisa B"
         vehicle={vehicleB}
       />

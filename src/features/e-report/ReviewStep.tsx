@@ -59,8 +59,8 @@ export default function ReviewStep({ report, onEditStep }: Props) {
           `Vozačka B: ${report.vehicleB.documentPhotos.filter((item) => item.documentType === "driver-license").length}/2`,
           `Saobraćajna A: ${report.vehicleA.documentPhotos.filter((item) => item.documentType === "registration").length}/2`,
           `Saobraćajna B: ${report.vehicleB.documentPhotos.filter((item) => item.documentType === "registration").length}/2`,
-          `Polisa A: ${report.vehicleA.documentPhotos.filter((item) => item.documentType === "policy").length}/2`,
-          `Polisa B: ${report.vehicleB.documentPhotos.filter((item) => item.documentType === "policy").length}/2`
+          `Polisa A: ${report.vehicleA.documentPhotos.filter((item) => item.documentType === "policy").length}/1`,
+          `Polisa B: ${report.vehicleB.documentPhotos.filter((item) => item.documentType === "policy").length}/1`
         ]}
         onEdit={() => onEditStep("Dokumentacija")}
         title="Dokumentacija"

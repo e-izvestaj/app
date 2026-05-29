@@ -425,9 +425,7 @@ export function getDocumentationMissingFields(report: ReportDraft) {
     { label: "Saobracajna dozvola B - prednja", vehicle: report.vehicleB, documentType: "registration", side: "front" },
     { label: "Saobracajna dozvola B - zadnja", vehicle: report.vehicleB, documentType: "registration", side: "back" },
     { label: "Polisa A - prednja", vehicle: report.vehicleA, documentType: "policy", side: "front" },
-    { label: "Polisa A - zadnja", vehicle: report.vehicleA, documentType: "policy", side: "back" },
-    { label: "Polisa B - prednja", vehicle: report.vehicleB, documentType: "policy", side: "front" },
-    { label: "Polisa B - zadnja", vehicle: report.vehicleB, documentType: "policy", side: "back" }
+    { label: "Polisa B - prednja", vehicle: report.vehicleB, documentType: "policy", side: "front" }
   ];
 
   requirements.forEach((item) => {
