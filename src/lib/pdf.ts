@@ -160,6 +160,9 @@ function drawTextBox(context: CanvasRenderingContext2D, text: string, box: TextB
   }
 
   context.save();
+  context.beginPath();
+  context.rect(px(box.left), px(box.top), px(box.width), px(box.height));
+  context.clip();
   context.fillStyle = TEXT_COLOR;
   context.textBaseline = "top";
   context.font = `${weight} ${px(size)}px Arial`;
