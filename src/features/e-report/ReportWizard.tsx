@@ -201,7 +201,7 @@ export default function ReportWizard({
       if (navigator.share && navigator.canShare?.({ files: [file] })) {
         await navigator.share({
           title: reportTitle(report),
-          text: `${report.publicId} - e-Izvestaj`,
+          text: `${report.publicId} - e-Izveštaj`,
           files: [file]
         });
         return;
@@ -514,8 +514,8 @@ export default function ReportWizard({
             {isLocking
               ? "Zakljucavam izvestaj..."
               : report.status === "locked"
-                ? "Izvestaj je zakljucan"
-                : "Izvestaj se zakljucava tek kada oba potpisa budu potvrdjena"}
+                ? "Izveštaj je zaključan"
+                : "Izveštaj se zaključava tek kada oba potpisa budu potvrđena"}
           </Button>
         ) : currentStep !== "Finalizacija" ? (
           <Button disabled={!canProceed() || readOnly} onClick={goNext} type="button">

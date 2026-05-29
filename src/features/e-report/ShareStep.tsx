@@ -27,7 +27,7 @@ export default function ShareStep({
   return (
     <div className="space-y-4">
       <div className="space-y-1">
-        <h2 className="text-[30px] font-semibold text-white">e-Izvestaj uspesno kreiran.</h2>
+        <h2 className="text-[30px] font-semibold text-white">e-Izveštaj uspešno kreiran.</h2>
         <p className="text-sm text-white/60">Zapisnik je zakljucan, PDF sacuvan i spreman za deljenje.</p>
       </div>
 

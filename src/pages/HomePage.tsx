@@ -15,7 +15,7 @@ function SplashIntro({ onDone }: { onDone: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg">
       <div className="animate-[fadeIn_500ms_ease,glowPulse_2400ms_ease] text-center">
-        <div className="text-[44px] font-semibold tracking-[0.08em] text-white">e-Izvestaj</div>
+        <div className="text-[44px] font-semibold tracking-[0.08em] text-white">e-Izveštaj</div>
         <div className="mt-2 text-sm uppercase tracking-[0.35em] text-white/45">
           part of AutoPulse
         </div>
@@ -54,10 +54,10 @@ export default function HomePage() {
       {showSplash ? <SplashIntro onDone={() => setShowSplash(false)} /> : null}
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-10 pt-6">
         <div className="mb-8">
-          <img alt="e-Izvestaj logo" className="h-16 w-auto" src={logoSrc} />
+          <img alt="e-Izveštaj logo" className="h-16 w-auto" src={logoSrc} />
           <div className="mt-6">
             <div className="text-sm uppercase tracking-[0.35em] text-white/35">AutoPulse</div>
-            <h1 className="mt-2 text-[36px] font-semibold text-white">e-Izvestaj</h1>
+            <h1 className="mt-2 text-[36px] font-semibold text-white">e-Izveštaj</h1>
             <p className="mt-3 max-w-xs text-sm leading-6 text-white/60">
               Fotografije dokumenata, rucni unos, potpisi, lock, PDF i QR share u jednom mirnom mobilnom toku.
             </p>
@@ -71,10 +71,10 @@ export default function HomePage() {
                 <div className="text-xs uppercase tracking-[0.32em] text-white/40">
                   Pokreni
                 </div>
-                <div className="mt-2 text-2xl font-semibold text-white">Novi e-Izvestaj</div>
+                <div className="mt-2 text-2xl font-semibold text-white">Novi e-Izveštaj</div>
               </div>
               <Button onClick={startNewReport} type="button">
-                Novi e-Izvestaj
+                Novi e-Izveštaj
               </Button>
             </div>
           </Card>
