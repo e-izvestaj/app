@@ -53,38 +53,93 @@ function getMapSpan(zoom: number) {
   return { lngSpan, latSpan };
 }
 
-function getStaticMapUrl(latitude: number, longitude: number, zoom: number) {
-  return `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=${zoom}&size=960x960&maptype=mapnik`;
+function longitudeToTile(longitude: number, zoom: number) {
+  return ((longitude + 180) / 360) * Math.pow(2, zoom);
 }
 
-async function blobToDataUrl(blob: Blob) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Neuspesna priprema mape."));
-    reader.readAsDataURL(blob);
-  });
+function latitudeToTile(latitude: number, zoom: number) {
+  const radians = (latitude * Math.PI) / 180;
+  return (
+    ((1 - Math.log(Math.tan(radians) + 1 / Math.cos(radians)) / Math.PI) / 2) *
+    Math.pow(2, zoom)
+  );
 }
 
-async function fetchMapDataUrl(latitude: number, longitude: number, zoom: number) {
-  const response = await fetch(getStaticMapUrl(latitude, longitude, zoom), {
-    cache: "no-store"
-  });
-
-  if (!response.ok) {
-    throw new Error(`Mapa nije dostupna (${response.status}).`);
-  }
-
-  return blobToDataUrl(await response.blob());
+function getTileUrl(zoom: number, x: number, y: number) {
+  const subdomain = ["a", "b", "c"][(x + y) % 3];
+  return `https://${subdomain}.tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
 }
 
 async function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image();
+    image.crossOrigin = "anonymous";
     image.onload = () => resolve(image);
     image.onerror = () => reject(new Error("Neuspesno ucitavanje slike."));
     image.src = src;
   });
+}
+
+async function fetchMapDataUrl(latitude: number, longitude: number, zoom: number) {
+  const tileSize = 256;
+  const boardPixels = BOARD_SIZE;
+  const scale = boardPixels / 360;
+  const n = Math.pow(2, zoom);
+  const tileX = longitudeToTile(longitude, zoom);
+  const tileY = latitudeToTile(latitude, zoom);
+  const centerPixelX = tileX * tileSize;
+  const centerPixelY = tileY * tileSize;
+  const half = boardPixels / 2;
+  const minTileX = Math.floor((centerPixelX - half) / tileSize) - 1;
+  const maxTileX = Math.floor((centerPixelX + half) / tileSize) + 1;
+  const minTileY = Math.floor((centerPixelY - half) / tileSize) - 1;
+  const maxTileY = Math.floor((centerPixelY + half) / tileSize) + 1;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(boardPixels * scale);
+  canvas.height = Math.round(boardPixels * scale);
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    throw new Error("Canvas nije dostupan za pripremu GPS podloge.");
+  }
+
+  context.fillStyle = "#101722";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+
+  const drawTasks: Array<Promise<boolean>> = [];
+
+  for (let x = minTileX; x <= maxTileX; x += 1) {
+    for (let y = minTileY; y <= maxTileY; y += 1) {
+      if (y < 0 || y >= n) {
+        continue;
+      }
+
+      const wrappedX = ((x % n) + n) % n;
+      const destX = (x * tileSize - (centerPixelX - half)) * scale;
+      const destY = (y * tileSize - (centerPixelY - half)) * scale;
+
+      drawTasks.push(
+        loadImage(getTileUrl(zoom, wrappedX, y)).then((image) => {
+          context.drawImage(
+            image,
+            Math.round(destX),
+            Math.round(destY),
+            Math.ceil(tileSize * scale) + 1,
+            Math.ceil(tileSize * scale) + 1
+          );
+          return true;
+        }).catch(() => false)
+      );
+    }
+  }
+
+  const drawnTiles = await Promise.all(drawTasks);
+  if (!drawnTiles.some(Boolean)) {
+    throw new Error("GPS podloga trenutno nije dostupna.");
+  }
+
+  return canvas.toDataURL("image/png");
 }
 
 function drawRoundedRect(
