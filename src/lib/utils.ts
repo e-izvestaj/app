@@ -70,10 +70,61 @@ export function emptySceneSketch(): SceneSketchSuggestion {
     scenePhotoId: null,
     summary: "",
     svgDataUrl: null,
+    mapZoom: 20,
+    mapCenterLatitude: null,
+    mapCenterLongitude: null,
     laneType: "straight",
     vehicleAPosition: "left",
-    vehicleBPosition: "right"
+    vehicleBPosition: "right",
+    vehicleAState: {
+      x: 96,
+      y: 136,
+      rotation: 0,
+      direction: "forward"
+    },
+    vehicleBState: {
+      x: 224,
+      y: 220,
+      rotation: 180,
+      direction: "forward"
+    },
+    impactPoint: {
+      x: 160,
+      y: 178
+    },
+    decorations: {
+      stop: false,
+      trafficLight: false,
+      crosswalk: false,
+      priority: false,
+      parkedVehicle: false,
+      curb: false,
+      centerLine: true
+    },
+    drawPaths: [],
+    confirmedAt: null
   };
+}
+
+function normalizeSketchDirection(
+  direction: string | undefined
+): SceneSketchSuggestion["vehicleAState"]["direction"] {
+  switch (direction) {
+    case "forward":
+    case "backward":
+    case "left":
+    case "right":
+    case "uturn":
+      return direction;
+    case "straight":
+      return "forward";
+    case "parking":
+      return "backward";
+    case "merge":
+      return "uturn";
+    default:
+      return "forward";
+  }
 }
 
 export function defaultVehicle(side: "A" | "B"): VehicleDraft {
@@ -108,10 +159,12 @@ export function defaultVehicle(side: "A" | "B"): VehicleDraft {
     ownerCountry: "Srbija",
     ownerPhone: "",
     ownerEmail: "",
+    ownerSameAsDriver: false,
     driverFirstName: "",
     driverLastName: "",
     driverBirthDate: "",
     driverAddress: "",
+    driverPostalCode: "",
     driverCity: "",
     driverCountry: "Srbija",
     driverPhone: "",
@@ -132,12 +185,12 @@ export function defaultVehicle(side: "A" | "B"): VehicleDraft {
 export function defaultCircumstances(): ScenarioOption[] {
   return [
     "parkiran / zaustavljen",
-    "napuštao parking / otvarao vrata",
+    "napustao parking / otvarao vrata",
     "parkirao",
-    "napuštao parking, privatni posed, put",
-    "počeo da skreće na parking, privatni posed, put",
-    "upravo ulazio u kružni tok",
-    "prolazio kroz kružni tok",
+    "napustao parking, privatni posed, put",
+    "poceo da skrece na parking, privatni posed, put",
+    "upravo ulazio u kruzni tok",
+    "prolazio kroz kruzni tok",
     "naleteo u istoj traci pozadi",
     "vozio u istom smeru, u drugoj traci",
     "menjao traku",
@@ -145,8 +198,8 @@ export function defaultCircumstances(): ScenarioOption[] {
     "skretao udesno",
     "skretao ulevo",
     "vozio unazad",
-    "prešao u traku suprotnog smera",
-    "nije poštovao znak prvenstva / crveno"
+    "presao u traku suprotnog smera",
+    "nije postovao znak prvenstva / crveno"
   ].map((label) => ({
     id: createId("circ"),
     label,
@@ -247,7 +300,26 @@ export function normalizeReport(report: ReportDraft): ReportDraft {
     },
     sceneSketch: {
       ...empty.sceneSketch,
-      ...report.sceneSketch
+      ...report.sceneSketch,
+      vehicleAState: {
+        ...empty.sceneSketch.vehicleAState,
+        ...report.sceneSketch?.vehicleAState,
+        direction: normalizeSketchDirection(report.sceneSketch?.vehicleAState?.direction)
+      },
+      vehicleBState: {
+        ...empty.sceneSketch.vehicleBState,
+        ...report.sceneSketch?.vehicleBState,
+        direction: normalizeSketchDirection(report.sceneSketch?.vehicleBState?.direction)
+      },
+      impactPoint: {
+        ...empty.sceneSketch.impactPoint,
+        ...report.sceneSketch?.impactPoint
+      },
+      decorations: {
+        ...empty.sceneSketch.decorations,
+        ...report.sceneSketch?.decorations
+      },
+      drawPaths: report.sceneSketch?.drawPaths || empty.sceneSketch.drawPaths
     },
     signatureTimestamps: {
       ...empty.signatureTimestamps,
@@ -274,7 +346,8 @@ export function isReportReadyForSignature(report: ReportDraft) {
       report.safety.damageOtherVehicles !== null &&
       report.safety.damageOtherObjects !== null &&
       report.safety.vehiclesInPosition !== null &&
-      vehiclesReady
+      vehiclesReady &&
+      (report.annotatedPhotoDataUrl || report.sceneSketch.svgDataUrl)
   );
 }
 
@@ -285,40 +358,46 @@ export function getVehicleMissingFields(vehicle: VehicleDraft) {
       missing.push(label);
     }
   };
+  const requireOneOf = (label: string, values: string[]) => {
+    if (!values.some((value) => value.trim())) {
+      missing.push(label);
+    }
+  };
 
-  requireValue("Prezime vozača", vehicle.driverLastName);
-  requireValue("Ime vozača", vehicle.driverFirstName);
-  requireValue("Datum rođenja", vehicle.driverBirthDate);
-  requireValue("Adresa vozača", vehicle.driverAddress);
-  requireValue("Grad vozača", vehicle.driverCity);
-  requireValue("Telefon vozača", vehicle.driverPhone);
-  requireValue("E-mail vozača", vehicle.driverEmail);
-  requireValue("Broj vozačke dozvole", vehicle.driverLicenseNumber);
+  requireValue("Prezime vozaca", vehicle.driverLastName);
+  requireValue("Ime vozaca", vehicle.driverFirstName);
+  requireValue("Datum rodjenja", vehicle.driverBirthDate);
+  requireValue("Adresa vozaca", vehicle.driverAddress);
+  requireValue("Postanski broj vozaca", vehicle.driverPostalCode);
+  requireOneOf("Telefon ili e-mail vozaca", [vehicle.driverPhone, vehicle.driverEmail]);
+  requireValue("Broj vozacke dozvole", vehicle.driverLicenseNumber);
   requireValue("Kategorija dozvole", vehicle.driverLicenseCategory);
-  requireValue("Važenje vozačke dozvole", vehicle.driverLicenseValidUntil);
+  requireValue("Vazenje vozacke dozvole", vehicle.driverLicenseValidUntil);
 
   requireValue("Marka vozila", vehicle.make);
   requireValue("Model vozila", vehicle.model);
   requireValue("Tip vozila", vehicle.type);
   requireValue("Registarska oznaka", vehicle.plate);
-  requireValue("Država registracije", vehicle.registrationCountry);
+  requireValue("Drzava registracije", vehicle.registrationCountry);
 
-  requireValue("Prezime ugovarača", vehicle.ownerLastName);
-  requireValue("Ime ugovarača", vehicle.ownerFirstName);
-  requireValue("Adresa ugovarača", vehicle.ownerAddress);
-  requireValue("Grad ugovarača", vehicle.ownerCity);
-  requireValue("Poštanski broj ugovarača", vehicle.ownerPostalCode);
-  requireValue("Država ugovarača", vehicle.ownerCountry);
+  requireValue("Prezime ugovaraca", vehicle.ownerLastName);
+  requireValue("Ime ugovaraca", vehicle.ownerFirstName);
+  requireValue("Adresa ugovaraca", vehicle.ownerAddress);
+  requireValue("Grad ugovaraca", vehicle.ownerCity);
+  requireValue("Postanski broj ugovaraca", vehicle.ownerPostalCode);
+  requireValue("Drzava ugovaraca", vehicle.ownerCountry);
+  requireOneOf("Telefon ili e-mail ugovaraca", [vehicle.ownerPhone, vehicle.ownerEmail]);
 
-  requireValue("Osiguravajuća kuća", vehicle.insurer);
+  requireValue("Osiguravajuca kuca", vehicle.insurer);
   requireValue("Broj ugovora", vehicle.policyNumber);
-  requireValue("Polisa važi od", vehicle.policyValidFrom);
-  requireValue("Polisa važi do", vehicle.policyValidUntil);
-  requireValue("Filijala / posrednik", vehicle.insuranceBranch);
+  requireValue("Polisa vazi od", vehicle.policyValidFrom);
+  requireValue("Polisa vazi do", vehicle.policyValidUntil);
+  requireValue("Filijala ili posrednik", vehicle.insuranceBranch);
   requireValue("Naziv filijale", vehicle.insuranceOfficeName);
   requireValue("Adresa osiguranja", vehicle.insuranceAddress);
   requireValue("Grad osiguranja", vehicle.insuranceCity);
-  requireValue("Država osiguranja", vehicle.insuranceCountry);
+  requireValue("Drzava osiguranja", vehicle.insuranceCountry);
+  requireOneOf("Telefon ili e-mail osiguranja", [vehicle.insurancePhone, vehicle.insuranceEmail]);
 
   return missing;
 }
@@ -329,16 +408,15 @@ export function getVehicleSectionMissingFields(vehicle: VehicleDraft, section: V
   if (section === "driver") {
     return missing.filter((field) =>
       [
-        "Prezime vozaÄa",
-        "Ime vozaÄa",
-        "Datum roÄ‘enja",
-        "Adresa vozaÄa",
-        "Grad vozaÄa",
-        "Telefon vozaÄa",
-        "E-mail vozaÄa",
-        "Broj vozaÄke dozvole",
+        "Prezime vozaca",
+        "Ime vozaca",
+        "Datum rodjenja",
+        "Adresa vozaca",
+        "Postanski broj vozaca",
+        "Telefon ili e-mail vozaca",
+        "Broj vozacke dozvole",
         "Kategorija dozvole",
-        "VaÅ¾enje vozaÄke dozvole"
+        "Vazenje vozacke dozvole"
       ].includes(field)
     );
   }
@@ -350,28 +428,30 @@ export function getVehicleSectionMissingFields(vehicle: VehicleDraft, section: V
         "Model vozila",
         "Tip vozila",
         "Registarska oznaka",
-        "DrÅ¾ava registracije"
+        "Drzava registracije"
       ].includes(field)
     );
   }
 
   return missing.filter((field) =>
     [
-      "Prezime ugovaraÄa",
-      "Ime ugovaraÄa",
-      "Adresa ugovaraÄa",
-      "Grad ugovaraÄa",
-      "PoÅ¡tanski broj ugovaraÄa",
-      "DrÅ¾ava ugovaraÄa",
-      "OsiguravajuÄ‡a kuÄ‡a",
+      "Prezime ugovaraca",
+      "Ime ugovaraca",
+      "Adresa ugovaraca",
+      "Grad ugovaraca",
+      "Postanski broj ugovaraca",
+      "Drzava ugovaraca",
+      "Telefon ili e-mail ugovaraca",
+      "Osiguravajuca kuca",
       "Broj ugovora",
-      "Polisa vaÅ¾i od",
-      "Polisa vaÅ¾i do",
-      "Filijala / posrednik",
+      "Polisa vazi od",
+      "Polisa vazi do",
+      "Filijala ili posrednik",
       "Naziv filijale",
       "Adresa osiguranja",
       "Grad osiguranja",
-      "DrÅ¾ava osiguranja"
+      "Drzava osiguranja",
+      "Telefon ili e-mail osiguranja"
     ].includes(field)
   );
 }
@@ -382,6 +462,27 @@ export function deriveReportStatus(report: ReportDraft): ReportStatus {
   }
 
   return isReportReadyForSignature(report) ? "ready_for_signature" : "draft";
+}
+
+export function getReportStatusLabel(
+  status: ReportStatus,
+  options?: {
+    isLocking?: boolean;
+  }
+) {
+  if (options?.isLocking) {
+    return "Zakljucavanje u toku";
+  }
+
+  switch (status) {
+    case "ready_for_signature":
+      return "Spreman za potpise";
+    case "locked":
+    case "completed":
+      return "Zakljucan";
+    default:
+      return "U izradi";
+  }
 }
 
 export function reportTitle(report: ReportDraft) {

@@ -59,7 +59,7 @@ export default function HomePage() {
             <div className="text-sm uppercase tracking-[0.35em] text-white/35">AutoPulse</div>
             <h1 className="mt-2 text-[36px] font-semibold text-white">e-Izvestaj</h1>
             <p className="mt-3 max-w-xs text-sm leading-6 text-white/60">
-              OCR, review, potpisi, lock, PDF i QR share u jednom mirnom mobilnom toku.
+              Fotografije dokumenata, rucni unos, potpisi, lock, PDF i QR share u jednom mirnom mobilnom toku.
             </p>
           </div>
         </div>

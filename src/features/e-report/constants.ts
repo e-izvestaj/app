@@ -1,16 +1,17 @@
 export const stepTitles = [
   "Bezbednost",
   "Vreme i lokacija",
-  "Vozač A",
+  "Vozac A",
   "Vozilo A",
   "Polisa A",
-  "Vozač B",
+  "Vozac B",
   "Vozilo B",
   "Polisa B",
-  "Fotografije oštećenja",
+  "Fotografije ostecenja",
   "Okolnosti nezgode",
   "Fotografija cele situacije",
-  "Pregled izveštaja",
+  "Skica nezgode",
+  "Pregled izvestaja",
   "Potpisi",
   "Finalizacija"
 ] as const;

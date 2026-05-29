@@ -51,9 +51,61 @@ export type SceneSketchSuggestion = {
   scenePhotoId: string | null;
   summary: string;
   svgDataUrl: string | null;
-  laneType: "straight" | "intersection" | "parking";
+  mapZoom?: number;
+  mapCenterLatitude?: number | null;
+  mapCenterLongitude?: number | null;
+  laneType: "straight" | "intersection" | "parking" | "roundabout";
   vehicleAPosition: "left" | "center" | "right";
   vehicleBPosition: "left" | "center" | "right";
+  vehicleAState: {
+    x: number;
+    y: number;
+    rotation: number;
+    direction:
+      | "forward"
+      | "backward"
+      | "left"
+      | "right"
+      | "uturn"
+      | "straight"
+      | "parking"
+      | "merge";
+  };
+  vehicleBState: {
+    x: number;
+    y: number;
+    rotation: number;
+    direction:
+      | "forward"
+      | "backward"
+      | "left"
+      | "right"
+      | "uturn"
+      | "straight"
+      | "parking"
+      | "merge";
+  };
+  impactPoint: {
+    x: number;
+    y: number;
+  };
+  decorations: {
+    stop: boolean;
+    trafficLight: boolean;
+    crosswalk: boolean;
+    priority: boolean;
+    parkedVehicle: boolean;
+    curb: boolean;
+    centerLine: boolean;
+  };
+  drawPaths: Array<{
+    id: string;
+    points: Array<{
+      x: number;
+      y: number;
+    }>;
+  }>;
+  confirmedAt?: string | null;
 };
 
 export type PhotoAsset = {
@@ -123,10 +175,12 @@ export type VehicleDraft = {
   ownerCountry: string;
   ownerPhone: string;
   ownerEmail: string;
+  ownerSameAsDriver: boolean;
   driverFirstName: string;
   driverLastName: string;
   driverBirthDate: string;
   driverAddress: string;
+  driverPostalCode: string;
   driverCity: string;
   driverCountry: string;
   driverPhone: string;

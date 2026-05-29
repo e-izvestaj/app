@@ -1,21 +1,13 @@
-import { useMemo, useState } from "react";
-import Button from "../../components/Button";
+import { useEffect, useMemo } from "react";
 import Camera from "../../components/Camera";
 import Card from "../../components/Card";
-import { extractDocumentSuggestion } from "../../lib/ocr";
 import {
   INSURER_OPTIONS,
   createId,
   getVehicleSectionMissingFields,
   type VehicleSection
 } from "../../lib/utils";
-import type {
-  DocumentSuggestion,
-  DocumentType,
-  PhotoAsset,
-  PhotoKind,
-  VehicleDraft
-} from "../../types";
+import type { DocumentType, PhotoAsset, PhotoKind, VehicleDraft } from "../../types";
 
 type AccentTone = "red" | "blue";
 
@@ -28,67 +20,49 @@ type Props = {
   accent?: AccentTone;
 };
 
-type SectionMode = "manual" | "ocr";
-
-const sectionToDocumentType: Record<VehicleSection, DocumentType> = {
-  driver: "driver-license",
-  vehicle: "registration",
-  policy: "policy"
-};
-
 const sectionConfig: Record<
   VehicleSection,
   {
-    title: string;
-    subtitle: string;
+    headline: string;
+    helper: string;
     cameraTitle: string;
     cameraHelper: string;
     photoHint: string;
-    ocrBusyLabel: string;
-    ocrActionLabel: string;
   }
 > = {
   driver: {
-    title: "Fotografiši vozačku dozvolu",
-    subtitle: "Sačuvaj dokument, pa izaberi da li unosiš ručno ili samo pokušavaš OCR pomoć.",
-    cameraTitle: "Vozačka dozvola",
-    cameraHelper: "Slika dokumenta ostaje uz zapisnik zbog verodostojnosti.",
-    photoHint: "Dodaj jasnu fotografiju vozačke dozvole.",
-    ocrBusyLabel: "Očitavam vozačku...",
-    ocrActionLabel: "Očitaj podatke"
+    headline: "Fotografija vozacke dozvole",
+    helper: "Papirni obrazac je glavni izvor podataka. Fotografija ostaje iznad forme kao vizuelna pomoc pri unosu.",
+    cameraTitle: "Vozacka dozvola",
+    cameraHelper: "Snimi dokument jasno, pa ispod prepisuj podatke iz fotografije.",
+    photoHint: "Fotografija ostaje uz zapisnik i kasnije ide u dokazni paket."
   },
   vehicle: {
-    title: "Fotografiši saobraćajnu dozvolu",
-    subtitle: "Dokument se prvo sačuva, a ispod biraš ručni unos ili OCR sa slike.",
-    cameraTitle: "Saobraćajna dozvola",
-    cameraHelper: "Po mogućstvu dodaj obe strane dokumenta.",
-    photoHint: "Dodaj jednu ili dve fotografije saobraćajne dozvole.",
-    ocrBusyLabel: "Očitavam saobraćajnu...",
-    ocrActionLabel: "Očitaj podatke"
+    headline: "Fotografija saobracajne dozvole",
+    helper: "Saobracajna je vizuelna pomoc. Ispod rucno unosis polja koja trazi evropski izvestaj.",
+    cameraTitle: "Saobracajna dozvola",
+    cameraHelper: "Po mogucstvu dodaj obe strane dokumenta.",
+    photoHint: "Dokument ostaje sacuvan uz report."
   },
   policy: {
-    title: "Fotografiši polisu osiguranja",
-    subtitle: "Polisa ostaje priložena izveštaju, a OCR je samo pomoćna opcija.",
+    headline: "Fotografija polise osiguranja",
+    helper: "Polisa ostaje prikazana iznad forme, a korisnik rucno unosi podatke koji idu u zapisnik.",
     cameraTitle: "Polisa osiguranja",
-    cameraHelper: "Dodaj jasnu sliku polise ili više strana ako su podaci raspoređeni.",
-    photoHint: "Dodaj fotografiju polise osiguranja.",
-    ocrBusyLabel: "Očitavam polisu...",
-    ocrActionLabel: "Očitaj podatke"
+    cameraHelper: "Dodaj jasnu fotografiju ili vise strana ako su podaci rasporedjeni.",
+    photoHint: "Fotografija polise ostaje sacuvana uz report."
   }
 };
 
-const accentClassMap: Record<AccentTone, { ring: string; soft: string; text: string; tab: string }> = {
+const accentClassMap: Record<AccentTone, { ring: string; soft: string; text: string }> = {
   red: {
     ring: "border-red-400/35",
-    soft: "bg-red-500/10 border-red-400/20",
-    text: "text-red-200",
-    tab: "bg-red-500 text-white"
+    soft: "bg-red-500/8 border-red-400/20",
+    text: "text-red-200"
   },
   blue: {
     ring: "border-accent/35",
-    soft: "bg-accent/10 border-accent/20",
-    text: "text-accent",
-    tab: "bg-accent text-white"
+    soft: "bg-accent/8 border-accent/20",
+    text: "text-accent"
   }
 };
 
@@ -136,92 +110,64 @@ function Field({
   );
 }
 
-function ModeTabs({
+function SelectField({
+  label,
   value,
   onChange,
+  options,
   readOnly = false,
-  accent = "blue"
+  invalid = false
 }: {
-  value: SectionMode;
-  onChange: (next: SectionMode) => void;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
   readOnly?: boolean;
-  accent?: AccentTone;
+  invalid?: boolean;
 }) {
-  const accentClasses = accentClassMap[accent];
-
   return (
-    <div className="inline-flex rounded-full border border-white/10 bg-white/5 p-1">
-      {(["manual", "ocr"] as SectionMode[]).map((mode) => (
-        <button
-          key={mode}
-          className={`rounded-full px-4 py-2 text-sm transition ${
-            value === mode ? accentClasses.tab : "text-white/60"
-          }`}
-          disabled={readOnly}
-          onClick={() => onChange(mode)}
-          type="button"
-        >
-          {mode === "manual" ? "Unesi ručno" : "OCR sa slike"}
-        </button>
-      ))}
-    </div>
+    <label className="space-y-2">
+      <span className={`text-sm ${invalid ? "text-red-200" : "text-white/60"}`}>{label}</span>
+      <select
+        className={`input-glass text-white ${invalid ? "border border-red-400/70 bg-red-500/8" : ""}`}
+        disabled={readOnly}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
+        <option className="bg-white text-slate-900" value="">
+          Izaberi
+        </option>
+        {options.map((option) => (
+          <option className="bg-white text-slate-900" key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 
-function ReviewCard({
-  suggestion,
-  onFieldChange,
-  onConfirm,
-  onClear,
-  readOnly = false,
-  accent = "blue"
+function SectionTitle({
+  title,
+  headline,
+  helper,
+  accent
 }: {
-  suggestion: DocumentSuggestion;
-  onFieldChange: (key: string, value: string) => void;
-  onConfirm: () => void;
-  onClear: () => void;
-  readOnly?: boolean;
-  accent?: AccentTone;
+  title: string;
+  headline: string;
+  helper: string;
+  accent: AccentTone;
 }) {
   const accentClasses = accentClassMap[accent];
 
   return (
-    <Card className={`space-y-4 border ${accentClasses.ring} ${accentClasses.soft}`}>
-      <div className="space-y-1">
-        <div className={`text-xs uppercase tracking-[0.26em] ${accentClasses.text}`}>OCR assist</div>
-        <div className="text-lg font-semibold text-white">Proveri očitane podatke</div>
-        <div className="text-sm text-white/60">
-          OCR je opcioni pomoćnik. Potvrđuješ samo ono što zaista želiš da upišeš.
-        </div>
+    <div className="space-y-2">
+      <div className={`inline-flex rounded-full border px-3 py-1 text-xs uppercase tracking-[0.26em] ${accentClasses.ring} ${accentClasses.text}`}>
+        {title}
       </div>
-      <div className="grid grid-cols-1 gap-3">
-        {suggestion.fields.map((field) => (
-          <Field
-            key={field.key}
-            label={field.label}
-            onChange={(nextValue) => onFieldChange(field.key, nextValue)}
-            readOnly={readOnly}
-            value={field.value}
-          />
-        ))}
-      </div>
-      {suggestion.rawText ? (
-        <div className="rounded-[18px] border border-white/10 bg-black/15 px-4 py-3">
-          <div className="text-xs uppercase tracking-[0.24em] text-white/40">OCR tekst</div>
-          <div className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap text-sm text-white/65">
-            {suggestion.rawText}
-          </div>
-        </div>
-      ) : null}
-      <div className="grid grid-cols-2 gap-3">
-        <Button disabled={readOnly} onClick={onConfirm} type="button">
-          Potvrdi podatke
-        </Button>
-        <Button disabled={readOnly} onClick={onClear} type="button" variant="secondary">
-          Obriši predlog
-        </Button>
-      </div>
-    </Card>
+      <h2 className="text-[30px] font-semibold text-white">{headline}</h2>
+      <p className="text-sm text-white/60">{helper}</p>
+    </div>
   );
 }
 
@@ -259,7 +205,7 @@ function PhotoStrip({
                   onClick={() => onDelete(photo.id)}
                   type="button"
                 >
-                  Obriši
+                  Obrisi
                 </button>
               )}
             </div>
@@ -284,21 +230,32 @@ function DriverFields({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <Field invalid={isMissing("Prezime vozaÄa")} label="Prezime" onChange={(driverLastName) => onChange({ ...value, driverLastName })} placeholder="Prezime" readOnly={readOnly} value={value.driverLastName} />
-        <Field invalid={isMissing("Ime vozaÄa")} label="Ime" onChange={(driverFirstName) => onChange({ ...value, driverFirstName })} placeholder="Ime" readOnly={readOnly} value={value.driverFirstName} />
+        <Field invalid={isMissing("Prezime vozaca")} label="Prezime" onChange={(driverLastName) => onChange({ ...value, driverLastName })} placeholder="Prezime" readOnly={readOnly} value={value.driverLastName} />
+        <Field invalid={isMissing("Ime vozaca")} label="Ime" onChange={(driverFirstName) => onChange({ ...value, driverFirstName })} placeholder="Ime" readOnly={readOnly} value={value.driverFirstName} />
+      </div>
+      <Field invalid={isMissing("Adresa vozaca")} label="Adresa" onChange={(driverAddress) => onChange({ ...value, driverAddress })} placeholder="Adresa" readOnly={readOnly} value={value.driverAddress} />
+      <div className="grid grid-cols-2 gap-3">
+        <Field invalid={isMissing("Postanski broj vozaca")} label="Postanski broj" onChange={(driverPostalCode) => onChange({ ...value, driverPostalCode })} placeholder="Postanski broj" readOnly={readOnly} value={value.driverPostalCode} />
+        <Field label="Grad" onChange={(driverCity) => onChange({ ...value, driverCity })} placeholder="Grad" readOnly={readOnly} value={value.driverCity} />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field invalid={isMissing("Broj vozaÄke dozvole")} label="Broj vozačke" onChange={(driverLicenseNumber) => onChange({ ...value, driverLicenseNumber })} placeholder="Broj vozačke" readOnly={readOnly} value={value.driverLicenseNumber} />
-        <Field invalid={isMissing("Datum roÄ‘enja")} label="Datum rođenja" onChange={(driverBirthDate) => onChange({ ...value, driverBirthDate })} readOnly={readOnly} type="date" value={value.driverBirthDate} />
-      </div>
-      <Field invalid={isMissing("Adresa vozaÄa")} label="Adresa" onChange={(driverAddress) => onChange({ ...value, driverAddress })} placeholder="Adresa" readOnly={readOnly} value={value.driverAddress} />
-      <div className="grid grid-cols-2 gap-3">
-        <Field invalid={isMissing("Grad vozaÄa")} label="Grad" onChange={(driverCity) => onChange({ ...value, driverCity })} placeholder="Grad" readOnly={readOnly} value={value.driverCity} />
-        <Field invalid={isMissing("Kategorija dozvole")} label="Kategorija" onChange={(driverLicenseCategory) => onChange({ ...value, driverLicenseCategory })} placeholder="A, B, C..." readOnly={readOnly} value={value.driverLicenseCategory} />
+        <Field invalid={isMissing("Telefon ili e-mail vozaca") && !value.driverPhone} label="Telefon" onChange={(driverPhone) => onChange({ ...value, driverPhone })} placeholder="Telefon" readOnly={readOnly} type="tel" value={value.driverPhone} />
+        <Field invalid={isMissing("Telefon ili e-mail vozaca") && !value.driverEmail} label="E-mail" onChange={(driverEmail) => onChange({ ...value, driverEmail })} placeholder="E-mail" readOnly={readOnly} type="email" value={value.driverEmail} />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field invalid={isMissing("Telefon vozaÄa")} label="Telefon" onChange={(driverPhone) => onChange({ ...value, driverPhone })} placeholder="Telefon" readOnly={readOnly} type="tel" value={value.driverPhone} />
-        <Field invalid={isMissing("E-mail vozaÄa")} label="E-mail" onChange={(driverEmail) => onChange({ ...value, driverEmail })} placeholder="E-mail" readOnly={readOnly} type="email" value={value.driverEmail} />
+        <Field invalid={isMissing("Datum rodjenja")} label="Datum rodjenja" onChange={(driverBirthDate) => onChange({ ...value, driverBirthDate })} readOnly={readOnly} type="date" value={value.driverBirthDate} />
+        <Field invalid={isMissing("Broj vozacke dozvole")} label="Broj vozacke dozvole" onChange={(driverLicenseNumber) => onChange({ ...value, driverLicenseNumber })} placeholder="Broj dozvole" readOnly={readOnly} value={value.driverLicenseNumber} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <SelectField
+          invalid={isMissing("Kategorija dozvole")}
+          label="Kategorija"
+          onChange={(driverLicenseCategory) => onChange({ ...value, driverLicenseCategory })}
+          options={["A", "B", "C", "D", "E"]}
+          readOnly={readOnly}
+          value={value.driverLicenseCategory}
+        />
+        <Field invalid={isMissing("Vazenje vozacke dozvole")} label="Vazi do" onChange={(driverLicenseValidUntil) => onChange({ ...value, driverLicenseValidUntil })} readOnly={readOnly} type="date" value={value.driverLicenseValidUntil} />
       </div>
     </div>
   );
@@ -318,16 +275,48 @@ function VehicleFields({
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <Field invalid={isMissing("Registarska oznaka")} label="Registracija" onChange={(plate) => onChange({ ...value, plate })} placeholder="Registracija" readOnly={readOnly} value={value.plate} />
+        <Field invalid={isMissing("Registarska oznaka")} label="Registarski broj" onChange={(plate) => onChange({ ...value, plate })} placeholder="Registracija" readOnly={readOnly} value={value.plate} />
+        <Field invalid={isMissing("Drzava registracije")} label="Drzava registracije" onChange={(registrationCountry) => onChange({ ...value, registrationCountry })} placeholder="Drzava registracije" readOnly={readOnly} value={value.registrationCountry} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
         <Field invalid={isMissing("Marka vozila")} label="Marka" onChange={(make) => onChange({ ...value, make })} placeholder="Marka" readOnly={readOnly} value={value.make} />
-      </div>
-      <div className="grid grid-cols-2 gap-3">
         <Field invalid={isMissing("Model vozila")} label="Model" onChange={(model) => onChange({ ...value, model })} placeholder="Model" readOnly={readOnly} value={value.model} />
-        <Field invalid={isMissing("Tip vozila")} label="Tip" onChange={(type) => onChange({ ...value, type })} placeholder="Tip" readOnly={readOnly} value={value.type} />
       </div>
       <div className="grid grid-cols-2 gap-3">
+        <SelectField
+          invalid={isMissing("Tip vozila")}
+          label="Tip vozila"
+          onChange={(type) => onChange({ ...value, type })}
+          options={[
+            "Limuzina",
+            "Hecbek",
+            "Karavan",
+            "SUV",
+            "Kupe",
+            "Kabriolet",
+            "Kombi",
+            "Dostavno vozilo",
+            "Kamion",
+            "Autobus",
+            "Motocikl",
+            "Moped",
+            "Traktor",
+            "Radna masina",
+            "Prikolica",
+            "Poluprikolica",
+            "Drugo"
+          ]}
+          readOnly={readOnly}
+          value={value.type}
+        />
         <Field label="VIN" onChange={(vin) => onChange({ ...value, vin })} placeholder="VIN" readOnly={readOnly} value={value.vin} />
-        <Field invalid={isMissing("DrÅ¾ava registracije")} label="Država registracije" onChange={(registrationCountry) => onChange({ ...value, registrationCountry })} placeholder="Država registracije" readOnly={readOnly} value={value.registrationCountry} />
+      </div>
+      <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+        <div className="mb-3 text-xs uppercase tracking-[0.26em] text-white/40">Prikolica</div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Registracija prikolice" onChange={(trailerPlate) => onChange({ ...value, trailerPlate })} placeholder="Registracija prikolice" readOnly={readOnly} value={value.trailerPlate} />
+          <Field label="Drzava prikolice" onChange={(trailerRegistrationCountry) => onChange({ ...value, trailerRegistrationCountry })} placeholder="Drzava prikolice" readOnly={readOnly} value={value.trailerRegistrationCountry} />
+        </div>
       </div>
     </div>
   );
@@ -346,6 +335,60 @@ function PolicyFields({
   isMissing: (label: string) => boolean;
   onChange: (next: VehicleDraft) => void;
 }) {
+  const ownerFieldsReadOnly = readOnly || value.ownerSameAsDriver;
+
+  useEffect(() => {
+    if (!value.ownerSameAsDriver) {
+      return;
+    }
+
+    const nextValue: VehicleDraft = {
+      ...value,
+      ownerFirstName: value.driverFirstName,
+      ownerLastName: value.driverLastName,
+      ownerAddress: value.driverAddress,
+      ownerCity: value.driverCity,
+      ownerPostalCode: value.driverPostalCode,
+      ownerCountry: value.driverCountry,
+      ownerPhone: value.driverPhone,
+      ownerEmail: value.driverEmail
+    };
+
+    const hasChanged =
+      nextValue.ownerFirstName !== value.ownerFirstName ||
+      nextValue.ownerLastName !== value.ownerLastName ||
+      nextValue.ownerAddress !== value.ownerAddress ||
+      nextValue.ownerCity !== value.ownerCity ||
+      nextValue.ownerPostalCode !== value.ownerPostalCode ||
+      nextValue.ownerCountry !== value.ownerCountry ||
+      nextValue.ownerPhone !== value.ownerPhone ||
+      nextValue.ownerEmail !== value.ownerEmail;
+
+    if (hasChanged) {
+      onChange(nextValue);
+    }
+  }, [
+    onChange,
+    value,
+    value.driverAddress,
+    value.driverCity,
+    value.driverCountry,
+    value.driverEmail,
+    value.driverFirstName,
+    value.driverLastName,
+    value.driverPhone,
+    value.driverPostalCode,
+    value.ownerAddress,
+    value.ownerCity,
+    value.ownerCountry,
+    value.ownerEmail,
+    value.ownerFirstName,
+    value.ownerLastName,
+    value.ownerPhone,
+    value.ownerPostalCode,
+    value.ownerSameAsDriver
+  ]);
+
   return (
     <div className="space-y-4">
       <datalist id={insurerListId}>
@@ -353,14 +396,106 @@ function PolicyFields({
           <option key={option} value={option} />
         ))}
       </datalist>
-      <Field invalid={isMissing("OsiguravajuÄ‡a kuÄ‡a")} label="Osiguravajuća kuća" list={insurerListId} onChange={(insurer) => onChange({ ...value, insurer })} placeholder="Osiguravajuća kuća" readOnly={readOnly} value={value.insurer} />
-      <div className="grid grid-cols-2 gap-3">
-        <Field invalid={isMissing("Broj ugovora")} label="Broj polise" onChange={(policyNumber) => onChange({ ...value, policyNumber })} placeholder="Broj polise" readOnly={readOnly} value={value.policyNumber} />
-        <Field label="Ugovarač osiguranja" onChange={(ownerLastName) => onChange({ ...value, ownerLastName })} placeholder="Prezime ugovarača" readOnly={readOnly} value={value.ownerLastName} />
+
+      <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div className="text-xs uppercase tracking-[0.26em] text-white/40">Ugovarac osiguranja</div>
+          <button
+            className={`rounded-full border px-3 py-2 text-xs transition ${
+              value.ownerSameAsDriver
+                ? "border-accent/45 bg-accent/18 text-white"
+                : "border-white/10 bg-white/5 text-white/65"
+            }`}
+            disabled={readOnly}
+            onClick={() =>
+              onChange({
+                ...value,
+                ownerSameAsDriver: !value.ownerSameAsDriver,
+                ownerFirstName: !value.ownerSameAsDriver ? value.driverFirstName : value.ownerFirstName,
+                ownerLastName: !value.ownerSameAsDriver ? value.driverLastName : value.ownerLastName,
+                ownerAddress: !value.ownerSameAsDriver ? value.driverAddress : value.ownerAddress,
+                ownerCity: !value.ownerSameAsDriver ? value.driverCity : value.ownerCity,
+                ownerPostalCode: !value.ownerSameAsDriver ? value.driverPostalCode : value.ownerPostalCode,
+                ownerCountry: !value.ownerSameAsDriver ? value.driverCountry : value.ownerCountry,
+                ownerPhone: !value.ownerSameAsDriver ? value.driverPhone : value.ownerPhone,
+                ownerEmail: !value.ownerSameAsDriver ? value.driverEmail : value.ownerEmail
+              })
+            }
+            type="button"
+          >
+            {value.ownerSameAsDriver ? "Iskljuci kopiranje iz vozaca" : "Isti podaci kao vozac"}
+          </button>
+        </div>
+        <div className="mb-3 text-sm text-white/60">
+          {value.ownerSameAsDriver
+            ? "Polja ugovaraca su zakljucana jer trenutno koriste iste podatke kao vozac."
+            : "Ako je ugovarac isti kao vozac, ukljuci ovu opciju i polja ce se popuniti automatski."}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field invalid={isMissing("Prezime ugovaraca")} label="Prezime" onChange={(ownerLastName) => onChange({ ...value, ownerLastName })} placeholder="Prezime" readOnly={ownerFieldsReadOnly} value={value.ownerLastName} />
+          <Field invalid={isMissing("Ime ugovaraca")} label="Ime" onChange={(ownerFirstName) => onChange({ ...value, ownerFirstName })} placeholder="Ime" readOnly={ownerFieldsReadOnly} value={value.ownerFirstName} />
+        </div>
+        <div className="mt-3 space-y-3">
+          <Field invalid={isMissing("Adresa ugovaraca")} label="Adresa osiguranika" onChange={(ownerAddress) => onChange({ ...value, ownerAddress })} placeholder="Adresa osiguranika" readOnly={ownerFieldsReadOnly} value={value.ownerAddress} />
+          <div className="grid grid-cols-3 gap-3">
+            <Field invalid={isMissing("Postanski broj ugovaraca")} label="Postanski broj" onChange={(ownerPostalCode) => onChange({ ...value, ownerPostalCode })} placeholder="Postanski broj" readOnly={ownerFieldsReadOnly} value={value.ownerPostalCode} />
+            <Field invalid={isMissing("Grad ugovaraca")} label="Grad osiguranika" onChange={(ownerCity) => onChange({ ...value, ownerCity })} placeholder="Grad" readOnly={ownerFieldsReadOnly} value={value.ownerCity} />
+            <Field invalid={isMissing("Drzava ugovaraca")} label="Drzava osiguranika" onChange={(ownerCountry) => onChange({ ...value, ownerCountry })} placeholder="Drzava" readOnly={ownerFieldsReadOnly} value={value.ownerCountry} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field invalid={isMissing("Telefon ili e-mail ugovaraca") && !value.ownerPhone} label="Telefon osiguranika" onChange={(ownerPhone) => onChange({ ...value, ownerPhone })} placeholder="Telefon" readOnly={ownerFieldsReadOnly} type="tel" value={value.ownerPhone} />
+            <Field invalid={isMissing("Telefon ili e-mail ugovaraca") && !value.ownerEmail} label="E-mail osiguranika" onChange={(ownerEmail) => onChange({ ...value, ownerEmail })} placeholder="E-mail" readOnly={ownerFieldsReadOnly} type="email" value={value.ownerEmail} />
+          </div>
+        </div>
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <Field invalid={isMissing("Polisa vaÅ¾i do")} label="Datum važenja" onChange={(policyValidUntil) => onChange({ ...value, policyValidUntil })} readOnly={readOnly} type="date" value={value.policyValidUntil} />
-        <Field invalid={isMissing("Polisa vaÅ¾i od")} label="Važi od" onChange={(policyValidFrom) => onChange({ ...value, policyValidFrom })} readOnly={readOnly} type="date" value={value.policyValidFrom} />
+
+      <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+        <div className="mb-3 text-xs uppercase tracking-[0.26em] text-white/40">Osiguravajuca kuca</div>
+        <div className="space-y-3">
+          <Field invalid={isMissing("Osiguravajuca kuca")} label="Osiguravajuce drustvo" list={insurerListId} onChange={(insurer) => onChange({ ...value, insurer })} placeholder="Osiguravajuce drustvo" readOnly={readOnly} value={value.insurer} />
+          <div className="grid grid-cols-2 gap-3">
+            <Field invalid={isMissing("Broj ugovora")} label="Broj polise" onChange={(policyNumber) => onChange({ ...value, policyNumber })} placeholder="Broj polise" readOnly={readOnly} value={value.policyNumber} />
+            <Field label="Broj zelene karte" onChange={(greenCardNumber) => onChange({ ...value, greenCardNumber })} placeholder="Broj zelene karte" readOnly={readOnly} value={value.greenCardNumber} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field invalid={isMissing("Polisa vazi od")} label="Vazi od" onChange={(policyValidFrom) => onChange({ ...value, policyValidFrom })} readOnly={readOnly} type="date" value={value.policyValidFrom} />
+            <Field invalid={isMissing("Polisa vazi do")} label="Vazi do" onChange={(policyValidUntil) => onChange({ ...value, policyValidUntil })} readOnly={readOnly} type="date" value={value.policyValidUntil} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field invalid={isMissing("Filijala ili posrednik")} label="Filijala / posrednik" onChange={(insuranceBranch) => onChange({ ...value, insuranceBranch })} placeholder="Filijala / posrednik" readOnly={readOnly} value={value.insuranceBranch} />
+            <Field invalid={isMissing("Naziv filijale")} label="Naziv filijale" onChange={(insuranceOfficeName) => onChange({ ...value, insuranceOfficeName })} placeholder="Naziv filijale" readOnly={readOnly} value={value.insuranceOfficeName} />
+          </div>
+          <Field invalid={isMissing("Adresa osiguranja")} label="Adresa osiguranja" onChange={(insuranceAddress) => onChange({ ...value, insuranceAddress })} placeholder="Adresa osiguranja" readOnly={readOnly} value={value.insuranceAddress} />
+          <div className="grid grid-cols-2 gap-3">
+            <Field invalid={isMissing("Grad osiguranja")} label="Grad osiguranja" onChange={(insuranceCity) => onChange({ ...value, insuranceCity })} placeholder="Grad" readOnly={readOnly} value={value.insuranceCity} />
+            <Field invalid={isMissing("Drzava osiguranja")} label="Drzava osiguranja" onChange={(insuranceCountry) => onChange({ ...value, insuranceCountry })} placeholder="Drzava" readOnly={readOnly} value={value.insuranceCountry} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field invalid={isMissing("Telefon ili e-mail osiguranja") && !value.insurancePhone} label="Telefon osiguranja" onChange={(insurancePhone) => onChange({ ...value, insurancePhone })} placeholder="Telefon" readOnly={readOnly} type="tel" value={value.insurancePhone} />
+            <Field invalid={isMissing("Telefon ili e-mail osiguranja") && !value.insuranceEmail} label="E-mail osiguranja" onChange={(insuranceEmail) => onChange({ ...value, insuranceEmail })} placeholder="E-mail" readOnly={readOnly} type="email" value={value.insuranceEmail} />
+          </div>
+          <div className="space-y-2">
+            <span className="text-sm text-white/60">Da li ovo vozilo ima kasko osiguranje?</span>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                className={`rounded-[18px] border px-4 py-3 text-sm transition ${value.coveredDamage === true ? "border-emerald-300/45 bg-emerald-500/16 text-white" : "border-white/10 bg-white/5 text-white/70"}`}
+                disabled={readOnly}
+                onClick={() => onChange({ ...value, coveredDamage: true })}
+                type="button"
+              >
+                Da
+              </button>
+              <button
+                className={`rounded-[18px] border px-4 py-3 text-sm transition ${value.coveredDamage === false ? "border-amber-300/45 bg-amber-500/16 text-white" : "border-white/10 bg-white/5 text-white/70"}`}
+                disabled={readOnly}
+                onClick={() => onChange({ ...value, coveredDamage: false })}
+                type="button"
+              >
+                Ne
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -374,20 +509,26 @@ export default function VehicleForm({
   readOnly = false,
   accent = "blue"
 }: Props) {
-  const [isReading, setIsReading] = useState(false);
-  const [mode, setMode] = useState<SectionMode>("manual");
   const insurerListId = useMemo(() => `insurer-${value.side}-${section}`, [section, value.side]);
   const vehicleDocumentKind: PhotoKind = value.side === "A" ? "document-a" : "document-b";
-  const documentType = sectionToDocumentType[section];
   const config = sectionConfig[section];
   const accentClasses = accentClassMap[accent];
   const missingFields = getVehicleSectionMissingFields(value, section);
-  const suggestion = value.ocrSuggestions[documentType];
-  const photos = value.documentPhotos.filter((photo) => photo.documentType === documentType);
+  const photos = value.documentPhotos.filter((photo) => {
+    if (section === "driver") {
+      return photo.documentType === "driver-license";
+    }
+    if (section === "vehicle") {
+      return photo.documentType === "registration";
+    }
+    return photo.documentType === "policy";
+  });
 
   const isMissing = (label: string) => missingFields.includes(label);
 
   const handleCapture = async (files: FileList) => {
+    const documentType: DocumentType =
+      section === "driver" ? "driver-license" : section === "vehicle" ? "registration" : "policy";
     const uploads = await Promise.all(
       Array.from(files).map(async (file) => ({
         id: createId("doc"),
@@ -404,90 +545,9 @@ export default function VehicleForm({
     });
   };
 
-  const runOcr = async () => {
-    const latestPhoto = [...photos].pop();
-    if (!latestPhoto) {
-      return;
-    }
-
-    setIsReading(true);
-    try {
-      const nextSuggestion = await extractDocumentSuggestion(latestPhoto, documentType);
-      onChange({
-        ...value,
-        ocrStatus: "ready",
-        ocrSuggestions: {
-          ...value.ocrSuggestions,
-          [documentType]: nextSuggestion
-        }
-      });
-    } finally {
-      setIsReading(false);
-    }
-  };
-
-  const changeSuggestionField = (key: string, nextValue: string) => {
-    if (!suggestion) {
-      return;
-    }
-
-    onChange({
-      ...value,
-      ocrSuggestions: {
-        ...value.ocrSuggestions,
-        [documentType]: {
-          ...suggestion,
-          fields: suggestion.fields.map((field) =>
-            field.key === key ? { ...field, value: nextValue } : field
-          )
-        }
-      }
-    });
-  };
-
-  const confirmSuggestion = () => {
-    if (!suggestion) {
-      return;
-    }
-
-    const updates = suggestion.fields.reduce<Record<string, string>>((acc, field) => {
-      acc[field.key] = field.value;
-      return acc;
-    }, {});
-
-    onChange({
-      ...value,
-      ...updates,
-      ocrSuggestions: {
-        ...value.ocrSuggestions,
-        [documentType]: {
-          ...suggestion,
-          status: "confirmed"
-        }
-      }
-    } as VehicleDraft);
-
-    setMode("manual");
-  };
-
-  const clearSuggestion = () => {
-    const nextSuggestions = { ...value.ocrSuggestions };
-    delete nextSuggestions[documentType];
-    onChange({
-      ...value,
-      ocrSuggestions: nextSuggestions
-    });
-  };
-
   return (
     <div className="space-y-4">
-      <div className="space-y-1">
-        <div className={`inline-flex rounded-full border px-3 py-1 text-xs uppercase tracking-[0.26em] ${accentClasses.ring} ${accentClasses.text}`}>
-          {title}
-        </div>
-        <h2 className="text-[30px] font-semibold text-white">{title}</h2>
-        <p className="text-sm text-white/60">{config.subtitle}</p>
-      </div>
+      <SectionTitle accent={accent} helper={config.helper} headline={config.headline} title={title} />
 
       <Card className={`space-y-4 border ${accentClasses.ring}`}>
         <PhotoStrip
@@ -504,61 +564,27 @@ export default function VehicleForm({
           readOnly={readOnly}
           title={config.cameraTitle}
         />
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-sm text-white/60">Posle fotografije izaberi kako želiš da uneseš podatke.</div>
-          <ModeTabs accent={accent} onChange={setMode} readOnly={readOnly} value={mode} />
-        </div>
       </Card>
 
-      <Card className={`space-y-4 border ${accentClasses.ring}`}>
+      <Card className={`space-y-4 border ${accentClasses.ring} ${accentClasses.soft}`}>
         {missingFields.length ? (
-          <div className="text-sm text-red-200">Obavezna polja su označena crveno.</div>
+          <div className="text-sm text-red-200">Prazna obavezna polja su oznacena crveno.</div>
         ) : (
           <div className="text-sm text-white/55">Korak je kompletiran i spreman za nastavak.</div>
         )}
 
-        {mode === "manual" ? (
-          section === "driver" ? (
-            <DriverFields isMissing={isMissing} onChange={onChange} readOnly={readOnly} value={value} />
-          ) : section === "vehicle" ? (
-            <VehicleFields isMissing={isMissing} onChange={onChange} readOnly={readOnly} value={value} />
-          ) : (
-            <PolicyFields
-              insurerListId={insurerListId}
-              isMissing={isMissing}
-              onChange={onChange}
-              readOnly={readOnly}
-              value={value}
-            />
-          )
+        {section === "driver" ? (
+          <DriverFields isMissing={isMissing} onChange={onChange} readOnly={readOnly} value={value} />
+        ) : section === "vehicle" ? (
+          <VehicleFields isMissing={isMissing} onChange={onChange} readOnly={readOnly} value={value} />
         ) : (
-          <div className="space-y-3">
-            <Button
-              disabled={readOnly || photos.length === 0}
-              fullWidth={false}
-              onClick={() => void runOcr()}
-              type="button"
-              variant="secondary"
-            >
-              {isReading ? config.ocrBusyLabel : config.ocrActionLabel}
-            </Button>
-            {!photos.length ? (
-              <div className="rounded-[18px] border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/55">
-                Prvo dodaj fotografiju dokumenta, pa tek onda probaj OCR.
-              </div>
-            ) : null}
-            {suggestion ? (
-              <ReviewCard
-                accent={accent}
-                onClear={clearSuggestion}
-                onConfirm={confirmSuggestion}
-                onFieldChange={changeSuggestionField}
-                readOnly={readOnly}
-                suggestion={suggestion}
-              />
-            ) : null}
-          </div>
+          <PolicyFields
+            insurerListId={insurerListId}
+            isMissing={isMissing}
+            onChange={onChange}
+            readOnly={readOnly}
+            value={value}
+          />
         )}
       </Card>
     </div>

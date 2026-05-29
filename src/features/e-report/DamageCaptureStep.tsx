@@ -62,23 +62,33 @@ function DamageCard({
         title="Dodaj fotografiju oštećenja"
       />
       {photos.length ? (
-        <div className="grid grid-cols-3 gap-3">
-          {photos.map((photo) => (
-            <div key={photo.id} className="relative overflow-hidden rounded-[18px] bg-white/5">
-              <img alt={title} className="aspect-square w-full object-cover" src={photo.dataUrl} />
-              {readOnly ? null : (
-                <button
-                  className="absolute right-2 top-2 rounded-full bg-black/55 px-2 py-1 text-xs text-white"
-                  onClick={() => onDelete(photo.id)}
-                  type="button"
-                >
-                  Obriši
-                </button>
-              )}
-            </div>
-          ))}
+        <div className="space-y-3">
+          <div className="text-sm text-white/60">Sacuvane fotografije ostecenja</div>
+          <div className="grid grid-cols-2 gap-3">
+            {photos.map((photo, index) => (
+              <div key={photo.id} className="relative overflow-hidden rounded-[18px] bg-white/5">
+                <img alt={title} className="aspect-[4/3] w-full object-cover" src={photo.dataUrl} />
+                <div className="absolute bottom-2 left-2 rounded-full bg-black/55 px-2 py-1 text-xs text-white">
+                  Foto {index + 1}
+                </div>
+                {readOnly ? null : (
+                  <button
+                    className="absolute right-2 top-2 rounded-full bg-black/55 px-2 py-1 text-xs text-white"
+                    onClick={() => onDelete(photo.id)}
+                    type="button"
+                  >
+                    Obrisi
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-      ) : null}
+      ) : (
+        <div className="rounded-[18px] border border-dashed border-white/10 px-4 py-3 text-sm text-white/45">
+          Fotografije ce se pojaviti ovde odmah nakon snimanja.
+        </div>
+      )}
       {vehicle.damageSuggestion.status !== "idle" ? (
         <div className="space-y-3 rounded-[20px] border border-white/10 bg-white/5 p-4">
           <div className="text-sm text-white/60">Detektovano mesto oštećenja</div>
@@ -89,7 +99,7 @@ function DamageCard({
           <label className="space-y-2">
             <span className="text-sm text-white/60">Izmeni ručno</span>
             <select
-              className="input-glass"
+              className="input-glass text-white"
               disabled={readOnly}
               value={zone}
               onChange={(event) =>
@@ -102,9 +112,11 @@ function DamageCard({
                 })
               }
             >
-              <option value="">Izaberi mesto</option>
+              <option className="bg-white text-slate-900" value="">
+                Izaberi mesto
+              </option>
               {DAMAGE_ZONE_OPTIONS.map((item) => (
-                <option key={item} value={item}>
+                <option className="bg-white text-slate-900" key={item} value={item}>
                   {item}
                 </option>
               ))}
