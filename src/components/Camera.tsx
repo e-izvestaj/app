@@ -95,10 +95,7 @@ export default function Camera({
 
   return (
     <Card className="space-y-4 bg-gradient-to-b from-white/10 to-white/5">
-      <div>
-        <div className="text-lg font-semibold text-white">{title}</div>
-        {helper ? <p className="mt-1 text-sm text-white/60">{helper}</p> : null}
-      </div>
+      <div className="text-lg font-semibold text-white">{title}</div>
       <input
         ref={inputRef}
         className="hidden"

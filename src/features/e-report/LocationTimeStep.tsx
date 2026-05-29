@@ -180,9 +180,6 @@ export default function LocationTimeStep({
     <div className="space-y-4">
       <div className="space-y-1">
         <h2 className="text-[30px] font-semibold text-white">Vreme i mesto nezgode</h2>
-        <p className="text-sm text-white/60">
-          Datum i vreme su preuzeti sa uredjaja, a lokaciju mozes da dobijes GPS-om ili da je uneses rucno.
-        </p>
       </div>
 
       <Card className="grid grid-cols-2 gap-3">

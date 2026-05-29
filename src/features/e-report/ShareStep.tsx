@@ -26,15 +26,11 @@ export default function ShareStep({
 }: Props) {
   return (
     <div className="space-y-4">
-      <div className="space-y-1">
-        <h2 className="text-[30px] font-semibold text-white">e-Izveštaj uspešno kreiran.</h2>
-        <p className="text-sm text-white/60">Zapisnik je zakljucan, PDF sacuvan i spreman za deljenje.</p>
-      </div>
+      <h2 className="text-[30px] font-semibold text-white">e-Izveštaj uspešno kreiran</h2>
 
       <Card className="space-y-4 bg-[radial-gradient(circle_at_top_left,rgba(47,128,255,0.24),transparent_55%),linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))]">
         <div className="text-xs uppercase tracking-[0.28em] text-white/40">Report ID</div>
         <div className="text-3xl font-semibold text-white">{reportId}</div>
-        <div className="text-sm text-white/60">QR otvara read-only kopiju konkretnog zapisnika.</div>
         {qrCodeDataUrl ? (
           <div className="overflow-hidden rounded-[28px] bg-white p-4">
             <img alt="QR code" className="mx-auto h-52 w-52" src={qrCodeDataUrl} />

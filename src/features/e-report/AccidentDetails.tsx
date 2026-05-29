@@ -31,12 +31,7 @@ function CircumstanceColumn({
   return (
     <Card className="space-y-4">
       <div className="flex items-end justify-between gap-3">
-        <div>
-          <div className="text-sm uppercase tracking-[0.24em] text-white/40">Okolnosti vozila {side}</div>
-          <div className="mt-1 text-sm text-white/60">
-            Svaki učesnik čekira samo svoja polja iz obrasca.
-          </div>
-        </div>
+        <div className="text-sm uppercase tracking-[0.24em] text-white/40">Okolnosti vozila {side}</div>
         <div className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1 text-sm text-accent">
           Označeno: {selectedCount}
         </div>
@@ -104,12 +99,7 @@ export default function AccidentDetails({
 
   return (
     <div className="space-y-4">
-      <div className="space-y-1">
-        <h2 className="text-[30px] font-semibold text-white">Okolnosti nezgode</h2>
-        <p className="text-sm text-white/60">
-          Prvo čekira vozilo A, zatim vozilo B. Svaka strana nezavisno označava svoja polja iz obrasca.
-        </p>
-      </div>
+      <h2 className="text-[30px] font-semibold text-white">Okolnosti nezgode</h2>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <CircumstanceColumn
@@ -127,17 +117,14 @@ export default function AccidentDetails({
       </div>
 
       <Card className="space-y-4">
-        <div className="text-sm uppercase tracking-[0.24em] text-white/40">Napomene vozača (polje 14)</div>
-        <div className="text-sm text-white/60">
-          Ovo nije zamena za okolnosti. Koristi se samo za dodatnu belešku uz obrazac.
-        </div>
+        <div className="text-sm uppercase tracking-[0.24em] text-white/40">Napomene vozača</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label className="space-y-2">
             <span className="text-sm text-white/60">Napomena vozila A</span>
             <textarea
               className="input-glass min-h-[140px]"
               disabled={readOnly}
-              placeholder="Opciona napomena učesnika A"
+              placeholder="Napomena A"
               value={vehicleANote}
               onChange={(event) => onVehicleANoteChange(event.target.value)}
             />
@@ -147,7 +134,7 @@ export default function AccidentDetails({
             <textarea
               className="input-glass min-h-[140px]"
               disabled={readOnly}
-              placeholder="Opciona napomena učesnika B"
+              placeholder="Napomena B"
               value={vehicleBNote}
               onChange={(event) => onVehicleBNoteChange(event.target.value)}
             />

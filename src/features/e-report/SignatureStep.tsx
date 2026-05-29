@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import SignatureCanvas from "react-signature-canvas";
 import Button from "../../components/Button";
 import Card from "../../components/Card";
@@ -54,7 +54,7 @@ function SignatureModal({
         };
         await orientation.lock?.("landscape");
       } catch {
-        // Orientation lock is best-effort only.
+        // Best effort only.
       }
     };
 
@@ -67,7 +67,7 @@ function SignatureModal({
         };
         orientation.unlock?.();
       } catch {
-        // Ignore unlock errors on unsupported browsers.
+        // Ignore unlock errors.
       }
     };
   }, [open]);
@@ -104,13 +104,7 @@ function SignatureModal({
       </div>
 
       <div className="flex flex-1 flex-col justify-between p-4">
-        <div className="space-y-3 text-center">
-          <div className="text-2xl font-semibold text-white">{label}</div>
-          <div className="text-sm text-white/60">
-            Okreni telefon vodoravno i potpisi se preko cele linije.
-          </div>
-          <div className="text-xs uppercase tracking-[0.28em] text-white/35">↺ Landscape recommended ↻</div>
-        </div>
+        <div className="text-center text-2xl font-semibold text-white">{label}</div>
 
         <div className="my-4 flex-1 rounded-[32px] border border-accent/25 bg-white p-3 shadow-glass">
           <div className="flex h-full items-center justify-center rounded-[28px] border border-dashed border-slate-300 bg-white">
@@ -179,7 +173,7 @@ function SignatureCard({
           </div>
         ) : (
           <div className="rounded-[24px] border border-dashed border-white/12 px-4 py-8 text-center text-sm text-white/45">
-            Potpis još nije dodat.
+            Nema potpisa.
           </div>
         )}
         <div className="grid grid-cols-2 gap-3">
@@ -221,22 +215,9 @@ export default function SignatureStep({
   readOnly = false,
   statusLabel
 }: Props) {
-  const progressText = useMemo(() => {
-    if (signatures.a && signatures.b) {
-      return "Oba potpisa su sačuvana. Sledeće zaključavamo izveštaj i generišemo finalni PDF.";
-    }
-    if (signatures.a || signatures.b) {
-      return "Jedan potpis je sačuvan. Potreban je još jedan da bi se izveštaj zaključao.";
-    }
-    return "Oba vozača potpisuju isti zapisnik na ovom telefonu.";
-  }, [signatures.a, signatures.b]);
-
   return (
     <div className="space-y-4">
-      <div className="space-y-1">
-        <h2 className="text-[30px] font-semibold text-white">Potpis A i B</h2>
-        <p className="text-sm text-white/60">{progressText}</p>
-      </div>
+      <h2 className="text-[30px] font-semibold text-white">Potpis A i B</h2>
       <Card className="bg-white/5">
         <div className="text-xs uppercase tracking-[0.28em] text-white/40">Status zapisnika</div>
         <div className="mt-3 text-lg font-semibold text-white">{statusLabel}</div>

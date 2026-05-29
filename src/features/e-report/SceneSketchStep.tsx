@@ -505,23 +505,13 @@ export default function SceneSketchStep({
     };
   }, [commit, dragTarget, drawMode, drawingPathId, pointFromEvent, sceneSketch]);
 
-  const laneTypeDescription = hasGps
-    ? "GPS je preuzet, pa skicu pravis direktno preko mape lokacije."
-    : "GPS nije dostupan, pa skicu pravis na praznom top-down platnu.";
-
   return (
     <div className="space-y-4">
-      <div className="space-y-1">
-        <h2 className="text-[30px] font-semibold text-white">Kreiraj skicu nezgode</h2>
-        <p className="text-sm text-white/60">{laneTypeDescription}</p>
-      </div>
+      <h2 className="text-[30px] font-semibold text-white">Kreiraj skicu nezgode</h2>
 
       <Card className="space-y-4 border border-white/10">
         <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-xs uppercase tracking-[0.26em] text-white/40">Skica</div>
-            <div className="mt-1 text-sm text-white/60">Pomeri vozila, rotiraj ih i oznaci mesto kontakta.</div>
-          </div>
+          <div className="text-xs uppercase tracking-[0.26em] text-white/40">Skica</div>
           <button
             className={`rounded-full border px-4 py-2 text-sm transition ${
               drawMode ? "border-accent/45 bg-accent/18 text-white" : "border-white/10 bg-white/5 text-white/70"
@@ -808,17 +798,13 @@ export default function SceneSketchStep({
           </div>
         </div>
 
-        <div className="text-xs text-white/45">Saveti: prevuci vozila prstom po mapi, zumiraj podlogu dok ne uhvatis realan kadar i postavi X na tacno mesto kontakta.</div>
       </Card>
 
       <Card className="space-y-4 border border-white/10">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {gpsMapUrl ? (
-            <div className="space-y-2">
-              <span className="text-sm text-white/60">GPS podloga</span>
-              <div className="rounded-[18px] border border-emerald-400/20 bg-emerald-400/8 px-4 py-3 text-sm text-white/75">
-                Kada je GPS dostupan, skica koristi stvarnu mapu terena. Izbor podloge puta je potreban samo kao fallback bez GPS-a.
-              </div>
+            <div className="rounded-[18px] border border-emerald-400/20 bg-emerald-400/8 px-4 py-3 text-sm text-white/75">
+              GPS podloga
             </div>
           ) : (
             <LaneTypeButtons
@@ -911,10 +897,7 @@ export default function SceneSketchStep({
       </Card>
 
       <Card className="space-y-4 border border-accent/20 bg-accent/8">
-        <div className="space-y-1">
-          <div className="text-xs uppercase tracking-[0.26em] text-accent">Finalna skica</div>
-          <div className="text-sm text-white/70">Potvrdom cuvamo skicu kao finalnu sliku za PDF polje 13 i evidence paket.</div>
-        </div>
+        <div className="text-xs uppercase tracking-[0.26em] text-accent">Finalna skica</div>
         {gpsMapUrl ? (
           <div className="overflow-x-auto">
             <div className="relative mx-auto h-[340px] w-[360px] overflow-hidden rounded-[24px] border border-white/10 bg-[#0B0D12]">

@@ -47,12 +47,7 @@ export default function ReviewStep({ report, onEditStep }: Props) {
 
   return (
     <div className="space-y-4">
-      <div className="space-y-1">
-        <h2 className="text-[30px] font-semibold text-white">Pregled pre potpisa</h2>
-        <p className="text-sm text-white/60">
-          Prodji kroz podatke i vrati se na bilo koji korak ako zelis ispravku.
-        </p>
-      </div>
+      <h2 className="text-[30px] font-semibold text-white">Pregled pre potpisa</h2>
 
       <SummaryCard
         body={[

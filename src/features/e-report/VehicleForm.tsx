@@ -165,12 +165,10 @@ function SelectField({
 function SectionTitle({
   title,
   headline,
-  helper,
   accent
 }: {
   title: string;
   headline: string;
-  helper: string;
   accent: AccentTone;
 }) {
   const accentClasses = accentClassMap[accent];
@@ -181,7 +179,6 @@ function SectionTitle({
         {title}
       </div>
       <h2 className="text-[30px] font-semibold text-white">{headline}</h2>
-      <p className="text-sm text-white/60">{helper}</p>
     </div>
   );
 }
@@ -277,9 +274,6 @@ function PhotoStrip({
       ) : (
         <Camera disabled={readOnly} helper={helper} onCapture={(files) => onCapture(files)} title={title} />
       )}
-      <div className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/65">
-        {hint}
-      </div>
       {!hasBothSides && photos.length ? (
         <div className="grid grid-cols-2 gap-3">
           {photos.map((photo) => (
@@ -680,7 +674,7 @@ export default function VehicleForm({
 
   return (
     <div className="space-y-4">
-      <SectionTitle accent={accent} helper={config.helper} headline={config.headline} title={title} />
+      <SectionTitle accent={accent} headline={config.headline} title={title} />
 
       <Card className={`space-y-4 border ${accentClasses.ring}`}>
         <datalist id={postalCodeListId}>
@@ -709,12 +703,6 @@ export default function VehicleForm({
       </Card>
 
       <Card className={`space-y-4 border ${accentClasses.ring} ${accentClasses.soft}`}>
-        {missingFields.length ? (
-          <div className="text-sm text-red-200">Prazna obavezna polja su oznacena crveno.</div>
-        ) : (
-          <div className="text-sm text-white/55">Korak je kompletiran i spreman za nastavak.</div>
-        )}
-
         {section === "driver" ? (
           <DriverFields
             isMissing={isMissing}

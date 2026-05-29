@@ -44,23 +44,14 @@ export default function SceneSituationStep({
 
   return (
     <div className="space-y-4">
-      <div className="space-y-1">
-        <h2 className="text-[30px] font-semibold text-white">Fotografisite celu situaciju</h2>
-        <p className="text-sm text-white/60">
-          Potrebni su oba vozila u kadru, polozaj vozila, kolovoz, raskrsnica i znakovi ako ih ima.
-        </p>
-      </div>
+      <h2 className="text-[30px] font-semibold text-white">Fotografiši celu situaciju</h2>
 
       <Card className="space-y-4 border border-white/10">
         <Camera
           disabled={readOnly}
-          helper="Jedan siri kadar sa oba vozila i celim mestom dogadjaja."
           onCapture={handleCapture}
           title="Scena nezgode"
         />
-        <div className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/65">
-          Fotografija scene se cuva jednom i ostaje uz report kao podloga za sledeci korak: skica nezgode.
-        </div>
         {scenePhotos.length ? (
           <div className="grid grid-cols-2 gap-3">
             {scenePhotos.map((photo) => (

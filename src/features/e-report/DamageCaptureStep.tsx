@@ -51,53 +51,44 @@ function DamageCard({
 
   return (
     <Card className={`space-y-4 border ${accentClass}`}>
-      <div className="space-y-1">
-        <div className="text-sm font-semibold text-white">{title}</div>
-        <div className="text-sm text-white/60">Dodaj 1 ili više fotografija i potvrdi mesto oštećenja.</div>
-      </div>
+      <div className="text-sm font-semibold text-white">{title}</div>
       <Camera
         disabled={readOnly}
-        helper="Fotografiši najjasniji ugao oštećenja."
         onCapture={onCapture}
         title="Dodaj fotografiju oštećenja"
       />
       {photos.length ? (
-        <div className="space-y-3">
-          <div className="text-sm text-white/60">Sacuvane fotografije ostecenja</div>
-          <div className="grid grid-cols-2 gap-3">
-            {photos.map((photo, index) => (
-              <div key={photo.id} className="relative overflow-hidden rounded-[18px] bg-white/5">
-                <img alt={title} className="aspect-[4/3] w-full object-cover" src={photo.dataUrl} />
-                <div className="absolute bottom-2 left-2 rounded-full bg-black/55 px-2 py-1 text-xs text-white">
-                  Foto {index + 1}
-                </div>
-                {readOnly ? null : (
-                  <button
-                    className="absolute right-2 top-2 rounded-full bg-black/55 px-2 py-1 text-xs text-white"
-                    onClick={() => onDelete(photo.id)}
-                    type="button"
-                  >
-                    Obrisi
-                  </button>
-                )}
+        <div className="grid grid-cols-2 gap-3">
+          {photos.map((photo, index) => (
+            <div key={photo.id} className="relative overflow-hidden rounded-[18px] bg-white/5">
+              <img alt={title} className="aspect-[4/3] w-full object-cover" src={photo.dataUrl} />
+              <div className="absolute bottom-2 left-2 rounded-full bg-black/55 px-2 py-1 text-xs text-white">
+                Foto {index + 1}
               </div>
-            ))}
-          </div>
+              {readOnly ? null : (
+                <button
+                  className="absolute right-2 top-2 rounded-full bg-black/55 px-2 py-1 text-xs text-white"
+                  onClick={() => onDelete(photo.id)}
+                  type="button"
+                >
+                  Obrisi
+                </button>
+              )}
+            </div>
+          ))}
         </div>
       ) : (
         <div className="rounded-[18px] border border-dashed border-white/10 px-4 py-3 text-sm text-white/45">
-          Fotografije ce se pojaviti ovde odmah nakon snimanja.
+          Nema fotografija.
         </div>
       )}
       {vehicle.damageSuggestion.status !== "idle" ? (
         <div className="space-y-3 rounded-[20px] border border-white/10 bg-white/5 p-4">
-          <div className="text-sm text-white/60">Detektovano mesto oštećenja</div>
           <div className="rounded-[20px] border border-white/10 bg-black/10 p-4">
             <div className="text-center text-4xl">🚗</div>
             <div className="mt-3 text-center text-white">{zone || "Nije detektovano"}</div>
           </div>
           <label className="space-y-2">
-            <span className="text-sm text-white/60">Izmeni ručno</span>
             <select
               className="input-glass text-white"
               disabled={readOnly}
@@ -180,7 +171,11 @@ export default function DamageCaptureStep({
   const damagePhotosA = photosByKind(photos, "damage-a");
   const damagePhotosB = photosByKind(photos, "damage-b");
 
-  const handleCapture = (kind: PhotoKind, vehicle: VehicleDraft, onVehicleChange: (value: VehicleDraft) => void) =>
+  const handleCapture = (
+    kind: PhotoKind,
+    vehicle: VehicleDraft,
+    onVehicleChange: (value: VehicleDraft) => void
+  ) =>
     async (files: FileList) => {
       const uploads = await Promise.all(
         Array.from(files).map(async (file) => ({
@@ -201,12 +196,7 @@ export default function DamageCaptureStep({
 
   return (
     <div className="space-y-4">
-      <div className="space-y-1">
-        <h2 className="text-[30px] font-semibold text-white">Fotografije oštećenja</h2>
-        <p className="text-sm text-white/60">
-          Odvojeno dokumentuj vozilo A i vozilo B. Predlog mesta udara je samo pomoć korisniku.
-        </p>
-      </div>
+      <h2 className="text-[30px] font-semibold text-white">Fotografije oštećenja</h2>
       <DamageCard
         accentClass="border-red-400/35"
         onCapture={handleCapture("damage-a", vehicleA, onVehicleAChange)}
