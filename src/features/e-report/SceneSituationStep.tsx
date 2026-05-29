@@ -44,13 +44,13 @@ export default function SceneSituationStep({
 
   return (
     <div className="space-y-4">
-      <h2 className="text-[30px] font-semibold text-white">Fotografiši celu situaciju</h2>
+      <h2 className="text-[30px] font-semibold text-white">Fotografija mesta nezgode</h2>
 
       <Card className="space-y-4 border border-white/10">
         <Camera
           disabled={readOnly}
           onCapture={handleCapture}
-          title="Scena nezgode"
+          title="Mesto nezgode"
         />
         {scenePhotos.length ? (
           <div className="grid grid-cols-2 gap-3">

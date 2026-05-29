@@ -1,21 +1,13 @@
 import { useEffect, useMemo } from "react";
-import Camera from "../../components/Camera";
 import Card from "../../components/Card";
 import {
   INSURER_OPTIONS,
   POSTAL_CODE_CITY_OPTIONS,
-  createId,
   getVehicleSectionMissingFields,
   resolveCityFromPostalCode,
   type VehicleSection
 } from "../../lib/utils";
-import type {
-  DocumentSide,
-  DocumentType,
-  PhotoAsset,
-  PhotoKind,
-  VehicleDraft
-} from "../../types";
+import type { VehicleDraft } from "../../types";
 
 type AccentTone = "red" | "blue";
 
@@ -26,42 +18,6 @@ type Props = {
   onChange: (value: VehicleDraft) => void;
   readOnly?: boolean;
   accent?: AccentTone;
-};
-
-const sectionConfig: Record<
-  VehicleSection,
-  {
-    headline: string;
-    helper: string;
-    cameraTitle: string;
-    cameraHelper: string;
-    photoHint: string;
-    requiresBothSides?: boolean;
-  }
-> = {
-  driver: {
-    headline: "Fotografija vozacke dozvole",
-    helper: "Papirni obrazac je glavni izvor podataka. Fotografija ostaje iznad forme kao vizuelna pomoc pri unosu.",
-    cameraTitle: "Vozacka dozvola",
-    cameraHelper: "Prvo dodaj prednju, pa zadnju stranu dokumenta. Obe slike su obavezne.",
-    photoHint: "Fotografije ostaju uz zapisnik i kasnije idu u dokazni paket.",
-    requiresBothSides: true
-  },
-  vehicle: {
-    headline: "Fotografija saobracajne dozvole",
-    helper: "Saobracajna je vizuelna pomoc. Ispod rucno unosis polja koja trazi evropski izvestaj.",
-    cameraTitle: "Saobracajna dozvola",
-    cameraHelper: "Dodaj prednju i zadnju stranu saobracajne dozvole. Obe slike su obavezne.",
-    photoHint: "Dokument ostaje sacuvan uz report.",
-    requiresBothSides: true
-  },
-  policy: {
-    headline: "Fotografija polise osiguranja",
-    helper: "Polisa ostaje prikazana iznad forme, a korisnik rucno unosi podatke koji idu u zapisnik.",
-    cameraTitle: "Polisa osiguranja",
-    cameraHelper: "Dodaj jasnu fotografiju ili vise strana ako su podaci rasporedjeni.",
-    photoHint: "Fotografija polise ostaje sacuvana uz report."
-  }
 };
 
 const accentClassMap: Record<AccentTone, { ring: string; soft: string; text: string }> = {
@@ -76,15 +32,6 @@ const accentClassMap: Record<AccentTone, { ring: string; soft: string; text: str
     text: "text-accent"
   }
 };
-
-async function fileToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-}
 
 function normalizePostalCode(value: string) {
   return value.replace(/\D/g, "").slice(0, 5);
@@ -174,11 +121,9 @@ function SelectField({
 
 function SectionTitle({
   title,
-  headline,
   accent
 }: {
   title: string;
-  headline: string;
   accent: AccentTone;
 }) {
   const accentClasses = accentClassMap[accent];
@@ -188,120 +133,7 @@ function SectionTitle({
       <div className={`inline-flex rounded-full border px-3 py-1 text-xs uppercase tracking-[0.26em] ${accentClasses.ring} ${accentClasses.text}`}>
         {title}
       </div>
-      <h2 className="text-[30px] font-semibold text-white">{headline}</h2>
-    </div>
-  );
-}
-
-function PhotoStrip({
-  title,
-  helper,
-  hint,
-  photos,
-  requiredSides,
-  missingLabels = [],
-  readOnly = false,
-  onCapture,
-  onDelete
-}: {
-  title: string;
-  helper: string;
-  hint: string;
-  photos: PhotoAsset[];
-  requiredSides?: DocumentSide[];
-  missingLabels?: string[];
-  readOnly?: boolean;
-  onCapture: (files: FileList, side?: DocumentSide) => Promise<void>;
-  onDelete: (photoId: string) => void;
-}) {
-  const hasBothSides = requiredSides?.length;
-  const sidePhotos = hasBothSides
-    ? {
-        front: photos.find((photo) => photo.documentSide === "front"),
-        back: photos.find((photo) => photo.documentSide === "back")
-      }
-    : null;
-
-  return (
-    <div className="space-y-3">
-      {hasBothSides && sidePhotos ? (
-        <div className="grid gap-3">
-          {requiredSides.map((side) => {
-            const photo = sidePhotos[side];
-            const sideLabel = side === "front" ? "prednje strane" : "zadnje strane";
-            const cardTitle = side === "front" ? "Prednja strana" : "Zadnja strana";
-            const isMissing = missingLabels.some((label) =>
-              label.includes(side === "front" ? "Prednja" : "Zadnja")
-            );
-
-            return (
-              <div
-                key={side}
-                className={`rounded-[22px] border p-3 ${
-                  isMissing ? "border-red-400/45 bg-red-500/8" : "border-white/10 bg-white/5"
-                }`}
-              >
-                <div className="mb-3 text-sm font-medium text-white">{cardTitle}</div>
-                <Camera
-                  buttonLabel={`Dodaj sliku ${sideLabel}`}
-                  disabled={readOnly}
-                  helper={
-                    side === "front"
-                      ? `${helper} Usmeri kameru na prednju stranu.`
-                      : `${helper} Zatim dodaj zadnju stranu.`
-                  }
-                  multiple={false}
-                  onCapture={(files) => onCapture(files, side)}
-                  title={title}
-                />
-                {photo ? (
-                  <div className="relative mt-3 overflow-hidden rounded-[18px] bg-white/5">
-                    <img alt={`${title} ${cardTitle.toLowerCase()}`} className="aspect-[4/3] w-full object-cover" src={photo.dataUrl} />
-                    <div className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-1 text-xs text-white">
-                      {cardTitle}
-                    </div>
-                    {readOnly ? null : (
-                      <button
-                        className="absolute right-2 top-2 rounded-full bg-black/55 px-2 py-1 text-xs text-white"
-                        onClick={() => onDelete(photo.id)}
-                        type="button"
-                      >
-                        Obrisi
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="mt-3 rounded-[18px] border border-dashed border-white/15 px-4 py-4 text-sm text-white/55">
-                    {isMissing
-                      ? `Nedostaje slika ${sideLabel}.`
-                      : `Jos nije dodata slika ${sideLabel}.`}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <Camera disabled={readOnly} helper={helper} onCapture={(files) => onCapture(files)} title={title} />
-      )}
-      {!hasBothSides && photos.length ? (
-        <div className="grid grid-cols-2 gap-3">
-          {photos.map((photo) => (
-            <div key={photo.id} className="relative overflow-hidden rounded-[18px] bg-white/5">
-              <img alt={title} className="aspect-[4/3] w-full object-cover" src={photo.dataUrl} />
-              {readOnly ? null : (
-                <button
-                  className="absolute right-2 top-2 rounded-full bg-black/55 px-2 py-1 text-xs text-white"
-                  onClick={() => onDelete(photo.id)}
-                  type="button"
-                >
-                  Obrisi
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      ) : null}
+      <h2 className="text-[30px] font-semibold text-white">{title}</h2>
     </div>
   );
 }
@@ -408,25 +240,7 @@ function VehicleFields({
           invalid={isMissing("Tip vozila")}
           label="Tip vozila"
           onChange={(type) => onChange({ ...value, type })}
-          options={[
-            "Limuzina",
-            "Hecbek",
-            "Karavan",
-            "SUV",
-            "Kupe",
-            "Kabriolet",
-            "Kombi",
-            "Dostavno vozilo",
-            "Kamion",
-            "Autobus",
-            "Motocikl",
-            "Moped",
-            "Traktor",
-            "Radna masina",
-            "Prikolica",
-            "Poluprikolica",
-            "Drugo"
-          ]}
+          options={["Putničko", "Teretno"]}
           readOnly={readOnly}
           value={value.type}
         />
@@ -649,54 +463,16 @@ export default function VehicleForm({
 }: Props) {
   const insurerListId = useMemo(() => `insurer-${value.side}-${section}`, [section, value.side]);
   const postalCodeListId = useMemo(() => `postal-${value.side}-${section}`, [section, value.side]);
-  const vehicleDocumentKind: PhotoKind = value.side === "A" ? "document-a" : "document-b";
-  const config = sectionConfig[section];
   const accentClasses = accentClassMap[accent];
   const missingFields = getVehicleSectionMissingFields(value, section);
-  const photos = value.documentPhotos.filter((photo) => {
-    if (section === "driver") {
-      return photo.documentType === "driver-license";
-    }
-    if (section === "vehicle") {
-      return photo.documentType === "registration";
-    }
-    return photo.documentType === "policy";
-  });
 
   const isMissing = (label: string) => missingFields.includes(label);
 
-  const handleCapture = async (files: FileList, side?: DocumentSide) => {
-    const documentType: DocumentType =
-      section === "driver" ? "driver-license" : section === "vehicle" ? "registration" : "policy";
-    const uploads = await Promise.all(
-      Array.from(files).map(async (file) => ({
-        id: createId("doc"),
-        dataUrl: await fileToDataUrl(file),
-        label: file.name,
-        kind: vehicleDocumentKind,
-        documentType,
-        documentSide: side
-      }))
-    );
-
-    const preservedPhotos =
-      side && config.requiresBothSides
-        ? value.documentPhotos.filter(
-            (photo) => !(photo.documentType === documentType && photo.documentSide === side)
-          )
-        : value.documentPhotos;
-
-    onChange({
-      ...value,
-      documentPhotos: [...preservedPhotos, ...uploads]
-    });
-  };
-
   return (
     <div className="space-y-4">
-      <SectionTitle accent={accent} headline={config.headline} title={title} />
+      <SectionTitle accent={accent} title={title} />
 
-      <Card className={`space-y-4 border-2 ${accentClasses.ring}`}>
+      <Card className={`space-y-4 border-2 ${accentClasses.ring} ${accentClasses.soft}`}>
         <datalist id={postalCodeListId}>
           {POSTAL_CODE_CITY_OPTIONS.map((option) => (
             <option key={`${option.postalCode}-${option.city}`} value={option.postalCode}>
@@ -704,25 +480,6 @@ export default function VehicleForm({
             </option>
           ))}
         </datalist>
-        <PhotoStrip
-          helper={config.cameraHelper}
-          hint={config.photoHint}
-          onCapture={handleCapture}
-          onDelete={(photoId) =>
-            onChange({
-              ...value,
-              documentPhotos: value.documentPhotos.filter((item) => item.id !== photoId)
-            })
-          }
-          photos={photos}
-          readOnly={readOnly}
-          requiredSides={config.requiresBothSides ? ["front", "back"] : undefined}
-          missingLabels={missingFields}
-          title={config.cameraTitle}
-        />
-      </Card>
-
-      <Card className={`space-y-4 border-2 ${accentClasses.ring} ${accentClasses.soft}`}>
         {section === "driver" ? (
           <DriverFields
             accent={accent}

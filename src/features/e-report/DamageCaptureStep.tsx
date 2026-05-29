@@ -1,7 +1,6 @@
 import Camera from "../../components/Camera";
 import Button from "../../components/Button";
 import Card from "../../components/Card";
-import { mockDamageRecognition } from "../../lib/photoAssist";
 import { DAMAGE_ZONE_OPTIONS, createId } from "../../lib/utils";
 import type { DamageZone, PhotoAsset, PhotoKind, VehicleDraft } from "../../types";
 
@@ -28,7 +27,7 @@ function photosByKind(photos: PhotoAsset[], kind: PhotoKind) {
   return photos.filter((photo) => photo.kind === kind);
 }
 
-function DamageCard({
+function ZoneCard({
   title,
   accentClass,
   photos,
@@ -47,113 +46,82 @@ function DamageCard({
   onVehicleChange: (vehicle: VehicleDraft) => void;
   readOnly?: boolean;
 }) {
-  const zone = vehicle.damageSuggestion.manualZone || vehicle.damageSuggestion.suggestedZone;
+  const zone = vehicle.impactZone || vehicle.damageSuggestion.manualZone;
 
   return (
-    <Card className={`space-y-4 border ${accentClass}`}>
-      <div className="text-sm font-semibold text-white">{title}</div>
+    <Card className={`space-y-4 border-2 ${accentClass}`}>
+      <div className="text-lg font-semibold text-white">{title}</div>
       <Camera
+        buttonLabel="Dodaj fotografije"
         disabled={readOnly}
         onCapture={onCapture}
-        title="Dodaj fotografiju oštećenja"
+        title={title}
       />
+
       {photos.length ? (
         <div className="grid grid-cols-2 gap-3">
           {photos.map((photo, index) => (
             <div key={photo.id} className="relative overflow-hidden rounded-[18px] bg-white/5">
-              <img alt={title} className="aspect-[4/3] w-full object-cover" src={photo.dataUrl} />
-              <div className="absolute bottom-2 left-2 rounded-full bg-black/55 px-2 py-1 text-xs text-white">
-                Foto {index + 1}
-              </div>
-              {readOnly ? null : (
+              <img alt={`${title} ${index + 1}`} className="aspect-[4/3] w-full object-cover" src={photo.dataUrl} />
+              {!readOnly ? (
                 <button
-                  className="absolute right-2 top-2 rounded-full bg-black/55 px-2 py-1 text-xs text-white"
+                  className="absolute right-2 top-2 rounded-full bg-black/60 px-3 py-1 text-xs text-white"
                   onClick={() => onDelete(photo.id)}
                   type="button"
                 >
-                  Obrisi
+                  Obriši
                 </button>
-              )}
+              ) : null}
             </div>
           ))}
         </div>
-      ) : (
-        <div className="rounded-[18px] border border-dashed border-white/10 px-4 py-3 text-sm text-white/45">
-          Nema fotografija.
-        </div>
-      )}
-      {vehicle.damageSuggestion.status !== "idle" ? (
-        <div className="space-y-3 rounded-[20px] border border-white/10 bg-white/5 p-4">
-          <div className="rounded-[20px] border border-white/10 bg-black/10 p-4">
-            <div className="text-center text-4xl">🚗</div>
-            <div className="mt-3 text-center text-white">{zone || "Nije detektovano"}</div>
-          </div>
-          <label className="space-y-2">
-            <select
-              className="input-glass text-white"
-              disabled={readOnly}
-              value={zone}
-              onChange={(event) =>
-                onVehicleChange({
-                  ...vehicle,
-                  damageSuggestion: {
-                    ...vehicle.damageSuggestion,
-                    manualZone: event.target.value as DamageZone
-                  }
-                })
+      ) : null}
+
+      <label className="space-y-2">
+        <span className="text-sm text-white/60">Mesto oštećenja</span>
+        <select
+          className="input-glass text-white"
+          disabled={readOnly}
+          value={zone}
+          onChange={(event) =>
+            onVehicleChange({
+              ...vehicle,
+              impactZone: event.target.value as DamageZone,
+              visibleDamage: event.target.value
+            })
+          }
+        >
+          <option className="bg-white text-slate-900" value="">
+            Izaberi
+          </option>
+          {DAMAGE_ZONE_OPTIONS.map((item) => (
+            <option className="bg-white text-slate-900" key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
+      </label>
+
+      {!readOnly ? (
+        <Button
+          onClick={() =>
+            onVehicleChange({
+              ...vehicle,
+              impactZone: zone as DamageZone,
+              visibleDamage: zone,
+              damageSuggestion: {
+                ...vehicle.damageSuggestion,
+                status: zone ? "confirmed" : "idle",
+                manualZone: zone as DamageZone,
+                suggestedZone: zone as DamageZone
               }
-            >
-              <option className="bg-white text-slate-900" value="">
-                Izaberi mesto
-              </option>
-              {DAMAGE_ZONE_OPTIONS.map((item) => (
-                <option className="bg-white text-slate-900" key={item} value={item}>
-                  {item}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              disabled={readOnly}
-              onClick={() =>
-                onVehicleChange({
-                  ...vehicle,
-                  impactZone: zone,
-                  visibleDamage: zone ? `Detektovano mesto oštećenja: ${zone}` : vehicle.visibleDamage,
-                  damageSuggestion: {
-                    ...vehicle.damageSuggestion,
-                    status: "confirmed",
-                    manualZone: zone,
-                    suggestedZone: zone
-                  }
-                })
-              }
-              type="button"
-            >
-              Potvrdi
-            </Button>
-            <Button
-              disabled={readOnly}
-              onClick={() =>
-                onVehicleChange({
-                  ...vehicle,
-                  damageSuggestion: {
-                    ...vehicle.damageSuggestion,
-                    manualZone: "",
-                    suggestedZone: "",
-                    status: "idle",
-                    sourcePhotoId: null
-                  }
-                })
-              }
-              type="button"
-              variant="secondary"
-            >
-              Reset
-            </Button>
-          </div>
-        </div>
+            })
+          }
+          type="button"
+          variant="secondary"
+        >
+          Sačuvaj mesto oštećenja
+        </Button>
       ) : null}
     </Card>
   );
@@ -171,11 +139,8 @@ export default function DamageCaptureStep({
   const damagePhotosA = photosByKind(photos, "damage-a");
   const damagePhotosB = photosByKind(photos, "damage-b");
 
-  const handleCapture = (
-    kind: PhotoKind,
-    vehicle: VehicleDraft,
-    onVehicleChange: (value: VehicleDraft) => void
-  ) =>
+  const handleCapture =
+    (kind: PhotoKind) =>
     async (files: FileList) => {
       const uploads = await Promise.all(
         Array.from(files).map(async (file) => ({
@@ -187,19 +152,15 @@ export default function DamageCaptureStep({
       );
 
       onChange([...photos, ...uploads]);
-      const suggestion = await mockDamageRecognition(uploads[0]);
-      onVehicleChange({
-        ...vehicle,
-        damageSuggestion: suggestion
-      });
     };
 
   return (
     <div className="space-y-4">
-      <h2 className="text-[30px] font-semibold text-white">Fotografije oštećenja</h2>
-      <DamageCard
-        accentClass="border-red-400/35"
-        onCapture={handleCapture("damage-a", vehicleA, onVehicleAChange)}
+      <h2 className="text-[30px] font-semibold text-white">Oštećenja vozila</h2>
+
+      <ZoneCard
+        accentClass="border-red-400/40"
+        onCapture={handleCapture("damage-a")}
         onDelete={(photoId) => onChange(photos.filter((item) => item.id !== photoId))}
         onVehicleChange={onVehicleAChange}
         photos={damagePhotosA}
@@ -207,9 +168,10 @@ export default function DamageCaptureStep({
         title="Oštećenje vozila A"
         vehicle={vehicleA}
       />
-      <DamageCard
-        accentClass="border-accent/35"
-        onCapture={handleCapture("damage-b", vehicleB, onVehicleBChange)}
+
+      <ZoneCard
+        accentClass="border-accent/40"
+        onCapture={handleCapture("damage-b")}
         onDelete={(photoId) => onChange(photos.filter((item) => item.id !== photoId))}
         onVehicleChange={onVehicleBChange}
         photos={damagePhotosB}

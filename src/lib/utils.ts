@@ -379,11 +379,16 @@ export function normalizeReport(report: ReportDraft): ReportDraft {
 export function isReportReadyForSignature(report: ReportDraft) {
   const vehicles = [report.vehicleA, report.vehicleB];
   const vehiclesReady = vehicles.every((vehicle) => getVehicleMissingFields(vehicle).length === 0);
+  const hasLocation =
+    report.location.address.trim() ||
+    report.location.street.trim() ||
+    report.location.city.trim() ||
+    (report.location.latitude && report.location.longitude);
 
   return Boolean(
     report.location.date &&
       report.location.time &&
-      report.location.address.trim() &&
+      hasLocation &&
       report.safety.injured !== null &&
       report.safety.damageOtherVehicles !== null &&
       report.safety.damageOtherObjects !== null &&
@@ -391,6 +396,47 @@ export function isReportReadyForSignature(report: ReportDraft) {
       vehiclesReady &&
       (report.annotatedPhotoDataUrl || report.sceneSketch.svgDataUrl)
   );
+}
+
+export function hasDocumentSide(
+  vehicle: VehicleDraft,
+  documentType: "driver-license" | "registration" | "policy",
+  documentSide: "front" | "back"
+) {
+  return vehicle.documentPhotos.some(
+    (photo) => photo.documentType === documentType && photo.documentSide === documentSide
+  );
+}
+
+export function getDocumentationMissingFields(report: ReportDraft) {
+  const missing: string[] = [];
+  const requirements: Array<{
+    label: string;
+    vehicle: VehicleDraft;
+    documentType: "driver-license" | "registration" | "policy";
+    side: "front" | "back";
+  }> = [
+    { label: "Vozacka dozvola A - prednja", vehicle: report.vehicleA, documentType: "driver-license", side: "front" },
+    { label: "Vozacka dozvola A - zadnja", vehicle: report.vehicleA, documentType: "driver-license", side: "back" },
+    { label: "Vozacka dozvola B - prednja", vehicle: report.vehicleB, documentType: "driver-license", side: "front" },
+    { label: "Vozacka dozvola B - zadnja", vehicle: report.vehicleB, documentType: "driver-license", side: "back" },
+    { label: "Saobracajna dozvola A - prednja", vehicle: report.vehicleA, documentType: "registration", side: "front" },
+    { label: "Saobracajna dozvola A - zadnja", vehicle: report.vehicleA, documentType: "registration", side: "back" },
+    { label: "Saobracajna dozvola B - prednja", vehicle: report.vehicleB, documentType: "registration", side: "front" },
+    { label: "Saobracajna dozvola B - zadnja", vehicle: report.vehicleB, documentType: "registration", side: "back" },
+    { label: "Polisa A - prednja", vehicle: report.vehicleA, documentType: "policy", side: "front" },
+    { label: "Polisa A - zadnja", vehicle: report.vehicleA, documentType: "policy", side: "back" },
+    { label: "Polisa B - prednja", vehicle: report.vehicleB, documentType: "policy", side: "front" },
+    { label: "Polisa B - zadnja", vehicle: report.vehicleB, documentType: "policy", side: "back" }
+  ];
+
+  requirements.forEach((item) => {
+    if (!hasDocumentSide(item.vehicle, item.documentType, item.side)) {
+      missing.push(item.label);
+    }
+  });
+
+  return missing;
 }
 
 export function getVehicleMissingFields(vehicle: VehicleDraft) {
@@ -411,44 +457,17 @@ export function getVehicleMissingFields(vehicle: VehicleDraft) {
   requireValue("Datum rodjenja", vehicle.driverBirthDate);
   requireValue("Adresa vozaca", vehicle.driverAddress);
   requireValue("Postanski broj vozaca", vehicle.driverPostalCode);
+  requireValue("Grad vozaca", vehicle.driverCity);
   requireOneOf("Telefon ili e-mail vozaca", [vehicle.driverPhone, vehicle.driverEmail]);
   requireValue("Broj vozacke dozvole", vehicle.driverLicenseNumber);
   requireValue("Kategorija dozvole", vehicle.driverLicenseCategory);
   requireValue("Vazenje vozacke dozvole", vehicle.driverLicenseValidUntil);
-  if (
-    !vehicle.documentPhotos.some(
-      (photo) => photo.documentType === "driver-license" && photo.documentSide === "front"
-    )
-  ) {
-    missing.push("Prednja strana vozacke dozvole");
-  }
-  if (
-    !vehicle.documentPhotos.some(
-      (photo) => photo.documentType === "driver-license" && photo.documentSide === "back"
-    )
-  ) {
-    missing.push("Zadnja strana vozacke dozvole");
-  }
 
   requireValue("Marka vozila", vehicle.make);
   requireValue("Model vozila", vehicle.model);
   requireValue("Tip vozila", vehicle.type);
   requireValue("Registarska oznaka", vehicle.plate);
   requireValue("Drzava registracije", vehicle.registrationCountry);
-  if (
-    !vehicle.documentPhotos.some(
-      (photo) => photo.documentType === "registration" && photo.documentSide === "front"
-    )
-  ) {
-    missing.push("Prednja strana saobracajne dozvole");
-  }
-  if (
-    !vehicle.documentPhotos.some(
-      (photo) => photo.documentType === "registration" && photo.documentSide === "back"
-    )
-  ) {
-    missing.push("Zadnja strana saobracajne dozvole");
-  }
 
   requireValue("Prezime ugovaraca", vehicle.ownerLastName);
   requireValue("Ime ugovaraca", vehicle.ownerFirstName);
@@ -483,12 +502,11 @@ export function getVehicleSectionMissingFields(vehicle: VehicleDraft, section: V
         "Datum rodjenja",
         "Adresa vozaca",
         "Postanski broj vozaca",
+        "Grad vozaca",
         "Telefon ili e-mail vozaca",
         "Broj vozacke dozvole",
         "Kategorija dozvole",
-        "Vazenje vozacke dozvole",
-        "Prednja strana vozacke dozvole",
-        "Zadnja strana vozacke dozvole"
+        "Vazenje vozacke dozvole"
       ].includes(field)
     );
   }
@@ -500,9 +518,7 @@ export function getVehicleSectionMissingFields(vehicle: VehicleDraft, section: V
         "Model vozila",
         "Tip vozila",
         "Registarska oznaka",
-        "Drzava registracije",
-        "Prednja strana saobracajne dozvole",
-        "Zadnja strana saobracajne dozvole"
+        "Drzava registracije"
       ].includes(field)
     );
   }
@@ -545,15 +561,15 @@ export function getReportStatusLabel(
   }
 ) {
   if (options?.isLocking) {
-    return "Zakljucavanje u toku";
+    return "Zaključavanje u toku";
   }
 
   switch (status) {
     case "ready_for_signature":
-      return "Spreman za potpise";
+      return "Spreman za potpisivanje";
     case "locked":
     case "completed":
-      return "Zakljucan";
+      return "Zaključan";
     default:
       return "U izradi";
   }

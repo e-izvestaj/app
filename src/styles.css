@@ -74,3 +74,33 @@ textarea {
     filter: drop-shadow(0 0 22px rgba(47, 128, 255, 0.28));
   }
 }
+
+@keyframes typeReveal {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes blinkCaret {
+  0%,
+  49% {
+    border-color: rgba(255, 255, 255, 0.72);
+  }
+  50%,
+  100% {
+    border-color: transparent;
+  }
+}
+
+.typewriter-title {
+  display: inline-block;
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 2px solid rgba(255, 255, 255, 0.72);
+  animation:
+    typeReveal 900ms steps(12, end) both,
+    blinkCaret 900ms step-end 2;
+}

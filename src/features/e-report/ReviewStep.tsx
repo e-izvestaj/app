@@ -35,72 +35,88 @@ function SummaryCard({
 }
 
 export default function ReviewStep({ report, onEditStep }: Props) {
-  const scenePhoto = report.scenePhotos.find((photo) => photo.kind === "scene");
+  const scenePhotos = report.scenePhotos.filter((photo) => photo.kind === "scene");
   const damagePhotoA = report.scenePhotos.find((photo) => photo.kind === "damage-a");
   const damagePhotoB = report.scenePhotos.find((photo) => photo.kind === "damage-b");
-  const docCountA = report.vehicleA.documentPhotos.length;
-  const docCountB = report.vehicleB.documentPhotos.length;
-  const finalSketchImage = report.annotatedPhotoDataUrl || report.sceneSketch.svgDataUrl;
+  const sketchImage = report.annotatedPhotoDataUrl || report.sceneSketch.svgDataUrl;
 
   return (
     <div className="space-y-4">
-      <h2 className="text-[30px] font-semibold text-white">Pregled pre potpisa</h2>
+      <h2 className="text-[30px] font-semibold text-white">Pregled izveštaja</h2>
 
       <SummaryCard
         body={[
-          `${report.location.date} u ${report.location.time}`,
-          report.location.address || "Lokacija nije uneta",
-          report.location.city || "Grad nije unet"
+          `${report.location.date} · ${report.location.time}`,
+          report.location.address || [report.location.street, report.location.streetNumber, report.location.city].filter(Boolean).join(", ") || "Lokacija nije uneta"
         ]}
-        onEdit={() => onEditStep("Vreme i lokacija")}
-        title="Vreme i lokacija"
+        onEdit={() => onEditStep("Vreme i mesto")}
+        title="Vreme i mesto"
       />
 
       <SummaryCard
         body={[
-          `${report.vehicleA.driverFirstName} ${report.vehicleA.driverLastName}`.trim() || "Vozac A nije unet",
-          report.vehicleA.plate || "Registracija nije uneta",
-          report.vehicleA.insurer || "Polisa nije uneta",
-          `Dokumenti: ${docCountA}`
+          `Vozačka A: ${report.vehicleA.documentPhotos.filter((item) => item.documentType === "driver-license").length}/2`,
+          `Vozačka B: ${report.vehicleB.documentPhotos.filter((item) => item.documentType === "driver-license").length}/2`,
+          `Saobraćajna A: ${report.vehicleA.documentPhotos.filter((item) => item.documentType === "registration").length}/2`,
+          `Saobraćajna B: ${report.vehicleB.documentPhotos.filter((item) => item.documentType === "registration").length}/2`,
+          `Polisa A: ${report.vehicleA.documentPhotos.filter((item) => item.documentType === "policy").length}/2`,
+          `Polisa B: ${report.vehicleB.documentPhotos.filter((item) => item.documentType === "policy").length}/2`
         ]}
-        onEdit={() => onEditStep("Vozac A")}
+        onEdit={() => onEditStep("Dokumentacija")}
+        title="Dokumentacija"
+      />
+
+      <SummaryCard
+        body={[
+          `${report.vehicleA.driverFirstName} ${report.vehicleA.driverLastName}`.trim() || "Nije uneto",
+          report.vehicleA.plate || "Registracija nije uneta",
+          report.vehicleA.insurer || "Polisa nije uneta"
+        ]}
+        onEdit={() => onEditStep("Vozač A")}
         title="A strana"
       />
 
       <SummaryCard
         body={[
-          `${report.vehicleB.driverFirstName} ${report.vehicleB.driverLastName}`.trim() || "Vozac B nije unet",
+          `${report.vehicleB.driverFirstName} ${report.vehicleB.driverLastName}`.trim() || "Nije uneto",
           report.vehicleB.plate || "Registracija nije uneta",
-          report.vehicleB.insurer || "Polisa nije uneta",
-          `Dokumenti: ${docCountB}`
+          report.vehicleB.insurer || "Polisa nije uneta"
         ]}
-        onEdit={() => onEditStep("Vozac B")}
+        onEdit={() => onEditStep("Vozač B")}
         title="B strana"
       />
 
       <SummaryCard
         body={[
-          `A oznaceno: ${report.circumstances.filter((item) => item.selectedByA).length}`,
-          `B oznaceno: ${report.circumstances.filter((item) => item.selectedByB).length}`
+          `A označeno: ${report.circumstances.filter((item) => item.selectedByA).length}`,
+          `B označeno: ${report.circumstances.filter((item) => item.selectedByB).length}`
         ]}
         onEdit={() => onEditStep("Okolnosti nezgode")}
-        title="Okolnosti nezgode"
+        title="Okolnosti"
       />
 
       <Card className="space-y-3">
         <div className="flex items-start justify-between gap-3">
-          <div className="text-base font-semibold text-white">Fotografije i skica</div>
+          <div className="text-base font-semibold text-white">Slike i skica</div>
           <Button fullWidth={false} onClick={() => onEditStep("Skica nezgode")} type="button" variant="ghost">
             Izmeni
           </Button>
         </div>
+
         <div className="grid grid-cols-3 gap-3">
-          {scenePhoto ? <img alt="Scena" className="aspect-square rounded-[18px] object-cover" src={scenePhoto.dataUrl} /> : null}
-          {damagePhotoA ? <img alt="Steta A" className="aspect-square rounded-[18px] object-cover" src={damagePhotoA.dataUrl} /> : null}
-          {damagePhotoB ? <img alt="Steta B" className="aspect-square rounded-[18px] object-cover" src={damagePhotoB.dataUrl} /> : null}
+          {scenePhotos[0] ? (
+            <img alt="Mesto nezgode" className="aspect-square rounded-[18px] object-cover" src={scenePhotos[0].dataUrl} />
+          ) : null}
+          {damagePhotoA ? (
+            <img alt="Oštećenje A" className="aspect-square rounded-[18px] object-cover" src={damagePhotoA.dataUrl} />
+          ) : null}
+          {damagePhotoB ? (
+            <img alt="Oštećenje B" className="aspect-square rounded-[18px] object-cover" src={damagePhotoB.dataUrl} />
+          ) : null}
         </div>
-        {finalSketchImage ? (
-          <img alt="Skica" className="w-full rounded-[20px] bg-[#0B0D12] object-cover" src={finalSketchImage} />
+
+        {sketchImage ? (
+          <img alt="Skica nezgode" className="w-full rounded-[20px] bg-[#0B0D12] object-cover" src={sketchImage} />
         ) : null}
       </Card>
     </div>

@@ -7,15 +7,31 @@ import { createEmptyReport, reportTitle } from "../lib/utils";
 import type { ReportDraft } from "../types";
 
 function SplashIntro({ onDone }: { onDone: () => void }) {
+  const [showSubline, setShowSubline] = useState(false);
+
   useEffect(() => {
-    const timeout = window.setTimeout(onDone, 2250);
-    return () => window.clearTimeout(timeout);
+    const subtitleTimeout = window.setTimeout(() => setShowSubline(true), 900);
+    const closeTimeout = window.setTimeout(onDone, 2400);
+
+    return () => {
+      window.clearTimeout(subtitleTimeout);
+      window.clearTimeout(closeTimeout);
+    };
   }, [onDone]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg">
-      <div className="animate-[fadeIn_500ms_ease,glowPulse_2400ms_ease] text-center">
-        <div className="text-[44px] font-semibold tracking-[0.08em] text-white">e-Izveštaj</div>
+      <div className="text-center">
+        <div className="typewriter-title text-[42px] font-semibold tracking-[0.08em] text-white">
+          E-Izveštaj
+        </div>
+        <div
+          className={`mt-3 text-sm uppercase tracking-[0.28em] text-white/55 transition duration-500 ${
+            showSubline ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          by AutoPulse
+        </div>
       </div>
     </div>
   );
@@ -25,14 +41,14 @@ export default function HomePage() {
   const navigate = useNavigate();
   const [showSplash, setShowSplash] = useState(true);
   const [reports, setReports] = useState<ReportDraft[]>([]);
-  const [activeDraftId, setActiveDraft] = useState<string | null>(null);
+  const [activeDraftId, setActiveDraftId] = useState<string | null>(null);
   const logoSrc = `${import.meta.env.BASE_URL}logo.png`;
 
   useEffect(() => {
     void (async () => {
       const [allReports, activeId] = await Promise.all([getAllReports(), getActiveDraftId()]);
       setReports(allReports);
-      setActiveDraft(activeId);
+      setActiveDraftId(activeId);
     })();
   }, []);
 
@@ -49,61 +65,55 @@ export default function HomePage() {
   return (
     <>
       {showSplash ? <SplashIntro onDone={() => setShowSplash(false)} /> : null}
+
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-10 pt-6">
-        <div className="mb-8">
-          <img alt="e-Izveštaj logo" className="h-16 w-auto" src={logoSrc} />
-          <div className="mt-6">
-            <h1 className="mt-2 text-[36px] font-semibold text-white">e-Izveštaj</h1>
-          </div>
+        <div className="mb-8 text-center">
+          <img alt="AutoPulse logo" className="mx-auto h-24 w-auto" src={logoSrc} />
+          <h1 className="mt-5 text-[38px] font-semibold text-white">E-Izveštaj</h1>
+          <div className="mt-2 text-sm uppercase tracking-[0.28em] text-white/45">by AutoPulse</div>
         </div>
 
         <div className="space-y-4">
-          <Card className="bg-[radial-gradient(circle_at_top_left,rgba(47,128,255,0.24),transparent_55%),linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))]">
+          <Card className="border border-accent/25 bg-[radial-gradient(circle_at_top_left,rgba(47,128,255,0.26),transparent_55%),linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))]">
             <div className="space-y-4">
-              <div>
-                <div className="text-xs uppercase tracking-[0.32em] text-white/40">
-                  Pokreni
-                </div>
-                <div className="mt-2 text-2xl font-semibold text-white">Novi e-Izveštaj</div>
-              </div>
+              <div className="text-xs uppercase tracking-[0.28em] text-white/45">Novi unos</div>
               <Button onClick={startNewReport} type="button">
                 Novi e-Izveštaj
               </Button>
             </div>
           </Card>
 
-          <Card>
-            <div className="mb-4 flex items-center justify-between">
-              <div className="text-lg font-semibold text-white">Nastavi</div>
-              <div className="text-xs text-white/40">Draft storage</div>
-            </div>
+          <Card className="space-y-4">
+            <div className="text-lg font-semibold text-white">Nastavi nedovršen izveštaj</div>
             <Button
               disabled={!activeDraftId}
               onClick={() => activeDraftId && navigate(`/report/${activeDraftId}`)}
               type="button"
               variant="secondary"
             >
-              Nastavi nedovrsen izvestaj
+              Nastavi
             </Button>
           </Card>
 
           <Card className="space-y-4">
-            <div className="text-lg font-semibold text-white">Zakljucani izvestaji</div>
+            <div className="text-lg font-semibold text-white">Zaključani izveštaji</div>
             {lockedReports.length ? (
               lockedReports.map((report) => (
                 <button
                   key={report.id}
-                  className="flex w-full items-center justify-between rounded-[22px] bg-white/5 px-4 py-4 text-left"
+                  className="flex w-full items-center justify-between rounded-[22px] border border-white/10 bg-white/5 px-4 py-4 text-left transition hover:bg-white/8"
                   onClick={() => navigate(`/report/${report.id}?view=final`)}
                   type="button"
                 >
                   <span className="text-white">{reportTitle(report)}</span>
-                  <span className="text-xs text-white/45">Read-only</span>
+                  <span className="text-xs uppercase tracking-[0.22em] text-white/40">
+                    PDF
+                  </span>
                 </button>
               ))
             ) : (
               <div className="rounded-[22px] border border-dashed border-white/10 px-4 py-8 text-center text-sm text-white/45">
-                Jos nema zakljucanih izvestaja.
+                Nema sačuvanih završnih izveštaja.
               </div>
             )}
           </Card>
