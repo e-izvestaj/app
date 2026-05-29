@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, PropsWithChildren } from "react";
 
 type ButtonProps = PropsWithChildren<
   ButtonHTMLAttributes<HTMLButtonElement> & {
-    variant?: "primary" | "secondary" | "ghost";
+    variant?: "primary" | "secondary" | "ghost" | "success";
     fullWidth?: boolean;
   }
 >;
@@ -10,6 +10,8 @@ type ButtonProps = PropsWithChildren<
 const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
   primary:
     "bg-accent text-white shadow-[0_12px_35px_rgba(47,128,255,0.35)] hover:brightness-110",
+  success:
+    "bg-emerald-500 text-white shadow-[0_12px_35px_rgba(16,185,129,0.32)] hover:brightness-110",
   secondary:
     "bg-white/10 text-white border border-white/10 hover:bg-white/14",
   ghost: "bg-transparent text-white/70 hover:text-white hover:bg-white/6"

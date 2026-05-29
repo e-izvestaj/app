@@ -208,7 +208,7 @@ export default function LocationTimeStep({
             disabled={gpsState === "loading" || readOnly}
             onClick={handleRequestLocation}
             type="button"
-            variant="secondary"
+            variant="success"
           >
             {gpsState === "loading"
               ? "Preuzimam GPS..."

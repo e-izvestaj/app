@@ -1,13 +1,12 @@
-import fontkit from "@pdf-lib/fontkit";
-import { PDFDocument, rgb, type PDFFont, type PDFImage, type PDFPage } from "pdf-lib";
-import type { PhotoAsset, ReportDraft, SceneSketchSuggestion } from "../types";
+import { PDFDocument } from "pdf-lib";
+import type { ReportDraft } from "../types";
 
 const PAGE_WIDTH = 595;
 const PAGE_HEIGHT = 842;
 const TEMPLATE_WIDTH = 960;
 const TEMPLATE_HEIGHT = 1358;
-const SCALE_X = PAGE_WIDTH / TEMPLATE_WIDTH;
-const SCALE_Y = PAGE_HEIGHT / TEMPLATE_HEIGHT;
+const RENDER_SCALE = 2;
+const TEXT_COLOR = "#151922";
 
 type TextBox = {
   left: number;
@@ -18,14 +17,25 @@ type TextBox = {
   align?: "left" | "center";
   maxLines?: number;
   lineHeight?: number;
+  weight?: "400" | "700";
 };
 
-function px(value: number) {
-  return value * SCALE_X;
+function normalizeWhitespace(text: string) {
+  return text.replace(/\s+/g, " ").trim();
 }
 
-function pyFromTop(value: number) {
-  return PAGE_HEIGHT - value * SCALE_Y;
+function px(value: number) {
+  return value * RENDER_SCALE;
+}
+
+async function loadImageElement(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Neuspesno ucitavanje slike za PDF."));
+    image.src = src;
+  });
 }
 
 async function rasterizeImageDataUrl(dataUrl: string) {
@@ -33,13 +43,7 @@ async function rasterizeImageDataUrl(dataUrl: string) {
     return dataUrl;
   }
 
-  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("Neuspesno ucitavanje SVG skice."));
-    img.src = dataUrl;
-  });
-
+  const image = await loadImageElement(dataUrl);
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(720, image.naturalWidth || 720);
   canvas.height = Math.max(680, image.naturalHeight || 680);
@@ -55,60 +59,48 @@ async function rasterizeImageDataUrl(dataUrl: string) {
   return canvas.toDataURL("image/png");
 }
 
-async function embedOptionalImage(pdfDoc: PDFDocument, dataUrl: string) {
-  const normalizedDataUrl = await rasterizeImageDataUrl(dataUrl);
-
-  if (normalizedDataUrl.includes("image/png")) {
-    return pdfDoc.embedPng(normalizedDataUrl);
-  }
-
-  return pdfDoc.embedJpg(normalizedDataUrl);
-}
-
-async function loadTemplateImage(pdfDoc: PDFDocument) {
-  const response = await fetch(`${import.meta.env.BASE_URL}eu-report-template.png`);
-  const bytes = await response.arrayBuffer();
-  return pdfDoc.embedPng(bytes);
-}
-
-async function loadUtfFont(pdfDoc: PDFDocument, bold = false) {
-  const fontUrl = bold
-    ? `${import.meta.env.BASE_URL}fonts/arialbd.ttf`
-    : `${import.meta.env.BASE_URL}fonts/arial.ttf`;
-  const response = await fetch(fontUrl);
-  const bytes = await response.arrayBuffer();
-  return pdfDoc.embedFont(bytes, { subset: true });
-}
-
-function normalizeWhitespace(text: string) {
-  return text.replace(/\s+/g, " ").trim();
-}
-
-function fitSingleLine(font: PDFFont, text: string, width: number, desiredSize: number) {
+function fitSingleLine(
+  context: CanvasRenderingContext2D,
+  text: string,
+  width: number,
+  desiredSize: number,
+  weight: "400" | "700"
+) {
   let size = desiredSize;
   const normalized = normalizeWhitespace(text);
 
-  while (size > 6 && font.widthOfTextAtSize(normalized, size) > width) {
+  while (size > 6) {
+    context.font = `${weight} ${px(size)}px Arial`;
+    if (context.measureText(normalized).width <= px(width)) {
+      break;
+    }
     size -= 0.25;
   }
 
   return size;
 }
 
-function wrapText(font: PDFFont, text: string, size: number, width: number, maxLines = 4) {
+function wrapText(
+  context: CanvasRenderingContext2D,
+  text: string,
+  size: number,
+  width: number,
+  maxLines = 4,
+  weight: "400" | "700" = "400"
+) {
   const normalized = normalizeWhitespace(text);
-
   if (!normalized) {
     return [];
   }
 
+  context.font = `${weight} ${px(size)}px Arial`;
   const words = normalized.split(" ");
   const lines: string[] = [];
   let current = "";
 
   for (const word of words) {
     const candidate = current ? `${current} ${word}` : word;
-    if (font.widthOfTextAtSize(candidate, size) <= width) {
+    if (context.measureText(candidate).width <= px(width)) {
       current = candidate;
       continue;
     }
@@ -133,324 +125,110 @@ function wrapText(font: PDFFont, text: string, size: number, width: number, maxL
     lines.length = maxLines;
   }
 
-  if (lines.length === maxLines && words.length > 0) {
-    const last = lines[maxLines - 1];
-    if (font.widthOfTextAtSize(last, size) > width) {
-      let shortened = last;
-      while (shortened.length > 3 && font.widthOfTextAtSize(`${shortened}…`, size) > width) {
-        shortened = shortened.slice(0, -1);
-      }
-      lines[maxLines - 1] = `${shortened}…`;
+  if (lines.length === maxLines) {
+    let last = lines[maxLines - 1];
+    while (last.length > 3 && context.measureText(`${last}...`).width > px(width)) {
+      last = last.slice(0, -1);
     }
+    lines[maxLines - 1] = last === lines[maxLines - 1] ? last : `${last}...`;
   }
 
   return lines;
 }
 
-function drawTextBox(page: PDFPage, font: PDFFont, text: string, box: TextBox) {
+function drawTextBox(context: CanvasRenderingContext2D, text: string, box: TextBox) {
   const normalized = normalizeWhitespace(text);
   if (!normalized) {
     return;
   }
 
-  const x = px(box.left);
-  const yTop = pyFromTop(box.top);
-  const width = px(box.width);
-  const height = box.height * SCALE_Y;
   const desiredSize = box.size ?? 8;
-  const lineHeight = (box.lineHeight ?? 1.18) * desiredSize;
-
-  let lines = wrapText(font, normalized, desiredSize, width, box.maxLines ?? 4);
+  const weight = box.weight ?? "400";
   let size = desiredSize;
+  let lines = wrapText(context, normalized, size, box.width, box.maxLines ?? 4, weight);
+  let lineHeight = (box.lineHeight ?? 1.18) * size;
 
-  while (
-    size > 6 &&
-    lines.length * lineHeight > height &&
-    lines.length > 0
-  ) {
+  while (size > 6 && lines.length * px(lineHeight) > px(box.height)) {
     size -= 0.25;
-    lines = wrapText(font, normalized, size, width, box.maxLines ?? 4);
+    lineHeight = (box.lineHeight ?? 1.18) * size;
+    lines = wrapText(context, normalized, size, box.width, box.maxLines ?? 4, weight);
   }
 
   if (lines.length === 1) {
-    size = fitSingleLine(font, lines[0], width, size);
+    size = fitSingleLine(context, lines[0], box.width, size, weight);
+    lineHeight = (box.lineHeight ?? 1.18) * size;
   }
 
+  context.save();
+  context.fillStyle = TEXT_COLOR;
+  context.textBaseline = "top";
+  context.font = `${weight} ${px(size)}px Arial`;
+
   lines.forEach((line, index) => {
-    const lineWidth = font.widthOfTextAtSize(line, size);
-    const lineX = box.align === "center" ? x + Math.max(0, (width - lineWidth) / 2) : x;
-    const lineY = yTop - index * ((box.lineHeight ?? 1.18) * size) - size;
-    page.drawText(line, {
-      x: lineX,
-      y: lineY,
-      size,
-      font,
-      color: rgb(0.08, 0.1, 0.16)
-    });
+    const lineWidth = context.measureText(line).width;
+    const x =
+      box.align === "center"
+        ? px(box.left) + Math.max(0, (px(box.width) - lineWidth) / 2)
+        : px(box.left);
+    const y = px(box.top) + index * px(lineHeight);
+    context.fillText(line, x, y);
   });
+
+  context.restore();
 }
 
-function drawCheck(page: PDFPage, font: PDFFont, checked: boolean, left: number, top: number) {
+function drawCheck(context: CanvasRenderingContext2D, checked: boolean, left: number, top: number) {
   if (!checked) {
     return;
   }
 
-  page.drawText("X", {
-    x: px(left),
-    y: pyFromTop(top),
-    size: 9,
-    font,
-    color: rgb(0.08, 0.1, 0.16)
-  });
+  context.save();
+  context.fillStyle = TEXT_COLOR;
+  context.font = `700 ${px(10)}px Arial`;
+  context.textBaseline = "alphabetic";
+  context.fillText("X", px(left), px(top));
+  context.restore();
 }
 
-function drawImageInBox(
-  page: PDFPage,
-  image: PDFImage,
+async function drawImageInBox(
+  context: CanvasRenderingContext2D,
+  dataUrl: string,
   left: number,
   top: number,
   width: number,
   height: number,
   padding = 8
 ) {
+  const normalizedDataUrl = await rasterizeImageDataUrl(dataUrl);
+  const image = await loadImageElement(normalizedDataUrl);
   const boxX = px(left);
-  const boxY = pyFromTop(top + height);
+  const boxY = px(top);
   const boxWidth = px(width);
-  const boxHeight = height * SCALE_Y;
+  const boxHeight = px(height);
   const availableWidth = boxWidth - px(padding * 2);
-  const availableHeight = boxHeight - padding * 2 * SCALE_Y;
-  const ratio = Math.min(availableWidth / image.width, availableHeight / image.height);
-  const drawWidth = image.width * ratio;
-  const drawHeight = image.height * ratio;
-  const x = boxX + (boxWidth - drawWidth) / 2;
-  const y = boxY + (boxHeight - drawHeight) / 2;
+  const availableHeight = boxHeight - px(padding * 2);
+  const ratio = Math.min(availableWidth / image.naturalWidth, availableHeight / image.naturalHeight);
+  const drawWidth = image.naturalWidth * ratio;
+  const drawHeight = image.naturalHeight * ratio;
+  const drawX = boxX + (boxWidth - drawWidth) / 2;
+  const drawY = boxY + (boxHeight - drawHeight) / 2;
 
-  page.drawImage(image, {
-    x,
-    y,
-    width: drawWidth,
-    height: drawHeight
-  });
+  context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
 }
 
-function findPhoto(report: ReportDraft, kind: PhotoAsset["kind"], fallbackIndex: number) {
-  return (
-    report.scenePhotos.find((photo) => photo.kind === kind) ||
-    report.scenePhotos[fallbackIndex] ||
-    null
-  );
-}
+async function renderPaperForm(report: ReportDraft) {
+  const canvas = document.createElement("canvas");
+  canvas.width = px(TEMPLATE_WIDTH);
+  canvas.height = px(TEMPLATE_HEIGHT);
+  const context = canvas.getContext("2d");
 
-async function loadImage(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Neuspesno ucitavanje mape za skicu."));
-    image.src = src;
-  });
-}
-
-function drawSketchArrow(
-  context: CanvasRenderingContext2D,
-  sketchState: SceneSketchSuggestion["vehicleAState"],
-  color: string,
-  scaleX: number,
-  scaleY: number
-) {
-  const x = sketchState.x * scaleX;
-  const y = (sketchState.y - 44) * scaleY;
-
-  context.strokeStyle = color;
-  context.lineWidth = 4 * scaleX;
-  context.lineCap = "round";
-  context.lineJoin = "round";
-  context.beginPath();
-
-  switch (sketchState.direction) {
-    case "backward":
-    case "parking":
-      context.moveTo(x, y);
-      context.lineTo(x, y + 42 * scaleY);
-      break;
-    case "left":
-      context.moveTo(x, y);
-      context.bezierCurveTo(
-        x - 16 * scaleX,
-        y - 6 * scaleY,
-        x - 24 * scaleX,
-        y - 24 * scaleY,
-        x - 18 * scaleX,
-        y - 40 * scaleY
-      );
-      break;
-    case "right":
-      context.moveTo(x, y);
-      context.bezierCurveTo(
-        x + 16 * scaleX,
-        y - 6 * scaleY,
-        x + 24 * scaleX,
-        y - 24 * scaleY,
-        x + 18 * scaleX,
-        y - 40 * scaleY
-      );
-      break;
-    case "uturn":
-    case "merge":
-      context.moveTo(x, y);
-      context.bezierCurveTo(
-        x + 24 * scaleX,
-        y - 10 * scaleY,
-        x + 28 * scaleX,
-        y - 46 * scaleY,
-        x,
-        y - 54 * scaleY
-      );
-      context.bezierCurveTo(
-        x - 20 * scaleX,
-        y - 54 * scaleY,
-        x - 22 * scaleX,
-        y - 34 * scaleY,
-        x - 8 * scaleX,
-        y - 24 * scaleY
-      );
-      break;
-    default:
-      context.moveTo(x, y);
-      context.lineTo(x, y - 42 * scaleY);
-      break;
+  if (!context) {
+    throw new Error("Canvas nije dostupan za izradu PDF obrasca.");
   }
 
-  context.stroke();
-}
+  const templateImage = await loadImageElement(`${import.meta.env.BASE_URL}eu-report-template.png`);
+  context.drawImage(templateImage, 0, 0, canvas.width, canvas.height);
 
-function drawSketchVehicle(
-  context: CanvasRenderingContext2D,
-  label: "A" | "B",
-  state: SceneSketchSuggestion["vehicleAState"],
-  color: string,
-  arrowColor: string,
-  scaleX: number,
-  scaleY: number
-) {
-  context.save();
-  context.translate(state.x * scaleX, state.y * scaleY);
-  context.rotate((state.rotation * Math.PI) / 180);
-  context.fillStyle = color;
-  context.beginPath();
-  context.roundRect(-18 * scaleX, -34 * scaleY, 36 * scaleX, 68 * scaleY, 16 * scaleX);
-  context.fill();
-  context.fillStyle = "rgba(255,255,255,0.2)";
-  context.beginPath();
-  context.roundRect(-12 * scaleX, -22 * scaleY, 24 * scaleX, 26 * scaleY, 9 * scaleX);
-  context.fill();
-  context.restore();
-
-  context.fillStyle = "#FFFFFF";
-  context.font = `700 ${16 * scaleX}px Arial`;
-  context.textAlign = "center";
-  context.fillText(label, state.x * scaleX, state.y * scaleY + 52 * scaleY);
-
-  drawSketchArrow(context, state, arrowColor, scaleX, scaleY);
-}
-
-async function buildSketchAttachmentDataUrl(report: ReportDraft) {
-  const sketch = report.sceneSketch;
-  const locationLabel = [report.location.street, report.location.streetNumber, report.location.city]
-    .filter(Boolean)
-    .join(", ");
-
-  if (report.location.latitude && report.location.longitude) {
-    const centerLat = sketch.mapCenterLatitude ?? report.location.latitude;
-    const centerLon = sketch.mapCenterLongitude ?? report.location.longitude;
-    const zoom = sketch.mapZoom ?? 20;
-
-    try {
-      const staticMapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${centerLat},${centerLon}&zoom=${zoom}&size=720x680&maptype=mapnik`;
-      const mapImage = await loadImage(staticMapUrl);
-      const canvas = document.createElement("canvas");
-      canvas.width = 720;
-      canvas.height = 680;
-      const context = canvas.getContext("2d");
-
-      if (!context) {
-        return report.annotatedPhotoDataUrl || sketch.svgDataUrl || null;
-      }
-
-      const scaleX = canvas.width / 360;
-      const scaleY = canvas.height / 340;
-
-      context.drawImage(mapImage, 0, 0, canvas.width, canvas.height);
-      context.fillStyle = "rgba(11,13,18,0.12)";
-      context.fillRect(0, 0, canvas.width, canvas.height);
-
-      if (sketch.decorations.crosswalk) {
-        context.fillStyle = "rgba(255,255,255,0.72)";
-        for (let index = 0; index < 6; index += 1) {
-          context.fillRect((120 + index * 9) * scaleX, 214 * scaleY, 3 * scaleX, 14 * scaleY);
-        }
-      }
-
-      drawSketchVehicle(context, "A", sketch.vehicleAState, "#FF5A5F", "#FF9A9D", scaleX, scaleY);
-      drawSketchVehicle(context, "B", sketch.vehicleBState, "#2F80FF", "#7CB2FF", scaleX, scaleY);
-
-      context.strokeStyle = "#FFD54A";
-      context.lineWidth = 5 * scaleX;
-      context.beginPath();
-      context.moveTo((sketch.impactPoint.x - 10) * scaleX, (sketch.impactPoint.y - 10) * scaleY);
-      context.lineTo((sketch.impactPoint.x + 10) * scaleX, (sketch.impactPoint.y + 10) * scaleY);
-      context.moveTo((sketch.impactPoint.x - 10) * scaleX, (sketch.impactPoint.y + 10) * scaleY);
-      context.lineTo((sketch.impactPoint.x + 10) * scaleX, (sketch.impactPoint.y - 10) * scaleY);
-      context.stroke();
-
-      context.strokeStyle = "#FFFFFF";
-      context.lineWidth = 3 * scaleX;
-      context.lineJoin = "round";
-      context.lineCap = "round";
-      sketch.drawPaths
-        .filter((path) => path.points.length > 1)
-        .forEach((path) => {
-          context.beginPath();
-          path.points.forEach((point, index) => {
-            if (index === 0) {
-              context.moveTo(point.x * scaleX, point.y * scaleY);
-            } else {
-              context.lineTo(point.x * scaleX, point.y * scaleY);
-            }
-          });
-          context.stroke();
-        });
-
-      context.fillStyle = "rgba(255,255,255,0.78)";
-      context.font = "24px Arial";
-      context.textAlign = "left";
-      context.fillText(locationLabel || "Skica nezgode", 20, 30);
-
-      return canvas.toDataURL("image/png");
-    } catch {
-      // Fallback below.
-    }
-  }
-
-  return report.annotatedPhotoDataUrl || sketch.svgDataUrl || null;
-}
-
-export async function generatePdf(report: ReportDraft) {
-  const pdfDoc = await PDFDocument.create();
-  pdfDoc.registerFontkit(fontkit);
-  const template = await loadTemplateImage(pdfDoc);
-  const font = await loadUtfFont(pdfDoc);
-  const boldFont = await loadUtfFont(pdfDoc, true);
-  const page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
-
-  page.drawImage(template, {
-    x: 0,
-    y: 0,
-    width: PAGE_WIDTH,
-    height: PAGE_HEIGHT
-  });
-
-  const locationLine = [report.location.city, report.location.address].filter(Boolean).join(", ");
   const left = report.vehicleA;
   const right = report.vehicleB;
   const leftOwnerContact = [left.ownerPhone, left.ownerEmail].filter(Boolean).join(" / ");
@@ -459,198 +237,224 @@ export async function generatePdf(report: ReportDraft) {
   const rightInsuranceContact = [right.insurancePhone, right.insuranceEmail].filter(Boolean).join(" / ");
   const leftDriverContact = [left.driverPhone, left.driverEmail].filter(Boolean).join(" / ");
   const rightDriverContact = [right.driverPhone, right.driverEmail].filter(Boolean).join(" / ");
-  const leftDriverAddress = [left.driverAddress, left.driverPostalCode, left.driverCity].filter(Boolean).join(", ");
-  const rightDriverAddress = [right.driverAddress, right.driverPostalCode, right.driverCity].filter(Boolean).join(", ");
+  const leftDriverAddress = [left.driverAddress, left.driverPostalCode, left.driverCity]
+    .filter(Boolean)
+    .join(", ");
+  const rightDriverAddress = [right.driverAddress, right.driverPostalCode, right.driverCity]
+    .filter(Boolean)
+    .join(", ");
+  const locationAddress = [report.location.street, report.location.streetNumber]
+    .filter(Boolean)
+    .join(" ");
 
-  drawTextBox(page, font, report.location.date, { left: 60, top: 78, width: 102, height: 16, size: 7.2 });
-  drawTextBox(page, font, report.location.time, { left: 210, top: 78, width: 66, height: 16, size: 7.2 });
-  drawTextBox(page, font, report.location.city, { left: 414, top: 78, width: 142, height: 16, size: 7.1 });
-  drawTextBox(page, font, report.location.address, { left: 560, top: 78, width: 152, height: 16, size: 7 });
-  drawTextBox(page, font, report.location.country, { left: 378, top: 103, width: 152, height: 16, size: 7.1 });
-  drawCheck(page, font, report.safety.injured === true, 803, 83);
-  drawCheck(page, font, report.safety.injured === false, 843, 83);
-  drawCheck(page, font, report.safety.damageOtherVehicles === true, 59, 176);
-  drawCheck(page, font, report.safety.damageOtherVehicles === false, 124, 176);
-  drawCheck(page, font, report.safety.damageOtherObjects === true, 193, 176);
-  drawCheck(page, font, report.safety.damageOtherObjects === false, 258, 176);
-  drawTextBox(page, font, report.witnessInfo, {
+  drawTextBox(context, report.location.date, { left: 60, top: 66, width: 102, height: 18, size: 8 });
+  drawTextBox(context, report.location.time, { left: 210, top: 66, width: 66, height: 18, size: 8 });
+  drawTextBox(context, report.location.city, { left: 414, top: 66, width: 142, height: 18, size: 8 });
+  drawTextBox(context, locationAddress, { left: 560, top: 66, width: 152, height: 18, size: 7.6 });
+  drawTextBox(context, report.location.country, { left: 378, top: 92, width: 152, height: 18, size: 7.5 });
+
+  drawCheck(context, report.safety.injured === true, 806, 82);
+  drawCheck(context, report.safety.injured === false, 846, 82);
+  drawCheck(context, report.safety.damageOtherVehicles === true, 57, 177);
+  drawCheck(context, report.safety.damageOtherVehicles === false, 121, 177);
+  drawCheck(context, report.safety.damageOtherObjects === true, 193, 177);
+  drawCheck(context, report.safety.damageOtherObjects === false, 257, 177);
+
+  drawTextBox(context, report.witnessInfo, {
     left: 640,
-    top: 126,
+    top: 119,
     width: 282,
     height: 74,
-    size: 7,
+    size: 7.4,
     maxLines: 4,
-    lineHeight: 1.14
+    lineHeight: 1.16
   });
 
-  drawTextBox(page, font, left.ownerLastName, { left: 63, top: 246, width: 188, height: 18, size: 8 });
-  drawTextBox(page, font, left.ownerFirstName, { left: 63, top: 274, width: 188, height: 18, size: 8 });
-  drawTextBox(page, font, left.ownerAddress, { left: 63, top: 302, width: 235, height: 18, size: 7.2 });
-  drawTextBox(page, font, left.ownerPostalCode, { left: 92, top: 336, width: 92, height: 16, size: 7.1 });
-  drawTextBox(page, font, left.ownerCountry, { left: 238, top: 336, width: 73, height: 16, size: 7.1 });
-  drawTextBox(page, font, leftOwnerContact, { left: 63, top: 366, width: 240, height: 16, size: 6.8 });
+  drawTextBox(context, left.ownerLastName, { left: 63, top: 246, width: 188, height: 18, size: 8.2 });
+  drawTextBox(context, left.ownerFirstName, { left: 63, top: 274, width: 188, height: 18, size: 8.2 });
+  drawTextBox(context, left.ownerAddress, { left: 63, top: 302, width: 235, height: 18, size: 7.6 });
+  drawTextBox(context, left.ownerPostalCode, { left: 91, top: 334, width: 92, height: 18, size: 7.3 });
+  drawTextBox(context, left.ownerCountry, { left: 236, top: 334, width: 73, height: 18, size: 7.3 });
+  drawTextBox(context, leftOwnerContact, { left: 63, top: 362, width: 240, height: 18, size: 7.1 });
 
-  drawTextBox(page, font, [left.make, left.model, left.type].filter(Boolean).join(" / "), {
+  drawTextBox(context, [left.make, left.model, left.type].filter(Boolean).join(" / "), {
     left: 63,
-    top: 451,
+    top: 447,
     width: 130,
-    height: 34,
-    size: 7,
+    height: 36,
+    size: 7.3,
     maxLines: 2
   });
-  drawTextBox(page, font, left.plate, { left: 63, top: 516, width: 130, height: 18, size: 8 });
-  drawTextBox(page, font, left.registrationCountry, { left: 63, top: 574, width: 130, height: 18, size: 7.1 });
-  drawTextBox(page, font, left.trailerPlate, { left: 215, top: 516, width: 108, height: 18, size: 7.6 });
-  drawTextBox(page, font, left.trailerRegistrationCountry, { left: 215, top: 604, width: 108, height: 18, size: 6.7 });
+  drawTextBox(context, left.plate, { left: 63, top: 511, width: 130, height: 18, size: 8.2 });
+  drawTextBox(context, left.registrationCountry, { left: 63, top: 571, width: 130, height: 18, size: 7.3 });
+  drawTextBox(context, left.trailerPlate, { left: 215, top: 511, width: 108, height: 18, size: 7.6 });
+  drawTextBox(context, left.trailerRegistrationCountry, { left: 215, top: 602, width: 108, height: 18, size: 6.9 });
 
-  drawTextBox(page, font, left.insurer, { left: 63, top: 642, width: 190, height: 18, size: 7.5 });
-  drawTextBox(page, font, left.policyNumber, { left: 100, top: 672, width: 138, height: 18, size: 7.4 });
-  drawTextBox(page, font, left.greenCardNumber, { left: 121, top: 702, width: 140, height: 18, size: 7.2 });
-  drawTextBox(page, font, left.policyValidFrom, { left: 72, top: 733, width: 70, height: 16, size: 7.1 });
-  drawTextBox(page, font, left.policyValidUntil, { left: 238, top: 733, width: 70, height: 16, size: 7.1 });
-  drawTextBox(page, font, left.insuranceBranch, { left: 64, top: 789, width: 170, height: 18, size: 7.1 });
-  drawTextBox(page, font, left.insuranceOfficeName, { left: 63, top: 819, width: 190, height: 18, size: 7.1 });
-  drawTextBox(page, font, left.insuranceAddress, { left: 63, top: 847, width: 200, height: 18, size: 7.1 });
-  drawTextBox(page, font, left.insuranceCountry, { left: 238, top: 879, width: 73, height: 16, size: 7 });
-  drawTextBox(page, font, leftInsuranceContact, { left: 63, top: 911, width: 240, height: 18, size: 6.7 });
-  drawCheck(page, font, left.coveredDamage === false, 144, 948);
-  drawCheck(page, font, left.coveredDamage === true, 206, 948);
+  drawTextBox(context, left.insurer, { left: 63, top: 638, width: 190, height: 18, size: 7.6 });
+  drawTextBox(context, left.policyNumber, { left: 99, top: 668, width: 138, height: 18, size: 7.5 });
+  drawTextBox(context, left.greenCardNumber, { left: 120, top: 698, width: 140, height: 18, size: 7.3 });
+  drawTextBox(context, left.policyValidFrom, { left: 72, top: 731, width: 70, height: 16, size: 7.2 });
+  drawTextBox(context, left.policyValidUntil, { left: 238, top: 731, width: 70, height: 16, size: 7.2 });
+  drawTextBox(context, left.insuranceBranch, { left: 64, top: 785, width: 170, height: 18, size: 7.2 });
+  drawTextBox(context, left.insuranceOfficeName, { left: 63, top: 815, width: 190, height: 18, size: 7.2 });
+  drawTextBox(context, left.insuranceAddress, { left: 63, top: 843, width: 200, height: 18, size: 7.2 });
+  drawTextBox(context, left.insuranceCountry, { left: 238, top: 875, width: 73, height: 16, size: 7.1 });
+  drawTextBox(context, leftInsuranceContact, { left: 63, top: 906, width: 240, height: 18, size: 6.9 });
+  drawCheck(context, left.coveredDamage === false, 143, 949);
+  drawCheck(context, left.coveredDamage === true, 204, 949);
 
-  drawTextBox(page, font, left.driverLastName, { left: 63, top: 1002, width: 188, height: 18, size: 8 });
-  drawTextBox(page, font, left.driverFirstName, { left: 63, top: 1031, width: 188, height: 18, size: 8 });
-  drawTextBox(page, font, left.driverBirthDate, { left: 95, top: 1062, width: 124, height: 18, size: 7.1 });
-  drawTextBox(page, font, leftDriverAddress, { left: 63, top: 1095, width: 190, height: 34, size: 7, maxLines: 2 });
-  drawTextBox(page, font, left.driverCountry, { left: 239, top: 1127, width: 70, height: 18, size: 7.1 });
-  drawTextBox(page, font, leftDriverContact, { left: 64, top: 1158, width: 239, height: 18, size: 6.7 });
-  drawTextBox(page, font, left.driverLicenseNumber, { left: 106, top: 1187, width: 153, height: 18, size: 7.2 });
-  drawTextBox(page, font, left.driverLicenseCategory, { left: 126, top: 1218, width: 124, height: 18, size: 7.1 });
-  drawTextBox(page, font, left.driverLicenseValidUntil, { left: 141, top: 1247, width: 120, height: 18, size: 7.1 });
+  drawTextBox(context, left.driverLastName, { left: 63, top: 999, width: 188, height: 18, size: 8.2 });
+  drawTextBox(context, left.driverFirstName, { left: 63, top: 1027, width: 188, height: 18, size: 8.2 });
+  drawTextBox(context, left.driverBirthDate, { left: 95, top: 1059, width: 124, height: 18, size: 7.3 });
+  drawTextBox(context, leftDriverAddress, {
+    left: 63,
+    top: 1091,
+    width: 190,
+    height: 34,
+    size: 7.1,
+    maxLines: 2
+  });
+  drawTextBox(context, left.driverCountry, { left: 239, top: 1123, width: 70, height: 18, size: 7.2 });
+  drawTextBox(context, leftDriverContact, { left: 64, top: 1154, width: 239, height: 18, size: 6.9 });
+  drawTextBox(context, left.driverLicenseNumber, { left: 106, top: 1183, width: 153, height: 18, size: 7.3 });
+  drawTextBox(context, left.driverLicenseCategory, { left: 126, top: 1214, width: 124, height: 18, size: 7.2 });
+  drawTextBox(context, left.driverLicenseValidUntil, { left: 141, top: 1243, width: 120, height: 18, size: 7.2 });
 
-  drawTextBox(page, font, right.ownerLastName, { left: 662, top: 246, width: 188, height: 18, size: 8 });
-  drawTextBox(page, font, right.ownerFirstName, { left: 662, top: 274, width: 188, height: 18, size: 8 });
-  drawTextBox(page, font, right.ownerAddress, { left: 662, top: 302, width: 235, height: 18, size: 7.2 });
-  drawTextBox(page, font, right.ownerPostalCode, { left: 693, top: 336, width: 92, height: 16, size: 7.1 });
-  drawTextBox(page, font, right.ownerCountry, { left: 837, top: 336, width: 73, height: 16, size: 7.1 });
-  drawTextBox(page, font, rightOwnerContact, { left: 662, top: 366, width: 240, height: 16, size: 6.8 });
+  drawTextBox(context, right.ownerLastName, { left: 662, top: 246, width: 188, height: 18, size: 8.2 });
+  drawTextBox(context, right.ownerFirstName, { left: 662, top: 274, width: 188, height: 18, size: 8.2 });
+  drawTextBox(context, right.ownerAddress, { left: 662, top: 302, width: 235, height: 18, size: 7.6 });
+  drawTextBox(context, right.ownerPostalCode, { left: 693, top: 334, width: 92, height: 18, size: 7.3 });
+  drawTextBox(context, right.ownerCountry, { left: 837, top: 334, width: 73, height: 18, size: 7.3 });
+  drawTextBox(context, rightOwnerContact, { left: 662, top: 362, width: 240, height: 18, size: 7.1 });
 
-  drawTextBox(page, font, [right.make, right.model, right.type].filter(Boolean).join(" / "), {
+  drawTextBox(context, [right.make, right.model, right.type].filter(Boolean).join(" / "), {
     left: 662,
-    top: 451,
+    top: 447,
     width: 130,
-    height: 34,
-    size: 7,
+    height: 36,
+    size: 7.3,
     maxLines: 2
   });
-  drawTextBox(page, font, right.plate, { left: 662, top: 516, width: 130, height: 18, size: 8 });
-  drawTextBox(page, font, right.registrationCountry, { left: 662, top: 574, width: 130, height: 18, size: 7.1 });
-  drawTextBox(page, font, right.trailerPlate, { left: 814, top: 516, width: 108, height: 18, size: 7.6 });
-  drawTextBox(page, font, right.trailerRegistrationCountry, { left: 814, top: 604, width: 108, height: 18, size: 6.7 });
+  drawTextBox(context, right.plate, { left: 662, top: 511, width: 130, height: 18, size: 8.2 });
+  drawTextBox(context, right.registrationCountry, { left: 662, top: 571, width: 130, height: 18, size: 7.3 });
+  drawTextBox(context, right.trailerPlate, { left: 814, top: 511, width: 108, height: 18, size: 7.6 });
+  drawTextBox(context, right.trailerRegistrationCountry, { left: 814, top: 602, width: 108, height: 18, size: 6.9 });
 
-  drawTextBox(page, font, right.insurer, { left: 662, top: 642, width: 190, height: 18, size: 7.5 });
-  drawTextBox(page, font, right.policyNumber, { left: 699, top: 672, width: 138, height: 18, size: 7.4 });
-  drawTextBox(page, font, right.greenCardNumber, { left: 719, top: 702, width: 140, height: 18, size: 7.2 });
-  drawTextBox(page, font, right.policyValidFrom, { left: 672, top: 733, width: 70, height: 16, size: 7.1 });
-  drawTextBox(page, font, right.policyValidUntil, { left: 838, top: 733, width: 70, height: 16, size: 7.1 });
-  drawTextBox(page, font, right.insuranceBranch, { left: 663, top: 789, width: 170, height: 18, size: 7.1 });
-  drawTextBox(page, font, right.insuranceOfficeName, { left: 662, top: 819, width: 190, height: 18, size: 7.1 });
-  drawTextBox(page, font, right.insuranceAddress, { left: 662, top: 847, width: 200, height: 18, size: 7.1 });
-  drawTextBox(page, font, right.insuranceCountry, { left: 837, top: 879, width: 73, height: 16, size: 7 });
-  drawTextBox(page, font, rightInsuranceContact, { left: 662, top: 911, width: 240, height: 18, size: 6.7 });
-  drawCheck(page, font, right.coveredDamage === false, 743, 948);
-  drawCheck(page, font, right.coveredDamage === true, 804, 948);
+  drawTextBox(context, right.insurer, { left: 662, top: 638, width: 190, height: 18, size: 7.6 });
+  drawTextBox(context, right.policyNumber, { left: 699, top: 668, width: 138, height: 18, size: 7.5 });
+  drawTextBox(context, right.greenCardNumber, { left: 719, top: 698, width: 140, height: 18, size: 7.3 });
+  drawTextBox(context, right.policyValidFrom, { left: 672, top: 731, width: 70, height: 16, size: 7.2 });
+  drawTextBox(context, right.policyValidUntil, { left: 838, top: 731, width: 70, height: 16, size: 7.2 });
+  drawTextBox(context, right.insuranceBranch, { left: 663, top: 785, width: 170, height: 18, size: 7.2 });
+  drawTextBox(context, right.insuranceOfficeName, { left: 662, top: 815, width: 190, height: 18, size: 7.2 });
+  drawTextBox(context, right.insuranceAddress, { left: 662, top: 843, width: 200, height: 18, size: 7.2 });
+  drawTextBox(context, right.insuranceCountry, { left: 837, top: 875, width: 73, height: 16, size: 7.1 });
+  drawTextBox(context, rightInsuranceContact, { left: 662, top: 906, width: 240, height: 18, size: 6.9 });
+  drawCheck(context, right.coveredDamage === false, 743, 949);
+  drawCheck(context, right.coveredDamage === true, 804, 949);
 
-  drawTextBox(page, font, right.driverLastName, { left: 662, top: 1002, width: 188, height: 18, size: 8 });
-  drawTextBox(page, font, right.driverFirstName, { left: 662, top: 1031, width: 188, height: 18, size: 8 });
-  drawTextBox(page, font, right.driverBirthDate, { left: 694, top: 1062, width: 124, height: 18, size: 7.1 });
-  drawTextBox(page, font, rightDriverAddress, { left: 662, top: 1095, width: 190, height: 34, size: 7, maxLines: 2 });
-  drawTextBox(page, font, right.driverCountry, { left: 837, top: 1127, width: 70, height: 18, size: 7.1 });
-  drawTextBox(page, font, rightDriverContact, { left: 663, top: 1158, width: 239, height: 18, size: 6.7 });
-  drawTextBox(page, font, right.driverLicenseNumber, { left: 705, top: 1187, width: 153, height: 18, size: 7.2 });
-  drawTextBox(page, font, right.driverLicenseCategory, { left: 725, top: 1218, width: 124, height: 18, size: 7.1 });
-  drawTextBox(page, font, right.driverLicenseValidUntil, { left: 740, top: 1247, width: 120, height: 18, size: 7.1 });
+  drawTextBox(context, right.driverLastName, { left: 662, top: 999, width: 188, height: 18, size: 8.2 });
+  drawTextBox(context, right.driverFirstName, { left: 662, top: 1027, width: 188, height: 18, size: 8.2 });
+  drawTextBox(context, right.driverBirthDate, { left: 694, top: 1059, width: 124, height: 18, size: 7.3 });
+  drawTextBox(context, rightDriverAddress, {
+    left: 662,
+    top: 1091,
+    width: 190,
+    height: 34,
+    size: 7.1,
+    maxLines: 2
+  });
+  drawTextBox(context, right.driverCountry, { left: 837, top: 1123, width: 70, height: 18, size: 7.2 });
+  drawTextBox(context, rightDriverContact, { left: 663, top: 1154, width: 239, height: 18, size: 6.9 });
+  drawTextBox(context, right.driverLicenseNumber, { left: 705, top: 1183, width: 153, height: 18, size: 7.3 });
+  drawTextBox(context, right.driverLicenseCategory, { left: 725, top: 1214, width: 124, height: 18, size: 7.2 });
+  drawTextBox(context, right.driverLicenseValidUntil, { left: 740, top: 1243, width: 120, height: 18, size: 7.2 });
 
   report.circumstances.forEach((item, index) => {
-    const top = 472 + index * 56;
-    drawCheck(page, font, item.selectedByA, 630, top);
-    drawCheck(page, font, item.selectedByB, 847, top);
+    const top = 471 + index * 56;
+    drawCheck(context, item.selectedByA, 632, top);
+    drawCheck(context, item.selectedByB, 849, top);
   });
 
-  drawTextBox(page, font, left.impactZone, {
+  drawTextBox(context, left.impactZone, {
     left: 55,
-    top: 949,
+    top: 947,
     width: 255,
-    height: 30,
-    size: 6.8,
+    height: 32,
+    size: 7,
     maxLines: 2
   });
-  drawTextBox(page, font, right.impactZone, {
+  drawTextBox(context, right.impactZone, {
     left: 663,
-    top: 949,
+    top: 947,
     width: 255,
-    height: 30,
-    size: 6.8,
+    height: 32,
+    size: 7,
     maxLines: 2
   });
 
-  drawTextBox(page, font, left.visibleDamage, {
+  drawTextBox(context, left.visibleDamage, {
     left: 56,
-    top: 1122,
+    top: 1120,
     width: 257,
     height: 66,
-    size: 7,
+    size: 7.1,
     maxLines: 4
   });
-  drawTextBox(page, font, right.visibleDamage, {
+  drawTextBox(context, right.visibleDamage, {
     left: 663,
-    top: 1122,
+    top: 1120,
     width: 257,
     height: 66,
-    size: 7,
+    size: 7.1,
     maxLines: 4
   });
 
-  drawTextBox(page, font, left.note, {
+  drawTextBox(context, left.note, {
     left: 56,
-    top: 1267,
+    top: 1264,
     width: 257,
     height: 72,
     size: 7,
     maxLines: 4
   });
-  drawTextBox(page, font, right.note, {
+  drawTextBox(context, right.note, {
     left: 663,
-    top: 1267,
+    top: 1264,
     width: 257,
     height: 72,
     size: 7,
     maxLines: 4
   });
 
-  const sketchAttachment = await buildSketchAttachmentDataUrl(report);
-  if (sketchAttachment) {
-    const embeddedSketch = await embedOptionalImage(pdfDoc, sketchAttachment);
-    drawImageInBox(page, embeddedSketch, 319, 951, 323, 253, 6);
+  const sketchImage = report.annotatedPhotoDataUrl || report.sceneSketch.svgDataUrl;
+  if (sketchImage) {
+    await drawImageInBox(context, sketchImage, 319, 951, 323, 253, 4);
   }
 
   if (report.signatures.a) {
-    const signatureA = await pdfDoc.embedPng(report.signatures.a);
-    page.drawImage(signatureA, {
-      x: px(410),
-      y: pyFromTop(1334),
-      width: px(110),
-      height: 26
-    });
+    await drawImageInBox(context, report.signatures.a, 404, 1278, 124, 60, 2);
   }
 
   if (report.signatures.b) {
-    const signatureB = await pdfDoc.embedPng(report.signatures.b);
-    page.drawImage(signatureB, {
-      x: px(585),
-      y: pyFromTop(1334),
-      width: px(110),
-      height: 26
-    });
+    await drawImageInBox(context, report.signatures.b, 575, 1278, 124, 60, 2);
   }
+
+  return canvas.toDataURL("image/png");
+}
+
+export async function generatePdf(report: ReportDraft) {
+  const pdfDoc = await PDFDocument.create();
+  const page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+  const paperFormDataUrl = await renderPaperForm(report);
+  const paperFormImage = await pdfDoc.embedPng(paperFormDataUrl);
+
+  page.drawImage(paperFormImage, {
+    x: 0,
+    y: 0,
+    width: PAGE_WIDTH,
+    height: PAGE_HEIGHT
+  });
 
   const bytes = await pdfDoc.save();
   const blobBytes = bytes.slice().buffer;
