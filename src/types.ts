@@ -10,6 +10,7 @@ export type PhotoKind =
   | "document-b";
 
 export type DocumentType = "driver-license" | "registration" | "policy";
+export type DocumentSide = "front" | "back";
 
 export type DamageZone =
   | "prednji branik"
@@ -114,6 +115,7 @@ export type PhotoAsset = {
   label?: string;
   kind?: PhotoKind;
   documentType?: DocumentType;
+  documentSide?: DocumentSide;
 };
 
 export type MarkerType = "arrow-a" | "arrow-b" | "impact" | "label-a" | "label-b";

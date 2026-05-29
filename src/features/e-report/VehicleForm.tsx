@@ -3,11 +3,19 @@ import Camera from "../../components/Camera";
 import Card from "../../components/Card";
 import {
   INSURER_OPTIONS,
+  POSTAL_CODE_CITY_OPTIONS,
   createId,
   getVehicleSectionMissingFields,
+  resolveCityFromPostalCode,
   type VehicleSection
 } from "../../lib/utils";
-import type { DocumentType, PhotoAsset, PhotoKind, VehicleDraft } from "../../types";
+import type {
+  DocumentSide,
+  DocumentType,
+  PhotoAsset,
+  PhotoKind,
+  VehicleDraft
+} from "../../types";
 
 type AccentTone = "red" | "blue";
 
@@ -28,21 +36,24 @@ const sectionConfig: Record<
     cameraTitle: string;
     cameraHelper: string;
     photoHint: string;
+    requiresBothSides?: boolean;
   }
 > = {
   driver: {
     headline: "Fotografija vozacke dozvole",
     helper: "Papirni obrazac je glavni izvor podataka. Fotografija ostaje iznad forme kao vizuelna pomoc pri unosu.",
     cameraTitle: "Vozacka dozvola",
-    cameraHelper: "Snimi dokument jasno, pa ispod prepisuj podatke iz fotografije.",
-    photoHint: "Fotografija ostaje uz zapisnik i kasnije ide u dokazni paket."
+    cameraHelper: "Prvo dodaj prednju, pa zadnju stranu dokumenta. Obe slike su obavezne.",
+    photoHint: "Fotografije ostaju uz zapisnik i kasnije idu u dokazni paket.",
+    requiresBothSides: true
   },
   vehicle: {
     headline: "Fotografija saobracajne dozvole",
     helper: "Saobracajna je vizuelna pomoc. Ispod rucno unosis polja koja trazi evropski izvestaj.",
     cameraTitle: "Saobracajna dozvola",
-    cameraHelper: "Po mogucstvu dodaj obe strane dokumenta.",
-    photoHint: "Dokument ostaje sacuvan uz report."
+    cameraHelper: "Dodaj prednju i zadnju stranu saobracajne dozvole. Obe slike su obavezne.",
+    photoHint: "Dokument ostaje sacuvan uz report.",
+    requiresBothSides: true
   },
   policy: {
     headline: "Fotografija polise osiguranja",
@@ -73,6 +84,10 @@ async function fileToDataUrl(file: File) {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(file);
   });
+}
+
+function normalizePostalCode(value: string) {
+  return value.replace(/\D/g, "").slice(0, 5);
 }
 
 function Field({
@@ -176,6 +191,8 @@ function PhotoStrip({
   helper,
   hint,
   photos,
+  requiredSides,
+  missingLabels = [],
   readOnly = false,
   onCapture,
   onDelete
@@ -184,17 +201,86 @@ function PhotoStrip({
   helper: string;
   hint: string;
   photos: PhotoAsset[];
+  requiredSides?: DocumentSide[];
+  missingLabels?: string[];
   readOnly?: boolean;
-  onCapture: (files: FileList) => Promise<void>;
+  onCapture: (files: FileList, side?: DocumentSide) => Promise<void>;
   onDelete: (photoId: string) => void;
 }) {
+  const hasBothSides = requiredSides?.length;
+  const sidePhotos = hasBothSides
+    ? {
+        front: photos.find((photo) => photo.documentSide === "front"),
+        back: photos.find((photo) => photo.documentSide === "back")
+      }
+    : null;
+
   return (
     <div className="space-y-3">
-      <Camera disabled={readOnly} helper={helper} onCapture={onCapture} title={title} />
+      {hasBothSides && sidePhotos ? (
+        <div className="grid gap-3">
+          {requiredSides.map((side) => {
+            const photo = sidePhotos[side];
+            const sideLabel = side === "front" ? "prednje strane" : "zadnje strane";
+            const cardTitle = side === "front" ? "Prednja strana" : "Zadnja strana";
+            const isMissing = missingLabels.some((label) =>
+              label.includes(side === "front" ? "Prednja" : "Zadnja")
+            );
+
+            return (
+              <div
+                key={side}
+                className={`rounded-[22px] border p-3 ${
+                  isMissing ? "border-red-400/45 bg-red-500/8" : "border-white/10 bg-white/5"
+                }`}
+              >
+                <div className="mb-3 text-sm font-medium text-white">{cardTitle}</div>
+                <Camera
+                  buttonLabel={`Dodaj sliku ${sideLabel}`}
+                  disabled={readOnly}
+                  helper={
+                    side === "front"
+                      ? `${helper} Usmeri kameru na prednju stranu.`
+                      : `${helper} Zatim dodaj zadnju stranu.`
+                  }
+                  multiple={false}
+                  onCapture={(files) => onCapture(files, side)}
+                  title={title}
+                />
+                {photo ? (
+                  <div className="relative mt-3 overflow-hidden rounded-[18px] bg-white/5">
+                    <img alt={`${title} ${cardTitle.toLowerCase()}`} className="aspect-[4/3] w-full object-cover" src={photo.dataUrl} />
+                    <div className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-1 text-xs text-white">
+                      {cardTitle}
+                    </div>
+                    {readOnly ? null : (
+                      <button
+                        className="absolute right-2 top-2 rounded-full bg-black/55 px-2 py-1 text-xs text-white"
+                        onClick={() => onDelete(photo.id)}
+                        type="button"
+                      >
+                        Obrisi
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-3 rounded-[18px] border border-dashed border-white/15 px-4 py-4 text-sm text-white/55">
+                    {isMissing
+                      ? `Nedostaje slika ${sideLabel}.`
+                      : `Jos nije dodata slika ${sideLabel}.`}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <Camera disabled={readOnly} helper={helper} onCapture={(files) => onCapture(files)} title={title} />
+      )}
       <div className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/65">
         {hint}
       </div>
-      {photos.length ? (
+      {!hasBothSides && photos.length ? (
         <div className="grid grid-cols-2 gap-3">
           {photos.map((photo) => (
             <div key={photo.id} className="relative overflow-hidden rounded-[18px] bg-white/5">
@@ -216,16 +302,28 @@ function PhotoStrip({
   );
 }
 
+function applyPostalCodeAutofill(
+  nextPostalCode: string,
+  currentCity: string,
+  onResolved: (postalCode: string, city: string) => void
+) {
+  const postalCode = normalizePostalCode(nextPostalCode);
+  const resolvedCity = resolveCityFromPostalCode(postalCode);
+  onResolved(postalCode, resolvedCity || currentCity);
+}
+
 function DriverFields({
   value,
   readOnly,
   isMissing,
-  onChange
+  onChange,
+  postalCodeListId
 }: {
   value: VehicleDraft;
   readOnly: boolean;
   isMissing: (label: string) => boolean;
   onChange: (next: VehicleDraft) => void;
+  postalCodeListId: string;
 }) {
   return (
     <div className="space-y-4">
@@ -235,7 +333,19 @@ function DriverFields({
       </div>
       <Field invalid={isMissing("Adresa vozaca")} label="Adresa" onChange={(driverAddress) => onChange({ ...value, driverAddress })} placeholder="Adresa" readOnly={readOnly} value={value.driverAddress} />
       <div className="grid grid-cols-2 gap-3">
-        <Field invalid={isMissing("Postanski broj vozaca")} label="Postanski broj" onChange={(driverPostalCode) => onChange({ ...value, driverPostalCode })} placeholder="Postanski broj" readOnly={readOnly} value={value.driverPostalCode} />
+        <Field
+          invalid={isMissing("Postanski broj vozaca")}
+          label="Postanski broj"
+          list={postalCodeListId}
+          onChange={(driverPostalCode) =>
+            applyPostalCodeAutofill(driverPostalCode, value.driverCity, (postalCode, city) =>
+              onChange({ ...value, driverPostalCode: postalCode, driverCity: city })
+            )
+          }
+          placeholder="Postanski broj"
+          readOnly={readOnly}
+          value={value.driverPostalCode}
+        />
         <Field label="Grad" onChange={(driverCity) => onChange({ ...value, driverCity })} placeholder="Grad" readOnly={readOnly} value={value.driverCity} />
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -326,12 +436,14 @@ function PolicyFields({
   value,
   readOnly,
   insurerListId,
+  postalCodeListId,
   isMissing,
   onChange
 }: {
   value: VehicleDraft;
   readOnly: boolean;
   insurerListId: string;
+  postalCodeListId: string;
   isMissing: (label: string) => boolean;
   onChange: (next: VehicleDraft) => void;
 }) {
@@ -438,7 +550,19 @@ function PolicyFields({
         <div className="mt-3 space-y-3">
           <Field invalid={isMissing("Adresa ugovaraca")} label="Adresa osiguranika" onChange={(ownerAddress) => onChange({ ...value, ownerAddress })} placeholder="Adresa osiguranika" readOnly={ownerFieldsReadOnly} value={value.ownerAddress} />
           <div className="grid grid-cols-3 gap-3">
-            <Field invalid={isMissing("Postanski broj ugovaraca")} label="Postanski broj" onChange={(ownerPostalCode) => onChange({ ...value, ownerPostalCode })} placeholder="Postanski broj" readOnly={ownerFieldsReadOnly} value={value.ownerPostalCode} />
+            <Field
+              invalid={isMissing("Postanski broj ugovaraca")}
+              label="Postanski broj"
+              list={postalCodeListId}
+              onChange={(ownerPostalCode) =>
+                applyPostalCodeAutofill(ownerPostalCode, value.ownerCity, (postalCode, city) =>
+                  onChange({ ...value, ownerPostalCode: postalCode, ownerCity: city })
+                )
+              }
+              placeholder="Postanski broj"
+              readOnly={ownerFieldsReadOnly}
+              value={value.ownerPostalCode}
+            />
             <Field invalid={isMissing("Grad ugovaraca")} label="Grad osiguranika" onChange={(ownerCity) => onChange({ ...value, ownerCity })} placeholder="Grad" readOnly={ownerFieldsReadOnly} value={value.ownerCity} />
             <Field invalid={isMissing("Drzava ugovaraca")} label="Drzava osiguranika" onChange={(ownerCountry) => onChange({ ...value, ownerCountry })} placeholder="Drzava" readOnly={ownerFieldsReadOnly} value={value.ownerCountry} />
           </div>
@@ -510,6 +634,7 @@ export default function VehicleForm({
   accent = "blue"
 }: Props) {
   const insurerListId = useMemo(() => `insurer-${value.side}-${section}`, [section, value.side]);
+  const postalCodeListId = useMemo(() => `postal-${value.side}-${section}`, [section, value.side]);
   const vehicleDocumentKind: PhotoKind = value.side === "A" ? "document-a" : "document-b";
   const config = sectionConfig[section];
   const accentClasses = accentClassMap[accent];
@@ -526,7 +651,7 @@ export default function VehicleForm({
 
   const isMissing = (label: string) => missingFields.includes(label);
 
-  const handleCapture = async (files: FileList) => {
+  const handleCapture = async (files: FileList, side?: DocumentSide) => {
     const documentType: DocumentType =
       section === "driver" ? "driver-license" : section === "vehicle" ? "registration" : "policy";
     const uploads = await Promise.all(
@@ -535,13 +660,21 @@ export default function VehicleForm({
         dataUrl: await fileToDataUrl(file),
         label: file.name,
         kind: vehicleDocumentKind,
-        documentType
+        documentType,
+        documentSide: side
       }))
     );
 
+    const preservedPhotos =
+      side && config.requiresBothSides
+        ? value.documentPhotos.filter(
+            (photo) => !(photo.documentType === documentType && photo.documentSide === side)
+          )
+        : value.documentPhotos;
+
     onChange({
       ...value,
-      documentPhotos: [...value.documentPhotos, ...uploads]
+      documentPhotos: [...preservedPhotos, ...uploads]
     });
   };
 
@@ -550,6 +683,13 @@ export default function VehicleForm({
       <SectionTitle accent={accent} helper={config.helper} headline={config.headline} title={title} />
 
       <Card className={`space-y-4 border ${accentClasses.ring}`}>
+        <datalist id={postalCodeListId}>
+          {POSTAL_CODE_CITY_OPTIONS.map((option) => (
+            <option key={`${option.postalCode}-${option.city}`} value={option.postalCode}>
+              {option.city}
+            </option>
+          ))}
+        </datalist>
         <PhotoStrip
           helper={config.cameraHelper}
           hint={config.photoHint}
@@ -562,6 +702,8 @@ export default function VehicleForm({
           }
           photos={photos}
           readOnly={readOnly}
+          requiredSides={config.requiresBothSides ? ["front", "back"] : undefined}
+          missingLabels={missingFields}
           title={config.cameraTitle}
         />
       </Card>
@@ -574,7 +716,13 @@ export default function VehicleForm({
         )}
 
         {section === "driver" ? (
-          <DriverFields isMissing={isMissing} onChange={onChange} readOnly={readOnly} value={value} />
+          <DriverFields
+            isMissing={isMissing}
+            onChange={onChange}
+            postalCodeListId={postalCodeListId}
+            readOnly={readOnly}
+            value={value}
+          />
         ) : section === "vehicle" ? (
           <VehicleFields isMissing={isMissing} onChange={onChange} readOnly={readOnly} value={value} />
         ) : (
@@ -582,6 +730,7 @@ export default function VehicleForm({
             insurerListId={insurerListId}
             isMissing={isMissing}
             onChange={onChange}
+            postalCodeListId={postalCodeListId}
             readOnly={readOnly}
             value={value}
           />

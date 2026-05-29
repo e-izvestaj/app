@@ -20,6 +20,43 @@ export const INSURER_OPTIONS = [
   "Drugo"
 ] as const;
 
+export const POSTAL_CODE_CITY_OPTIONS = [
+  { postalCode: "11000", city: "Beograd" },
+  { postalCode: "11010", city: "Beograd" },
+  { postalCode: "11030", city: "Beograd" },
+  { postalCode: "11040", city: "Beograd" },
+  { postalCode: "11050", city: "Beograd" },
+  { postalCode: "11070", city: "Novi Beograd" },
+  { postalCode: "11080", city: "Zemun" },
+  { postalCode: "11090", city: "Beograd" },
+  { postalCode: "11210", city: "Beograd" },
+  { postalCode: "11271", city: "Surcin" },
+  { postalCode: "11300", city: "Smederevo" },
+  { postalCode: "12000", city: "Pozarevac" },
+  { postalCode: "14000", city: "Valjevo" },
+  { postalCode: "15000", city: "Sabac" },
+  { postalCode: "16000", city: "Leskovac" },
+  { postalCode: "17500", city: "Vranje" },
+  { postalCode: "18000", city: "Nis" },
+  { postalCode: "21000", city: "Novi Sad" },
+  { postalCode: "23000", city: "Zrenjanin" },
+  { postalCode: "24000", city: "Subotica" },
+  { postalCode: "25000", city: "Sombor" },
+  { postalCode: "26000", city: "Pancevo" },
+  { postalCode: "31000", city: "Uzice" },
+  { postalCode: "32000", city: "Cacak" },
+  { postalCode: "34000", city: "Kragujevac" },
+  { postalCode: "35000", city: "Jagodina" },
+  { postalCode: "36000", city: "Kraljevo" },
+  { postalCode: "37000", city: "Krusevac" },
+  { postalCode: "38000", city: "Pristina" },
+  { postalCode: "38103", city: "Kosovska Mitrovica" },
+  { postalCode: "38220", city: "Kosovo Polje" },
+  { postalCode: "38227", city: "Zvecan" },
+  { postalCode: "38228", city: "Zubin Potok" },
+  { postalCode: "38230", city: "Kosovska Mitrovica" }
+] as const;
+
 export const DAMAGE_ZONE_OPTIONS: DamageZone[] = [
   "prednji branik",
   "zadnji branik",
@@ -37,6 +74,11 @@ export const DAMAGE_ZONE_OPTIONS: DamageZone[] = [
 
 export function createId(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function resolveCityFromPostalCode(postalCode: string) {
+  const normalized = postalCode.replace(/\D/g, "");
+  return POSTAL_CODE_CITY_OPTIONS.find((option) => option.postalCode === normalized)?.city || "";
 }
 
 export function createPublicReportId() {
@@ -373,12 +415,40 @@ export function getVehicleMissingFields(vehicle: VehicleDraft) {
   requireValue("Broj vozacke dozvole", vehicle.driverLicenseNumber);
   requireValue("Kategorija dozvole", vehicle.driverLicenseCategory);
   requireValue("Vazenje vozacke dozvole", vehicle.driverLicenseValidUntil);
+  if (
+    !vehicle.documentPhotos.some(
+      (photo) => photo.documentType === "driver-license" && photo.documentSide === "front"
+    )
+  ) {
+    missing.push("Prednja strana vozacke dozvole");
+  }
+  if (
+    !vehicle.documentPhotos.some(
+      (photo) => photo.documentType === "driver-license" && photo.documentSide === "back"
+    )
+  ) {
+    missing.push("Zadnja strana vozacke dozvole");
+  }
 
   requireValue("Marka vozila", vehicle.make);
   requireValue("Model vozila", vehicle.model);
   requireValue("Tip vozila", vehicle.type);
   requireValue("Registarska oznaka", vehicle.plate);
   requireValue("Drzava registracije", vehicle.registrationCountry);
+  if (
+    !vehicle.documentPhotos.some(
+      (photo) => photo.documentType === "registration" && photo.documentSide === "front"
+    )
+  ) {
+    missing.push("Prednja strana saobracajne dozvole");
+  }
+  if (
+    !vehicle.documentPhotos.some(
+      (photo) => photo.documentType === "registration" && photo.documentSide === "back"
+    )
+  ) {
+    missing.push("Zadnja strana saobracajne dozvole");
+  }
 
   requireValue("Prezime ugovaraca", vehicle.ownerLastName);
   requireValue("Ime ugovaraca", vehicle.ownerFirstName);
@@ -416,7 +486,9 @@ export function getVehicleSectionMissingFields(vehicle: VehicleDraft, section: V
         "Telefon ili e-mail vozaca",
         "Broj vozacke dozvole",
         "Kategorija dozvole",
-        "Vazenje vozacke dozvole"
+        "Vazenje vozacke dozvole",
+        "Prednja strana vozacke dozvole",
+        "Zadnja strana vozacke dozvole"
       ].includes(field)
     );
   }
@@ -428,7 +500,9 @@ export function getVehicleSectionMissingFields(vehicle: VehicleDraft, section: V
         "Model vozila",
         "Tip vozila",
         "Registarska oznaka",
-        "Drzava registracije"
+        "Drzava registracije",
+        "Prednja strana saobracajne dozvole",
+        "Zadnja strana saobracajne dozvole"
       ].includes(field)
     );
   }

@@ -7,9 +7,18 @@ type Props = {
   onCapture: (files: FileList) => Promise<void> | void;
   helper?: string;
   disabled?: boolean;
+  buttonLabel?: string;
+  multiple?: boolean;
 };
 
-export default function Camera({ title, onCapture, helper, disabled = false }: Props) {
+export default function Camera({
+  title,
+  onCapture,
+  helper,
+  disabled = false,
+  buttonLabel,
+  multiple = true
+}: Props) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [isPicking, setIsPicking] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -96,11 +105,11 @@ export default function Camera({ title, onCapture, helper, disabled = false }: P
         type="file"
         accept="image/*"
         capture="environment"
-        multiple
+        multiple={multiple}
         onChange={handleChange}
       />
       <Button disabled={disabled} onClick={handleOpenPicker} type="button">
-        {isPicking ? "Otvaram kameru..." : "Otvori kameru"}
+        {isPicking ? "Otvaram kameru..." : buttonLabel || "Otvori kameru"}
       </Button>
       {statusMessage ? (
         <div
