@@ -11,6 +11,7 @@ import { createId, nowIso } from "../../lib/utils";
 import type { SceneSketchSuggestion } from "../../types";
 
 const BOARD_SIZE = 720;
+const BOARD_VIEW_SIZE = 360;
 const MIN_ZOOM = 17;
 const MAX_ZOOM = 23;
 
@@ -49,97 +50,26 @@ function cloneSketch(sketch: SceneSketchSuggestion): SceneSketchSuggestion {
 function getMapSpan(zoom: number) {
   const lngSpan = 0.012 / Math.pow(2, zoom - 14);
   const latSpan = lngSpan * 0.94;
-
-  return { lngSpan, latSpan };
+  return { latSpan, lngSpan };
 }
 
-function longitudeToTile(longitude: number, zoom: number) {
-  return ((longitude + 180) / 360) * Math.pow(2, zoom);
+function getEmbedBbox(latitude: number, longitude: number, zoom: number) {
+  const { latSpan, lngSpan } = getMapSpan(zoom);
+  return {
+    left: longitude - lngSpan,
+    right: longitude + lngSpan,
+    top: latitude + latSpan,
+    bottom: latitude - latSpan
+  };
 }
 
-function latitudeToTile(latitude: number, zoom: number) {
-  const radians = (latitude * Math.PI) / 180;
-  return (
-    ((1 - Math.log(Math.tan(radians) + 1 / Math.cos(radians)) / Math.PI) / 2) *
-    Math.pow(2, zoom)
-  );
-}
+function getMapEmbedUrl(latitude: number, longitude: number, zoom: number) {
+  const bbox = getEmbedBbox(latitude, longitude, zoom);
+  const bboxValue = [bbox.left, bbox.bottom, bbox.right, bbox.top]
+    .map((value) => value.toFixed(6))
+    .join(",");
 
-function getTileUrl(zoom: number, x: number, y: number) {
-  const subdomain = ["a", "b", "c"][(x + y) % 3];
-  return `https://${subdomain}.tile.openstreetmap.org/${zoom}/${x}/${y}.png`;
-}
-
-async function loadImage(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("Neuspesno ucitavanje slike."));
-    image.src = src;
-  });
-}
-
-async function fetchMapDataUrl(latitude: number, longitude: number, zoom: number) {
-  const tileSize = 256;
-  const boardPixels = BOARD_SIZE;
-  const scale = boardPixels / 360;
-  const n = Math.pow(2, zoom);
-  const tileX = longitudeToTile(longitude, zoom);
-  const tileY = latitudeToTile(latitude, zoom);
-  const centerPixelX = tileX * tileSize;
-  const centerPixelY = tileY * tileSize;
-  const half = boardPixels / 2;
-  const minTileX = Math.floor((centerPixelX - half) / tileSize) - 1;
-  const maxTileX = Math.floor((centerPixelX + half) / tileSize) + 1;
-  const minTileY = Math.floor((centerPixelY - half) / tileSize) - 1;
-  const maxTileY = Math.floor((centerPixelY + half) / tileSize) + 1;
-
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(boardPixels * scale);
-  canvas.height = Math.round(boardPixels * scale);
-  const context = canvas.getContext("2d");
-
-  if (!context) {
-    throw new Error("Canvas nije dostupan za pripremu GPS podloge.");
-  }
-
-  context.fillStyle = "#101722";
-  context.fillRect(0, 0, canvas.width, canvas.height);
-
-  const drawTasks: Array<Promise<boolean>> = [];
-
-  for (let x = minTileX; x <= maxTileX; x += 1) {
-    for (let y = minTileY; y <= maxTileY; y += 1) {
-      if (y < 0 || y >= n) {
-        continue;
-      }
-
-      const wrappedX = ((x % n) + n) % n;
-      const destX = (x * tileSize - (centerPixelX - half)) * scale;
-      const destY = (y * tileSize - (centerPixelY - half)) * scale;
-
-      drawTasks.push(
-        loadImage(getTileUrl(zoom, wrappedX, y)).then((image) => {
-          context.drawImage(
-            image,
-            Math.round(destX),
-            Math.round(destY),
-            Math.ceil(tileSize * scale) + 1,
-            Math.ceil(tileSize * scale) + 1
-          );
-          return true;
-        }).catch(() => false)
-      );
-    }
-  }
-
-  const drawnTiles = await Promise.all(drawTasks);
-  if (!drawnTiles.some(Boolean)) {
-    throw new Error("GPS podloga trenutno nije dostupna.");
-  }
-
-  return canvas.toDataURL("image/png");
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bboxValue}&layer=mapnik&marker=${latitude.toFixed(6)},${longitude.toFixed(6)}`;
 }
 
 function drawRoundedRect(
@@ -159,34 +89,19 @@ function drawFallbackMap(context: CanvasRenderingContext2D, sketch: SceneSketchS
   context.fillRect(0, 0, BOARD_SIZE, BOARD_SIZE);
 
   context.fillStyle = "#172234";
-  context.strokeStyle = "rgba(143,166,199,0.18)";
-  context.lineWidth = 2;
 
   if (sketch.laneType === "intersection") {
-    drawRoundedRect(context, 90, 0, 180, BOARD_SIZE, 36);
+    drawRoundedRect(context, 180, 0, 180, BOARD_SIZE, 36);
     context.fill();
-    drawRoundedRect(context, 0, 250, BOARD_SIZE, 180, 36);
+    drawRoundedRect(context, 0, 270, BOARD_SIZE, 180, 36);
     context.fill();
   } else if (sketch.laneType === "parking") {
-    drawRoundedRect(context, 110, 0, 140, BOARD_SIZE, 32);
+    drawRoundedRect(context, 250, 0, 140, BOARD_SIZE, 32);
     context.fill();
-    context.strokeStyle = "rgba(255,255,255,0.24)";
-    for (let index = 0; index < 5; index += 1) {
-      context.beginPath();
-      context.moveTo(24, 120 + index * 96);
-      context.lineTo(110, 120 + index * 96);
-      context.stroke();
-    }
   } else if (sketch.laneType === "roundabout") {
     context.beginPath();
-    context.arc(360, 360, 220, 0, Math.PI * 2);
+    context.arc(360, 360, 210, 0, Math.PI * 2);
     context.fill();
-    context.strokeStyle = "rgba(255,255,255,0.22)";
-    context.setLineDash([18, 12]);
-    context.beginPath();
-    context.arc(360, 360, 150, 0, Math.PI * 2);
-    context.stroke();
-    context.setLineDash([]);
   } else {
     drawRoundedRect(context, 250, 0, 220, BOARD_SIZE, 36);
     context.fill();
@@ -207,14 +122,12 @@ function drawFallbackMap(context: CanvasRenderingContext2D, sketch: SceneSketchS
 function directionGlyph(direction: SketchDirection) {
   switch (direction) {
     case "backward":
-    case "parking":
       return "↓";
     case "left":
       return "←";
     case "right":
       return "→";
     case "uturn":
-    case "merge":
       return "U";
     default:
       return "↑";
@@ -228,7 +141,7 @@ function drawDirectionArrow(
 ) {
   const x = state.x * 2;
   const y = state.y * 2;
-  const startY = y - 72;
+  const startY = y - 62;
 
   context.save();
   context.strokeStyle = color;
@@ -240,26 +153,24 @@ function drawDirectionArrow(
 
   switch (state.direction) {
     case "backward":
-    case "parking":
       context.moveTo(x, startY);
-      context.lineTo(x, startY + 78);
+      context.lineTo(x, startY + 72);
       break;
     case "left":
-      context.moveTo(x, startY + 34);
-      context.bezierCurveTo(x - 26, startY + 26, x - 48, startY, x - 54, startY - 24);
+      context.moveTo(x, startY + 28);
+      context.bezierCurveTo(x - 24, startY + 24, x - 46, startY + 2, x - 56, startY - 22);
       break;
     case "right":
-      context.moveTo(x, startY + 34);
-      context.bezierCurveTo(x + 26, startY + 26, x + 48, startY, x + 54, startY - 24);
+      context.moveTo(x, startY + 28);
+      context.bezierCurveTo(x + 24, startY + 24, x + 46, startY + 2, x + 56, startY - 22);
       break;
     case "uturn":
-    case "merge":
       context.moveTo(x, startY + 44);
-      context.bezierCurveTo(x + 40, startY + 28, x + 48, startY - 32, x, startY - 50);
-      context.bezierCurveTo(x - 32, startY - 50, x - 36, startY - 14, x - 12, startY + 4);
+      context.bezierCurveTo(x + 36, startY + 28, x + 42, startY - 26, x, startY - 48);
+      context.bezierCurveTo(x - 26, startY - 48, x - 28, startY - 16, x - 10, startY + 4);
       break;
     default:
-      context.moveTo(x, startY + 76);
+      context.moveTo(x, startY + 72);
       context.lineTo(x, startY);
       break;
   }
@@ -268,18 +179,18 @@ function drawDirectionArrow(
 
   const headX =
     state.direction === "left"
-      ? x - 54
+      ? x - 56
       : state.direction === "right"
-        ? x + 54
-        : state.direction === "uturn" || state.direction === "merge"
-          ? x - 12
+        ? x + 56
+        : state.direction === "uturn"
+          ? x - 10
           : x;
   const headY =
-    state.direction === "backward" || state.direction === "parking"
-      ? startY + 78
+    state.direction === "backward"
+      ? startY + 72
       : state.direction === "left" || state.direction === "right"
-        ? startY - 24
-        : state.direction === "uturn" || state.direction === "merge"
+        ? startY - 22
+        : state.direction === "uturn"
           ? startY + 4
           : startY;
 
@@ -306,21 +217,26 @@ function drawVehicle(
   context.translate(x, y);
   context.rotate((state.rotation * Math.PI) / 180);
   context.fillStyle = bodyColor;
-  drawRoundedRect(context, -26, -48, 52, 96, 24);
+  drawRoundedRect(context, -20, -38, 40, 76, 20);
   context.fill();
-  context.fillStyle = "rgba(255,255,255,0.18)";
-  drawRoundedRect(context, -16, -28, 32, 42, 12);
+  context.fillStyle = "rgba(255,255,255,0.2)";
+  drawRoundedRect(context, -12, -20, 24, 28, 10);
   context.fill();
   context.fillStyle = "rgba(255,255,255,0.16)";
-  drawRoundedRect(context, -18, -42, 36, 14, 8);
+  drawRoundedRect(context, -14, -32, 28, 10, 8);
+  context.fill();
+  context.fillStyle = "rgba(0,0,0,0.16)";
+  drawRoundedRect(context, -20, -24, 4, 42, 4);
+  context.fill();
+  drawRoundedRect(context, 16, -24, 4, 42, 4);
   context.fill();
   context.restore();
 
   context.save();
   context.fillStyle = "#FFFFFF";
-  context.font = "700 28px Arial";
+  context.font = "700 24px Arial";
   context.textAlign = "center";
-  context.fillText(label, x, y + 74);
+  context.fillText(label, x, y + 58);
   context.restore();
 
   drawDirectionArrow(context, state, arrowColor);
@@ -359,7 +275,7 @@ function drawDecorations(context: CanvasRenderingContext2D, sketch: SceneSketchS
 
   if (sketch.decorations.parkedVehicle) {
     context.fillStyle = "#7B88A0";
-    drawRoundedRect(context, 84, 316, 36, 90, 18);
+    drawRoundedRect(context, 84, 316, 30, 74, 16);
     context.fill();
   }
 
@@ -377,8 +293,7 @@ function drawDecorations(context: CanvasRenderingContext2D, sketch: SceneSketchS
 
 async function renderSketchDataUrl(
   sketch: SceneSketchSuggestion,
-  locationLabel: string | null,
-  mapDataUrl: string | null
+  locationLabel: string | null
 ) {
   const canvas = document.createElement("canvas");
   canvas.width = BOARD_SIZE;
@@ -391,16 +306,7 @@ async function renderSketchDataUrl(
 
   context.fillStyle = "#0B0D12";
   context.fillRect(0, 0, BOARD_SIZE, BOARD_SIZE);
-
-  if (mapDataUrl) {
-    const mapImage = await loadImage(mapDataUrl);
-    context.drawImage(mapImage, 0, 0, BOARD_SIZE, BOARD_SIZE);
-    context.fillStyle = "rgba(11,13,18,0.34)";
-    context.fillRect(0, 0, BOARD_SIZE, BOARD_SIZE);
-  } else {
-    drawFallbackMap(context, sketch);
-  }
-
+  drawFallbackMap(context, sketch);
   drawDecorations(context, sketch);
 
   context.save();
@@ -412,6 +318,7 @@ async function renderSketchDataUrl(
     if (path.points.length < 2) {
       return;
     }
+
     context.beginPath();
     context.moveTo(path.points[0].x * 2, path.points[0].y * 2);
     path.points.slice(1).forEach((point) => {
@@ -428,10 +335,10 @@ async function renderSketchDataUrl(
   context.strokeStyle = "#F7CC45";
   context.lineWidth = 8;
   context.beginPath();
-  context.moveTo(sketch.impactPoint.x * 2 - 20, sketch.impactPoint.y * 2 - 20);
-  context.lineTo(sketch.impactPoint.x * 2 + 20, sketch.impactPoint.y * 2 + 20);
-  context.moveTo(sketch.impactPoint.x * 2 + 20, sketch.impactPoint.y * 2 - 20);
-  context.lineTo(sketch.impactPoint.x * 2 - 20, sketch.impactPoint.y * 2 + 20);
+  context.moveTo(sketch.impactPoint.x * 2 - 18, sketch.impactPoint.y * 2 - 18);
+  context.lineTo(sketch.impactPoint.x * 2 + 18, sketch.impactPoint.y * 2 + 18);
+  context.moveTo(sketch.impactPoint.x * 2 + 18, sketch.impactPoint.y * 2 - 18);
+  context.lineTo(sketch.impactPoint.x * 2 - 18, sketch.impactPoint.y * 2 + 18);
   context.stroke();
   context.restore();
 
@@ -460,7 +367,7 @@ function VehicleMarker({
   return (
     <>
       <button
-        className="absolute h-[52px] w-[32px] -translate-x-1/2 -translate-y-1/2 rounded-[14px] border border-white/15 shadow-[0_12px_24px_rgba(0,0,0,0.28)]"
+        className="absolute h-[44px] w-[24px] -translate-x-1/2 -translate-y-1/2 rounded-[12px] border border-white/15 shadow-[0_12px_24px_rgba(0,0,0,0.28)] touch-none"
         onPointerDown={onPointerDown}
         style={{
           left: state.x,
@@ -470,17 +377,19 @@ function VehicleMarker({
         }}
         type="button"
       >
-        <span className="absolute inset-x-[6px] top-[6px] h-[16px] rounded-[8px] bg-white/20" />
+        <span className="absolute inset-x-[4px] top-[5px] h-[11px] rounded-[8px] bg-white/20" />
+        <span className="absolute inset-y-[8px] left-[2px] w-[3px] rounded-full bg-black/20" />
+        <span className="absolute inset-y-[8px] right-[2px] w-[3px] rounded-full bg-black/20" />
       </button>
       <div
-        className="pointer-events-none absolute -translate-x-1/2 rounded-full bg-black/35 px-2 py-1 text-sm font-semibold text-white"
-        style={{ left: state.x, top: state.y + 42 }}
+        className="pointer-events-none absolute -translate-x-1/2 rounded-full bg-black/45 px-2 py-1 text-xs font-semibold text-white"
+        style={{ left: state.x, top: state.y + 34 }}
       >
         {label}
       </div>
       <div
-        className="pointer-events-none absolute -translate-x-1/2 text-[26px] font-bold"
-        style={{ left: state.x, top: state.y - 52, color: label === "A" ? "#FF9EA3" : "#8DB7FF" }}
+        className="pointer-events-none absolute -translate-x-1/2 text-[20px] font-bold"
+        style={{ left: state.x, top: state.y - 42, color: label === "A" ? "#FF9EA3" : "#8DB7FF" }}
       >
         {directionGlyph(state.direction)}
       </div>
@@ -504,7 +413,7 @@ function DirectionPicker({
     { glyph: "↓", label: "Nazad", value: "backward" },
     { glyph: "←", label: "Levo", value: "left" },
     { glyph: "→", label: "Desno", value: "right" },
-    { glyph: "U", label: "Polukruzno", value: "uturn" }
+    { glyph: "U", label: "Polukružno", value: "uturn" }
   ];
 
   return (
@@ -577,12 +486,17 @@ export default function SceneSketchStep({
     latitude: sceneSketch.mapCenterLatitude ?? latitude ?? 0,
     longitude: sceneSketch.mapCenterLongitude ?? longitude ?? 0
   });
-  const [mapImageDataUrl, setMapImageDataUrl] = useState<string | null>(null);
-  const [isMapLoading, setIsMapLoading] = useState(false);
-  const [mapError, setMapError] = useState<string | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
+  const activePointerIdRef = useRef<number | null>(null);
 
   const previewImage = sceneSketch.svgDataUrl;
+  const mapEmbedUrl = useMemo(() => {
+    if (!hasGps || !mapCenter.latitude || !mapCenter.longitude) {
+      return null;
+    }
+
+    return getMapEmbedUrl(mapCenter.latitude, mapCenter.longitude, mapZoom);
+  }, [hasGps, mapCenter.latitude, mapCenter.longitude, mapZoom]);
 
   useEffect(() => {
     setEditorSketch(cloneSketch(sceneSketch));
@@ -593,41 +507,10 @@ export default function SceneSketchStep({
     });
   }, [sceneSketch, latitude, longitude]);
 
-  useEffect(() => {
-    if (!isEditorOpen || !hasGps || !mapCenter.latitude || !mapCenter.longitude) {
-      setMapImageDataUrl(null);
-      return;
-    }
-
-    let cancelled = false;
-    setIsMapLoading(true);
-    setMapError(null);
-
-    void fetchMapDataUrl(mapCenter.latitude, mapCenter.longitude, mapZoom)
-      .then((dataUrl) => {
-        if (!cancelled) {
-          setMapImageDataUrl(dataUrl);
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          console.error(error);
-          setMapImageDataUrl(null);
-          setMapError("GPS podloga trenutno nije dostupna.");
-        }
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setIsMapLoading(false);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [hasGps, isEditorOpen, mapCenter.latitude, mapCenter.longitude, mapZoom]);
-
-  const canSave = useMemo(() => Boolean(editorSketch.drawPaths.length || editorSketch.status !== "idle" || hasGps), [editorSketch.drawPaths.length, editorSketch.status, hasGps]);
+  const canSave = useMemo(
+    () => Boolean(editorSketch.drawPaths.length || editorSketch.status !== "idle" || hasGps),
+    [editorSketch.drawPaths.length, editorSketch.status, hasGps]
+  );
 
   const updateSketch = (updater: (current: SceneSketchSuggestion) => SceneSketchSuggestion) => {
     setEditorSketch((current) => ({
@@ -655,8 +538,8 @@ export default function SceneSketchStep({
       ...current,
       [axis]:
         axis === "latitude"
-          ? current.latitude + latSpan * 0.32 * direction
-          : current.longitude + lngSpan * 0.32 * direction
+          ? current.latitude + latSpan * 0.3 * direction
+          : current.longitude + lngSpan * 0.3 * direction
     }));
   };
 
@@ -666,18 +549,20 @@ export default function SceneSketchStep({
       return null;
     }
 
-    const x = clamp(((clientX - bounds.left) / bounds.width) * 360, 26, 334);
-    const y = clamp(((clientY - bounds.top) / bounds.height) * 360, 26, 334);
+    const x = clamp(((clientX - bounds.left) / bounds.width) * BOARD_VIEW_SIZE, 18, 342);
+    const y = clamp(((clientY - bounds.top) / bounds.height) * BOARD_VIEW_SIZE, 18, 342);
     return { x, y };
   };
 
-  const handlePointerDown = (target: DragTarget, event: ReactPointerEvent) => {
+  const handlePointerDown = (target: DragTarget, event: ReactPointerEvent<HTMLButtonElement>) => {
     if (readOnly) {
       return;
     }
 
     event.preventDefault();
     event.stopPropagation();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    activePointerIdRef.current = event.pointerId;
     setDragTarget(target);
   };
 
@@ -691,6 +576,8 @@ export default function SceneSketchStep({
       return;
     }
 
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    activePointerIdRef.current = event.pointerId;
     const pathId = createId("sketch");
     setDrawingPathId(pathId);
     updateSketch((current) => ({
@@ -700,6 +587,10 @@ export default function SceneSketchStep({
   };
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (activePointerIdRef.current !== null && event.pointerId !== activePointerIdRef.current) {
+      return;
+    }
+
     const point = pointerToBoardPoint(event.clientX, event.clientY);
     if (!point) {
       return;
@@ -732,7 +623,8 @@ export default function SceneSketchStep({
           ...current,
           vehicleAState: {
             ...current.vehicleAState,
-            ...point
+            x: point.x,
+            y: point.y
           }
         };
       }
@@ -741,13 +633,15 @@ export default function SceneSketchStep({
         ...current,
         vehicleBState: {
           ...current.vehicleBState,
-          ...point
+          x: point.x,
+          y: point.y
         }
       };
     });
   };
 
   const handlePointerUp = () => {
+    activePointerIdRef.current = null;
     setDragTarget(null);
     setDrawingPathId(null);
   };
@@ -762,18 +656,13 @@ export default function SceneSketchStep({
       confirmedAt: nowIso()
     };
 
-    try {
-      const dataUrl = await renderSketchDataUrl(next, locationLabel, mapImageDataUrl);
-      onChange({
-        ...next,
-        svgDataUrl: dataUrl
-      });
-      onSaveSketchImage(dataUrl);
-      setIsEditorOpen(false);
-    } catch (error) {
-      console.error(error);
-      setMapError("Skica nije sacuvana. Pokusaj ponovo.");
-    }
+    const dataUrl = await renderSketchDataUrl(next, locationLabel);
+    onChange({
+      ...next,
+      svgDataUrl: dataUrl
+    });
+    onSaveSketchImage(dataUrl);
+    setIsEditorOpen(false);
   };
 
   return (
@@ -783,10 +672,14 @@ export default function SceneSketchStep({
 
         <Card className="space-y-4">
           {previewImage ? (
-            <img alt="Skica nezgode" className="w-full rounded-[24px] border border-white/10 bg-[#0B0D12]" src={previewImage} />
+            <img
+              alt="Skica nezgode"
+              className="w-full rounded-[24px] border border-white/10 bg-[#0B0D12]"
+              src={previewImage}
+            />
           ) : (
             <div className="rounded-[24px] border border-dashed border-white/15 bg-white/[0.03] px-4 py-10 text-center text-white/45">
-              Skica jos nije sacuvana
+              Skica još nije sačuvana.
             </div>
           )}
 
@@ -801,43 +694,44 @@ export default function SceneSketchStep({
       </div>
 
       {isEditorOpen ? (
-        <div className="fixed inset-0 z-50 bg-[#0B0D12] text-white">
-          <div className="mx-auto flex h-full w-full max-w-6xl flex-col px-4 pb-5 pt-4">
+        <div className="fixed inset-0 z-50 overflow-hidden bg-[#0B0D12] text-white">
+          <div className="mx-auto flex h-full w-full max-w-6xl flex-col px-4 pb-4 pt-4">
             <div className="mb-4 flex items-center justify-between gap-3">
               <button className="text-sm text-white/60" onClick={() => setIsEditorOpen(false)} type="button">
                 Nazad
               </button>
-              <div className="text-sm text-white/55">{locationLabel || "Rucna podloga skice"}</div>
+              <div className="truncate text-sm text-white/55">{locationLabel || "Ručna podloga"}</div>
               <Button fullWidth={false} onClick={confirmSketch} type="button">
-                Sacuvaj skicu
+                Sačuvaj skicu
               </Button>
             </div>
 
-            <div className="grid flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
               <div className="flex min-h-0 flex-col">
                 <div
-                  className="relative mx-auto w-full max-w-[760px] flex-1 overflow-hidden rounded-[30px] border border-white/10 bg-[#0B0D12]"
+                  className="relative mx-auto flex h-[52vh] w-full max-w-[760px] min-h-[420px] overflow-hidden rounded-[30px] border border-white/10 bg-[#0B0D12] lg:h-full"
+                  onPointerCancel={handlePointerUp}
                   onPointerMove={handlePointerMove}
                   onPointerUp={handlePointerUp}
-                  onPointerCancel={handlePointerUp}
                   ref={boardRef}
                 >
                   <div
-                    className="relative h-full min-h-[58vh] w-full overflow-hidden"
+                    className="relative h-full w-full overflow-hidden touch-none"
                     onPointerDown={handleBoardPointerDown}
                   >
-                    {mapImageDataUrl ? (
-                      <img
-                        alt="GPS podloga skice"
-                        className="absolute inset-0 h-full w-full object-cover"
-                        src={mapImageDataUrl}
+                    {mapEmbedUrl ? (
+                      <iframe
+                        className="absolute inset-0 h-full w-full border-0"
+                        src={mapEmbedUrl}
+                        title="GPS podloga skice"
                       />
                     ) : (
                       <div className="absolute inset-0 bg-[#0F1725]" />
                     )}
 
-                    {mapImageDataUrl ? <div className="absolute inset-0 bg-[#0B0D12]/30" /> : null}
-                    {!mapImageDataUrl ? (
+                    {mapEmbedUrl ? <div className="absolute inset-0 bg-[#0B0D12]/24" /> : null}
+
+                    {!mapEmbedUrl ? (
                       <svg className="absolute inset-0 h-full w-full" viewBox="0 0 360 360">
                         {editorSketch.laneType === "intersection" ? (
                           <>
@@ -863,22 +757,6 @@ export default function SceneSketchStep({
                           />
                         ) : null}
                       </svg>
-                    ) : null}
-
-                    {isMapLoading ? (
-                      <div className="absolute inset-x-0 top-4 z-20 flex justify-center">
-                        <div className="rounded-full border border-white/10 bg-black/45 px-4 py-2 text-sm text-white/75">
-                          Ucitavam mapu...
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {mapError ? (
-                      <div className="absolute inset-x-0 top-4 z-20 flex justify-center">
-                        <div className="rounded-full border border-amber-400/25 bg-black/55 px-4 py-2 text-sm text-amber-100">
-                          {mapError}
-                        </div>
-                      </div>
                     ) : null}
 
                     {hasGps ? (
@@ -962,7 +840,7 @@ export default function SceneSketchStep({
                     />
 
                     <button
-                      className="absolute -translate-x-1/2 -translate-y-1/2 text-[34px] font-bold text-[#F7CC45]"
+                      className="absolute -translate-x-1/2 -translate-y-1/2 text-[34px] font-bold text-[#F7CC45] touch-none"
                       onPointerDown={(event) => handlePointerDown("impact", event)}
                       style={{ left: editorSketch.impactPoint.x, top: editorSketch.impactPoint.y }}
                       type="button"
@@ -973,16 +851,15 @@ export default function SceneSketchStep({
                 </div>
               </div>
 
-              <div className="space-y-4 overflow-y-auto rounded-[28px] border border-white/10 bg-card p-4">
-                <div className="flex items-center gap-2">
+              <div className="min-h-0 max-h-[32vh] space-y-4 overflow-y-auto rounded-[28px] border border-white/10 bg-card p-4 lg:max-h-none">
+                <div className="flex flex-wrap items-center gap-2">
                   <Button
-                    className={drawMode ? "" : ""}
                     fullWidth={false}
                     onClick={() => setDrawMode((current) => !current)}
                     type="button"
                     variant={drawMode ? "primary" : "secondary"}
                   >
-                    {drawMode ? "Olovka ukljucena" : "Olovka"}
+                    {drawMode ? "Olovka uključena" : "Olovka"}
                   </Button>
                   <Button
                     disabled={editorSketch.drawPaths.length === 0}
@@ -996,7 +873,7 @@ export default function SceneSketchStep({
                     type="button"
                     variant="secondary"
                   >
-                    Obrisi potez
+                    Obriši potez
                   </Button>
                   <Button
                     disabled={editorSketch.drawPaths.length === 0}
@@ -1015,18 +892,12 @@ export default function SceneSketchStep({
                 </div>
 
                 {!hasGps ? (
-                  <div className="rounded-[20px] border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/65">
-                    GPS nije dostupan, pa skicu pravis na rucnoj podlozi.
-                  </div>
-                ) : null}
-
-                {!hasGps ? (
                   <div className="grid grid-cols-2 gap-2">
                     {[
                       { label: "Pravac", value: "straight" as const },
                       { label: "Raskrsnica", value: "intersection" as const },
                       { label: "Parking", value: "parking" as const },
-                      { label: "Kruzni tok", value: "roundabout" as const }
+                      { label: "Kružni tok", value: "roundabout" as const }
                     ].map((option) => (
                       <button
                         key={option.value}
@@ -1203,7 +1074,7 @@ export default function SceneSketchStep({
                   />
                   <DecorationChip
                     active={editorSketch.decorations.curb}
-                    label="Ivicnjak"
+                    label="Ivičnjak"
                     onClick={() =>
                       updateSketch((current) => ({
                         ...current,
