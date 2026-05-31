@@ -1,3 +1,4 @@
+import { useState } from "react";
 import Button from "../../components/Button";
 import Card from "../../components/Card";
 
@@ -5,8 +6,8 @@ type Props = {
   pdfUrl: string | null;
   reportId: string;
   onPreview: () => void;
-  onShare: () => Promise<void>;
   onSave: () => void;
+  onSaveZip: () => void;
   onEmail: () => void;
   onWhatsApp: () => void;
   onViber: () => void;
@@ -16,12 +17,14 @@ export default function ShareStep({
   pdfUrl,
   reportId,
   onPreview,
-  onShare,
   onSave,
+  onSaveZip,
   onEmail,
   onWhatsApp,
   onViber
 }: Props) {
+  const [shareMenuOpen, setShareMenuOpen] = useState(false);
+
   return (
     <div className="space-y-4">
       <h2 className="text-[30px] font-semibold text-white">Izveštaj je spreman</h2>
@@ -33,23 +36,39 @@ export default function ShareStep({
 
       <Card className="space-y-3">
         <Button disabled={!pdfUrl} onClick={onPreview} type="button" variant="secondary">
-          Preview PDF
+          Prikazi PDF
         </Button>
-        <Button disabled={!pdfUrl} onClick={onShare} type="button">
-          Share PDF
+        <Button disabled={!pdfUrl} onClick={onSave} type="button">
+          Snimi PDF
         </Button>
-        <Button disabled={!pdfUrl} onClick={onSave} type="button" variant="secondary">
-          Download PDF
+        <Button disabled={!pdfUrl} onClick={onSaveZip} type="button" variant="secondary">
+          Snimi ZIP paket
         </Button>
-        <Button disabled={!pdfUrl} onClick={onEmail} type="button" variant="secondary">
-          Mail
+      </Card>
+
+      <Card className="space-y-3">
+        <div className="text-xs uppercase tracking-[0.28em] text-white/40">Podeli PDF</div>
+        <Button
+          disabled={!pdfUrl}
+          onClick={() => setShareMenuOpen((current) => !current)}
+          type="button"
+          variant="secondary"
+        >
+          {shareMenuOpen ? "Zatvori opcije" : "Podeli PDF"}
         </Button>
-        <Button disabled={!pdfUrl} onClick={onWhatsApp} type="button" variant="secondary">
-          WhatsApp
-        </Button>
-        <Button disabled={!pdfUrl} onClick={onViber} type="button" variant="secondary">
-          Viber
-        </Button>
+        {shareMenuOpen ? (
+          <div className="space-y-3 rounded-[24px] border border-white/10 bg-white/5 p-3">
+            <Button disabled={!pdfUrl} onClick={onEmail} type="button" variant="secondary">
+              Mail
+            </Button>
+            <Button disabled={!pdfUrl} onClick={onWhatsApp} type="button" variant="secondary">
+              WhatsApp
+            </Button>
+            <Button disabled={!pdfUrl} onClick={onViber} type="button" variant="secondary">
+              Viber
+            </Button>
+          </div>
+        ) : null}
       </Card>
     </div>
   );

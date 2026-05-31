@@ -9,7 +9,7 @@ import {
 } from "../../lib/utils";
 import type { VehicleDraft } from "../../types";
 
-type AccentTone = "red" | "blue";
+type AccentTone = "blue" | "yellow";
 
 type Props = {
   title: string;
@@ -21,15 +21,15 @@ type Props = {
 };
 
 const accentClassMap: Record<AccentTone, { ring: string; soft: string; text: string }> = {
-  red: {
-    ring: "border-red-400/35",
-    soft: "bg-red-500/8 border-red-400/20",
-    text: "text-red-200"
-  },
   blue: {
-    ring: "border-accent/35",
-    soft: "bg-accent/8 border-accent/20",
-    text: "text-accent"
+    ring: "border-sky-400/40",
+    soft: "bg-sky-500/10 border-sky-400/20",
+    text: "text-sky-100"
+  },
+  yellow: {
+    ring: "border-amber-300/45",
+    soft: "bg-amber-300/12 border-amber-300/20",
+    text: "text-amber-50"
   }
 };
 
@@ -59,7 +59,9 @@ function Field({
   accent?: AccentTone;
 }) {
   const accentBorder =
-    accent === "red" ? "border-2 border-red-400/40 focus:border-red-300/70" : "border-2 border-accent/35 focus:border-accent/75";
+    accent === "yellow"
+      ? "border-2 border-amber-300/40 focus:border-amber-200/80"
+      : "border-2 border-sky-400/40 focus:border-sky-300/75";
 
   return (
     <label className="space-y-2">
@@ -95,7 +97,9 @@ function SelectField({
   accent?: AccentTone;
 }) {
   const accentBorder =
-    accent === "red" ? "border-2 border-red-400/40 focus:border-red-300/70" : "border-2 border-accent/35 focus:border-accent/75";
+    accent === "yellow"
+      ? "border-2 border-amber-300/40 focus:border-amber-200/80"
+      : "border-2 border-sky-400/40 focus:border-sky-300/75";
 
   return (
     <label className="space-y-2">
@@ -337,13 +341,13 @@ function PolicyFields({
       </datalist>
 
       <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
-        <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="mb-3 space-y-3">
           <div className="text-xs uppercase tracking-[0.26em] text-white/40">Ugovarac osiguranja</div>
           <button
-            className={`rounded-full border px-3 py-2 text-xs transition ${
+            className={`w-full rounded-[18px] border px-4 py-3 text-sm font-semibold transition ${
               value.ownerSameAsDriver
-                ? "border-emerald-400/45 bg-emerald-500/20 text-white"
-                : "border-white/10 bg-white/5 text-white/65"
+                ? "border-emerald-300/60 bg-emerald-500 text-white shadow-[0_14px_36px_rgba(16,185,129,0.35)]"
+                : "border-emerald-300/45 bg-emerald-500/18 text-emerald-100 shadow-[0_10px_28px_rgba(16,185,129,0.18)] hover:bg-emerald-500/24"
             }`}
             disabled={readOnly}
             onClick={() =>
@@ -362,13 +366,8 @@ function PolicyFields({
             }
             type="button"
           >
-            {value.ownerSameAsDriver ? "Iskljuci kopiranje iz vozaca" : "Isti podaci kao vozac"}
+            {value.ownerSameAsDriver ? "Isključi kopiranje iz vozača" : "Isti podaci kao vozač"}
           </button>
-        </div>
-        <div className="mb-3 text-sm text-white/60">
-          {value.ownerSameAsDriver
-            ? "Polja ugovaraca su zakljucana jer trenutno koriste iste podatke kao vozac."
-            : "Ako je ugovarac isti kao vozac, ukljuci ovu opciju i polja ce se popuniti automatski."}
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Field accent={accent} invalid={isMissing("Prezime ugovaraca")} label="Prezime" onChange={(ownerLastName) => onChange({ ...value, ownerLastName })} placeholder="Prezime" readOnly={ownerFieldsReadOnly} value={value.ownerLastName} />

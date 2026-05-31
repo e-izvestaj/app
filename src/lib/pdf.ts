@@ -1,8 +1,6 @@
 import { PDFDocument } from "pdf-lib";
 import type { ReportDraft } from "../types";
 
-const PAGE_WIDTH = 595;
-const PAGE_HEIGHT = 842;
 const TEMPLATE_WIDTH = 960;
 const TEMPLATE_HEIGHT = 1358;
 const RENDER_SCALE = 2;
@@ -26,6 +24,14 @@ function normalizeWhitespace(text: string) {
 
 function px(value: number) {
   return value * RENDER_SCALE;
+}
+
+async function fetchAssetBytes(path: string) {
+  const response = await fetch(path);
+  if (!response.ok) {
+    throw new Error(`Neuspesno ucitavanje PDF asseta: ${path}`);
+  }
+  return response.arrayBuffer();
 }
 
 async function loadImageElement(src: string) {
@@ -53,7 +59,7 @@ async function rasterizeImageDataUrl(dataUrl: string) {
     throw new Error("Canvas nije dostupan za pripremu slike u PDF-u.");
   }
 
-  context.fillStyle = "#0B0D12";
+  context.fillStyle = "#FFFFFF";
   context.fillRect(0, 0, canvas.width, canvas.height);
   context.drawImage(image, 0, 0, canvas.width, canvas.height);
   return canvas.toDataURL("image/png");
@@ -229,8 +235,7 @@ async function renderPaperForm(report: ReportDraft) {
     throw new Error("Canvas nije dostupan za izradu PDF obrasca.");
   }
 
-  const templateImage = await loadImageElement(`${import.meta.env.BASE_URL}eu-report-template.png`);
-  context.drawImage(templateImage, 0, 0, canvas.width, canvas.height);
+  context.clearRect(0, 0, canvas.width, canvas.height);
 
   const left = report.vehicleA;
   const right = report.vehicleB;
@@ -447,16 +452,19 @@ async function renderPaperForm(report: ReportDraft) {
 }
 
 export async function generatePdf(report: ReportDraft) {
+  const templateBytes = await fetchAssetBytes(`${import.meta.env.BASE_URL}eu-report-template.pdf`);
+  const templatePdf = await PDFDocument.load(templateBytes);
   const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+  const [page] = await pdfDoc.copyPages(templatePdf, [0]);
+  pdfDoc.addPage(page);
   const paperFormDataUrl = await renderPaperForm(report);
   const paperFormImage = await pdfDoc.embedPng(paperFormDataUrl);
 
   page.drawImage(paperFormImage, {
     x: 0,
     y: 0,
-    width: PAGE_WIDTH,
-    height: PAGE_HEIGHT
+    width: page.getWidth(),
+    height: page.getHeight()
   });
 
   const bytes = await pdfDoc.save();
@@ -474,4 +482,8 @@ export async function generatePdf(report: ReportDraft) {
     url: URL.createObjectURL(blob),
     dataUrl
   };
+}
+
+export async function generateProgrammaticPdf(report: ReportDraft) {
+  return generatePdf(report);
 }

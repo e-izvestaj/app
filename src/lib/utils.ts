@@ -172,6 +172,7 @@ function normalizeSketchDirection(
 export function defaultVehicle(side: "A" | "B"): VehicleDraft {
   return {
     side,
+    source: null,
     plate: "",
     registrationCountry: "Srbija",
     make: "",
@@ -218,8 +219,6 @@ export function defaultVehicle(side: "A" | "B"): VehicleDraft {
     visibleDamage: "",
     note: "",
     documentPhotos: [],
-    ocrStatus: "idle",
-    ocrSuggestions: {},
     damageSuggestion: emptyDamageSuggestion()
   };
 }
@@ -280,6 +279,8 @@ export function createEmptyReport(): ReportDraft {
     },
     vehicleA: defaultVehicle("A"),
     vehicleB: defaultVehicle("B"),
+    partyA: defaultVehicle("A"),
+    partyB: defaultVehicle("B"),
     circumstances: defaultCircumstances(),
     note: "",
     selectedPhotoId: null,
@@ -288,13 +289,16 @@ export function createEmptyReport(): ReportDraft {
     sceneSketch: emptySceneSketch(),
     signatures: {
       a: null,
-      b: null
+      b: null,
+      partyA: null,
+      partyB: null
     },
     signatureTimestamps: {
       a: null,
       b: null
     },
-    pdfDataUrl: null
+    pdfDataUrl: null,
+    programmaticPdfDataUrl: null
   };
 }
 
@@ -304,7 +308,7 @@ export function normalizeReport(report: ReportDraft): ReportDraft {
     ...empty,
     ...report,
     publicId: report.publicId || empty.publicId,
-    status: (report.status === "completed" ? "locked" : report.status) || "draft",
+    status: report.status || "draft",
     readyForSignatureAt: report.readyForSignatureAt || null,
     lockedAt: report.lockedAt || null,
     witnessInfo: report.witnessInfo || "",
@@ -319,10 +323,6 @@ export function normalizeReport(report: ReportDraft): ReportDraft {
     vehicleA: {
       ...empty.vehicleA,
       ...report.vehicleA,
-      ocrSuggestions: {
-        ...empty.vehicleA.ocrSuggestions,
-        ...report.vehicleA?.ocrSuggestions
-      },
       damageSuggestion: {
         ...empty.vehicleA.damageSuggestion,
         ...report.vehicleA?.damageSuggestion
@@ -331,14 +331,20 @@ export function normalizeReport(report: ReportDraft): ReportDraft {
     vehicleB: {
       ...empty.vehicleB,
       ...report.vehicleB,
-      ocrSuggestions: {
-        ...empty.vehicleB.ocrSuggestions,
-        ...report.vehicleB?.ocrSuggestions
-      },
       damageSuggestion: {
         ...empty.vehicleB.damageSuggestion,
         ...report.vehicleB?.damageSuggestion
       }
+    },
+    partyA: {
+      ...empty.vehicleA,
+      ...report.vehicleA,
+      ...report.partyA
+    },
+    partyB: {
+      ...empty.vehicleB,
+      ...report.vehicleB,
+      ...report.partyB
     },
     sceneSketch: {
       ...empty.sceneSketch,
@@ -366,10 +372,19 @@ export function normalizeReport(report: ReportDraft): ReportDraft {
     signatureTimestamps: {
       ...empty.signatureTimestamps,
       ...report.signatureTimestamps
-    }
+    },
+    programmaticPdfDataUrl: report.programmaticPdfDataUrl || null
   };
 
-  if (next.status === "locked" && !next.lockedAt) {
+  next.partyA = next.vehicleA;
+  next.partyB = next.vehicleB;
+  next.signatures = {
+    ...next.signatures,
+    partyA: next.signatures.partyA ?? next.signatures.a,
+    partyB: next.signatures.partyB ?? next.signatures.b
+  };
+
+  if ((next.status === "locked" || next.status === "completed") && !next.lockedAt) {
     next.lockedAt = next.updatedAt || nowIso();
   }
 
@@ -377,8 +392,16 @@ export function normalizeReport(report: ReportDraft): ReportDraft {
 }
 
 export function isReportReadyForSignature(report: ReportDraft) {
-  const vehicles = [report.vehicleA, report.vehicleB];
-  const vehiclesReady = vehicles.every((vehicle) => getVehicleMissingFields(vehicle).length === 0);
+  const vehicleAReady = getVehicleMissingFields(report.vehicleA).length === 0;
+  const hasPartyB =
+    Boolean(report.vehicleB.source) ||
+    Boolean(
+      report.vehicleB.driverFirstName ||
+        report.vehicleB.driverLastName ||
+        report.vehicleB.plate ||
+        report.vehicleB.insurer ||
+        report.vehicleB.policyNumber
+    );
   const hasLocation =
     report.location.address.trim() ||
     report.location.street.trim() ||
@@ -393,7 +416,8 @@ export function isReportReadyForSignature(report: ReportDraft) {
       report.safety.damageOtherVehicles !== null &&
       report.safety.damageOtherObjects !== null &&
       report.safety.vehiclesInPosition !== null &&
-      vehiclesReady &&
+      vehicleAReady &&
+      hasPartyB &&
       (report.annotatedPhotoDataUrl || report.sceneSketch.svgDataUrl)
   );
 }
@@ -545,11 +569,19 @@ export function getVehicleSectionMissingFields(vehicle: VehicleDraft, section: V
 }
 
 export function deriveReportStatus(report: ReportDraft): ReportStatus {
-  if (report.status === "locked" || report.lockedAt) {
-    return "locked";
+  if (report.status === "locked" || report.status === "completed" || report.lockedAt) {
+    return "completed";
   }
 
-  return isReportReadyForSignature(report) ? "ready_for_signature" : "draft";
+  if (isReportReadyForSignature(report)) {
+    return "ready_for_pdf";
+  }
+
+  const hasPartyB =
+    Boolean(report.vehicleB.source) ||
+    Boolean(report.vehicleB.driverFirstName || report.vehicleB.driverLastName || report.vehicleB.plate);
+
+  return hasPartyB ? "draft" : "waiting_for_b";
 }
 
 export function getReportStatusLabel(

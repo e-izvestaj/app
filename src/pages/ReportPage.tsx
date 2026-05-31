@@ -24,7 +24,7 @@ export default function ReportPage() {
         const seeded = normalizeReport(routeState.report);
         setReport(seeded);
         await saveReport(seeded);
-        await setActiveDraftId(seeded.status === "locked" ? null : seeded.id);
+        await setActiveDraftId(seeded.status === "locked" || seeded.status === "completed" ? null : seeded.id);
         return;
       }
 
