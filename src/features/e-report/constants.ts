@@ -1,20 +1,19 @@
 export const stepTitles = [
   "Bezbednost",
   "Vreme i mesto",
+  "Drugi ucesnik",
   "Dokumentacija",
-  "Vozač A",
+  "Vozac A",
   "Vozilo A",
   "Polisa A",
-  "Vozač B",
-  "Vozilo B",
-  "Polisa B",
-  "Oštećenja vozila",
+  "Ostecenja vozila",
   "Fotografija mesta nezgode",
   "Okolnosti nezgode",
   "Skica nezgode",
-  "Pregled izveštaja",
+  "Podaci ucesnika B",
+  "Pregled izvestaja",
   "Potpisi",
   "Finalizacija"
 ] as const;
 
-export type StepTitle = (typeof stepTitles)[number];
+export type StepTitle = (typeof stepTitles)[number] | "Vozač A" | "Vozač B";

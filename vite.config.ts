@@ -9,6 +9,10 @@ export default defineConfig({
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["logo.png", "maskable-icon.png"],
+      workbox: {
+        globIgnores: ["**/ort-wasm-*.wasm"],
+        maximumFileSizeToCacheInBytes: 32 * 1024 * 1024
+      },
       manifest: {
         name: "e-Izvestaj",
         short_name: "e-Izvestaj",

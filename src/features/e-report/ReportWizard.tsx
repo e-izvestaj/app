@@ -5,13 +5,12 @@ import Card from "../../components/Card";
 import ProgressBar from "../../components/ProgressBar";
 import { saveReport, setActiveDraftId } from "../../lib/indexedDb";
 import { generatePdf } from "../../lib/pdf";
+import { generateReportZip } from "../../lib/zip";
 import {
   deriveReportStatus,
-  getDocumentationMissingFields,
   getReportStatusLabel,
   getVehicleSectionMissingFields,
   nowIso,
-  reportTitle
 } from "../../lib/utils";
 import type { ReportDraft } from "../../types";
 import AccidentDetails from "./AccidentDetails";
@@ -25,6 +24,7 @@ import SceneSituationStep from "./SceneSituationStep";
 import SceneSketchStep from "./SceneSketchStep";
 import ShareStep from "./ShareStep";
 import SignatureStep from "./SignatureStep";
+import SecondParticipantStep from "./SecondParticipantStep";
 import VehicleForm from "./VehicleForm";
 
 type Props = {
@@ -45,7 +45,7 @@ export default function ReportWizard({
   const [lockError, setLockError] = useState<string | null>(null);
   const activeSteps = useMemo(() => [...stepTitles], []);
   const currentStep = activeSteps[stepIndex];
-  const readOnly = forceReadOnly || report.status === "locked";
+  const readOnly = forceReadOnly || report.status === "locked" || report.status === "completed";
 
   useEffect(() => {
     if (stepIndex >= activeSteps.length) {
@@ -54,7 +54,7 @@ export default function ReportWizard({
   }, [activeSteps.length, stepIndex]);
 
   useEffect(() => {
-    if (report.status === "locked") {
+    if (report.status === "locked" || report.status === "completed") {
       setStepIndex(activeSteps.indexOf("Finalizacija"));
     }
   }, [activeSteps, report.status]);
@@ -66,10 +66,11 @@ export default function ReportWizard({
   }, [pdfUrl, report.pdfDataUrl]);
 
   useEffect(() => {
-    if (report.status !== "locked" && !forceReadOnly) {
+    if (report.status !== "locked" && report.status !== "completed" && !forceReadOnly) {
       const nextStatus = deriveReportStatus(report);
       const shouldSetReadyAt =
-        nextStatus === "ready_for_signature" && !report.readyForSignatureAt;
+        (nextStatus === "ready_for_pdf" || nextStatus === "ready_for_signature") &&
+        !report.readyForSignatureAt;
       const shouldClearReadyAt = nextStatus === "draft" && report.readyForSignatureAt;
 
       if (report.status !== nextStatus || shouldSetReadyAt || shouldClearReadyAt) {
@@ -88,11 +89,17 @@ export default function ReportWizard({
   }, [forceReadOnly, onReportChange, report]);
 
   useEffect(() => {
-    if (!report.signatures.a || !report.signatures.b || report.status === "locked" || isLocking) {
+    if (
+      !report.signatures.a ||
+      !report.signatures.b ||
+      report.status === "locked" ||
+      report.status === "completed" ||
+      isLocking
+    ) {
       return;
     }
 
-    if (report.status !== "ready_for_signature") {
+    if (report.status !== "ready_for_pdf" && report.status !== "ready_for_signature") {
       return;
     }
 
@@ -103,7 +110,7 @@ export default function ReportWizard({
       try {
         const lockedReport: ReportDraft = {
           ...report,
-          status: "locked",
+          status: "completed",
           lockedAt: report.lockedAt || nowIso(),
           readyForSignatureAt: report.readyForSignatureAt || nowIso(),
           updatedAt: nowIso()
@@ -133,7 +140,7 @@ export default function ReportWizard({
     const next = { ...report, updatedAt: nowIso() };
     const timeout = window.setTimeout(() => {
       void saveReport(next);
-      void setActiveDraftId(next.status === "locked" ? null : next.id);
+      void setActiveDraftId(next.status === "locked" || next.status === "completed" ? null : next.id);
     }, 300);
 
     return () => window.clearTimeout(timeout);
@@ -167,54 +174,65 @@ export default function ReportWizard({
   };
 
   const goToStep = (step: StepTitle) => {
-    const index = activeSteps.indexOf(step);
+    const normalizedStep =
+      step === "Vozač A" ? "Vozac A" : step === "Vozač B" ? "Drugi ucesnik" : step;
+    const index = activeSteps.indexOf(normalizedStep);
     if (index >= 0) {
       setStepIndex(index);
     }
   };
 
   const previewPdf = () => {
-    if (!pdfUrl) {
-      return;
-    }
-
-    window.open(pdfUrl, "_blank", "noopener,noreferrer");
-  };
-
-  const sharePdf = async () => {
-    if (!pdfUrl) {
-      return;
-    }
-
-    try {
-      const blob = await fetch(pdfUrl).then((response) => response.blob());
-      const file = new File([blob], `${reportTitle(report)}.pdf`, {
-        type: "application/pdf"
-      });
-
-      if (navigator.share && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          title: reportTitle(report),
-          files: [file]
-        });
+    void (async () => {
+      const readyUrl = await ensurePdfReady();
+      if (!readyUrl) {
         return;
       }
-    } catch {
-      // Fallback below.
+
+      window.open(readyUrl, "_blank", "noopener,noreferrer");
+    })();
+  };
+
+  const ensurePdfReady = async () => {
+    if (pdfUrl) {
+      return pdfUrl;
     }
 
-    previewPdf();
+    const pdfResult = await generatePdf(report);
+    setPdfUrl(pdfResult.url);
+    const updatedReport = {
+      ...report,
+      pdfDataUrl: pdfResult.dataUrl,
+      updatedAt: nowIso()
+    };
+    onReportChange(updatedReport);
+    await saveReport(updatedReport);
+    return pdfResult.url;
   };
 
   const savePdf = () => {
-    if (!pdfUrl) {
-      return;
-    }
+    void (async () => {
+      const readyUrl = await ensurePdfReady();
+      if (!readyUrl) {
+        return;
+      }
 
-    const link = document.createElement("a");
-    link.href = pdfUrl;
-    link.download = `${report.publicId}.pdf`;
-    link.click();
+      const link = document.createElement("a");
+      link.href = readyUrl;
+      link.download = `${report.publicId}.pdf`;
+      link.click();
+    })();
+  };
+
+  const saveZip = () => {
+    void (async () => {
+      await ensurePdfReady();
+      const zip = await generateReportZip(report);
+      const link = document.createElement("a");
+      link.href = zip.url;
+      link.download = `${report.publicId}.zip`;
+      link.click();
+    })();
   };
 
   const emailPdf = () => {
@@ -254,20 +272,14 @@ export default function ReportWizard({
               report.location.city)
         );
       case "Dokumentacija":
-        return getDocumentationMissingFields(report).length === 0;
-      case "Vozač A":
+        return true;
+      case "Vozac A":
         return getVehicleSectionMissingFields(report.vehicleA, "driver").length === 0;
       case "Vozilo A":
         return getVehicleSectionMissingFields(report.vehicleA, "vehicle").length === 0;
       case "Polisa A":
         return getVehicleSectionMissingFields(report.vehicleA, "policy").length === 0;
-      case "Vozač B":
-        return getVehicleSectionMissingFields(report.vehicleB, "driver").length === 0;
-      case "Vozilo B":
-        return getVehicleSectionMissingFields(report.vehicleB, "vehicle").length === 0;
-      case "Polisa B":
-        return getVehicleSectionMissingFields(report.vehicleB, "policy").length === 0;
-      case "Oštećenja vozila":
+      case "Ostecenja vozila":
         return Boolean(
           report.scenePhotos.some((photo) => photo.kind === "damage-a") &&
             report.scenePhotos.some((photo) => photo.kind === "damage-b") &&
@@ -280,8 +292,12 @@ export default function ReportWizard({
         return true;
       case "Skica nezgode":
         return Boolean(report.annotatedPhotoDataUrl || report.sceneSketch.status === "confirmed");
-      case "Pregled izveštaja":
+      case "Drugi ucesnik":
         return true;
+      case "Podaci ucesnika B":
+        return Boolean(report.vehicleB.source);
+      case "Pregled izvestaja":
+        return Boolean(report.vehicleB.source);
       case "Potpisi":
         return false;
       case "Finalizacija":
@@ -315,27 +331,25 @@ export default function ReportWizard({
         return (
           <DocumentationStep
             onVehicleAChange={(vehicleA) => updateReport({ vehicleA })}
-            onVehicleBChange={(vehicleB) => updateReport({ vehicleB })}
             readOnly={readOnly}
             vehicleA={report.vehicleA}
-            vehicleB={report.vehicleB}
           />
         );
-      case "Vozač A":
+      case "Vozac A":
         return (
           <VehicleForm
-            accent="red"
+            accent="blue"
             onChange={(vehicleA) => updateReport({ vehicleA })}
             readOnly={readOnly}
             section="driver"
-            title="Vozač A"
+            title="Vozac A"
             value={report.vehicleA}
           />
         );
       case "Vozilo A":
         return (
           <VehicleForm
-            accent="red"
+            accent="blue"
             onChange={(vehicleA) => updateReport({ vehicleA })}
             readOnly={readOnly}
             section="vehicle"
@@ -346,7 +360,7 @@ export default function ReportWizard({
       case "Polisa A":
         return (
           <VehicleForm
-            accent="red"
+            accent="blue"
             onChange={(vehicleA) => updateReport({ vehicleA })}
             readOnly={readOnly}
             section="policy"
@@ -354,40 +368,7 @@ export default function ReportWizard({
             value={report.vehicleA}
           />
         );
-      case "Vozač B":
-        return (
-          <VehicleForm
-            accent="blue"
-            onChange={(vehicleB) => updateReport({ vehicleB })}
-            readOnly={readOnly}
-            section="driver"
-            title="Vozač B"
-            value={report.vehicleB}
-          />
-        );
-      case "Vozilo B":
-        return (
-          <VehicleForm
-            accent="blue"
-            onChange={(vehicleB) => updateReport({ vehicleB })}
-            readOnly={readOnly}
-            section="vehicle"
-            title="Vozilo B"
-            value={report.vehicleB}
-          />
-        );
-      case "Polisa B":
-        return (
-          <VehicleForm
-            accent="blue"
-            onChange={(vehicleB) => updateReport({ vehicleB })}
-            readOnly={readOnly}
-            section="policy"
-            title="Polisa B"
-            value={report.vehicleB}
-          />
-        );
-      case "Oštećenja vozila":
+      case "Ostecenja vozila":
         return (
           <DamageCaptureStep
             onChange={(scenePhotos) => updateReport({ scenePhotos })}
@@ -446,7 +427,43 @@ export default function ReportWizard({
             sceneSketch={report.sceneSketch}
           />
         );
-      case "Pregled izveštaja":
+      case "Drugi ucesnik":
+        return (
+          <SecondParticipantStep
+            mode="invite"
+            onChange={(vehicleB, signature) =>
+              updateReport({
+                vehicleB,
+                partyB: vehicleB,
+                signatures: signature
+                  ? { ...report.signatures, b: signature, partyB: signature }
+                  : report.signatures
+              })
+            }
+            readOnly={readOnly}
+            signature={report.signatures.b}
+            value={report.vehicleB}
+          />
+        );
+      case "Podaci ucesnika B":
+        return (
+          <SecondParticipantStep
+            mode="import"
+            onChange={(vehicleB, signature) =>
+              updateReport({
+                vehicleB,
+                partyB: vehicleB,
+                signatures: signature
+                  ? { ...report.signatures, b: signature, partyB: signature }
+                  : report.signatures
+              })
+            }
+            readOnly={readOnly}
+            signature={report.signatures.b}
+            value={report.vehicleB}
+          />
+        );
+      case "Pregled izvestaja":
         return <ReviewStep onEditStep={goToStep} report={report} />;
       case "Potpisi":
         return (
@@ -469,7 +486,7 @@ export default function ReportWizard({
             onEmail={emailPdf}
             onPreview={previewPdf}
             onSave={savePdf}
-            onShare={sharePdf}
+            onSaveZip={saveZip}
             onViber={viberPdf}
             onWhatsApp={whatsappPdf}
             pdfUrl={pdfUrl}
@@ -516,7 +533,7 @@ export default function ReportWizard({
           <Button disabled type="button" variant="secondary">
             {isLocking
               ? "Zaključavam izveštaj..."
-              : report.status === "locked"
+              : report.status === "locked" || report.status === "completed"
                 ? "Izveštaj je zaključan"
                 : "Sačuvaj oba potpisa"}
           </Button>

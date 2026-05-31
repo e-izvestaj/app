@@ -42,12 +42,16 @@ export default function ReviewStep({ report, onEditStep }: Props) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-[30px] font-semibold text-white">Pregled izveštaja</h2>
+      <h2 className="text-[30px] font-semibold text-white">Pregled izvestaja</h2>
 
       <SummaryCard
         body={[
           `${report.location.date} · ${report.location.time}`,
-          report.location.address || [report.location.street, report.location.streetNumber, report.location.city].filter(Boolean).join(", ") || "Lokacija nije uneta"
+          report.location.address ||
+            [report.location.street, report.location.streetNumber, report.location.city]
+              .filter(Boolean)
+              .join(", ") ||
+            "Lokacija nije uneta"
         ]}
         onEdit={() => onEditStep("Vreme i mesto")}
         title="Vreme i mesto"
@@ -55,12 +59,9 @@ export default function ReviewStep({ report, onEditStep }: Props) {
 
       <SummaryCard
         body={[
-          `Vozačka A: ${report.vehicleA.documentPhotos.filter((item) => item.documentType === "driver-license").length}/2`,
-          `Vozačka B: ${report.vehicleB.documentPhotos.filter((item) => item.documentType === "driver-license").length}/2`,
-          `Saobraćajna A: ${report.vehicleA.documentPhotos.filter((item) => item.documentType === "registration").length}/2`,
-          `Saobraćajna B: ${report.vehicleB.documentPhotos.filter((item) => item.documentType === "registration").length}/2`,
-          `Polisa A: ${report.vehicleA.documentPhotos.filter((item) => item.documentType === "policy").length}/1`,
-          `Polisa B: ${report.vehicleB.documentPhotos.filter((item) => item.documentType === "policy").length}/1`
+          `Vozacka A: ${report.vehicleA.documentPhotos.filter((item) => item.documentType === "driver-license").length}/2`,
+          `Saobracajna A: ${report.vehicleA.documentPhotos.filter((item) => item.documentType === "registration").length}/2`,
+          `Polisa A: ${report.vehicleA.documentPhotos.filter((item) => item.documentType === "policy").length}/1`
         ]}
         onEdit={() => onEditStep("Dokumentacija")}
         title="Dokumentacija"
@@ -68,28 +69,31 @@ export default function ReviewStep({ report, onEditStep }: Props) {
 
       <SummaryCard
         body={[
-          `${report.vehicleA.driverFirstName} ${report.vehicleA.driverLastName}`.trim() || "Nije uneto",
+          `${report.vehicleA.driverFirstName} ${report.vehicleA.driverLastName}`.trim() ||
+            "Nije uneto",
           report.vehicleA.plate || "Registracija nije uneta",
           report.vehicleA.insurer || "Polisa nije uneta"
         ]}
         onEdit={() => onEditStep("Vozač A")}
-        title="A strana"
+        title="Ucesnik A"
       />
 
       <SummaryCard
         body={[
-          `${report.vehicleB.driverFirstName} ${report.vehicleB.driverLastName}`.trim() || "Nije uneto",
+          `${report.vehicleB.driverFirstName} ${report.vehicleB.driverLastName}`.trim() ||
+            "Nije uneto",
           report.vehicleB.plate || "Registracija nije uneta",
-          report.vehicleB.insurer || "Polisa nije uneta"
+          report.vehicleB.insurer || "Polisa nije uneta",
+          report.vehicleB.source === "qr" ? "QR dodat" : "Ceka QR"
         ]}
         onEdit={() => onEditStep("Vozač B")}
-        title="B strana"
+        title="Ucesnik B"
       />
 
       <SummaryCard
         body={[
-          `A označeno: ${report.circumstances.filter((item) => item.selectedByA).length}`,
-          `B označeno: ${report.circumstances.filter((item) => item.selectedByB).length}`
+          `A oznaceno: ${report.circumstances.filter((item) => item.selectedByA).length}`,
+          `B oznaceno: ${report.circumstances.filter((item) => item.selectedByB).length}`
         ]}
         onEdit={() => onEditStep("Okolnosti nezgode")}
         title="Okolnosti"
@@ -108,10 +112,10 @@ export default function ReviewStep({ report, onEditStep }: Props) {
             <img alt="Mesto nezgode" className="aspect-square rounded-[18px] object-cover" src={scenePhotos[0].dataUrl} />
           ) : null}
           {damagePhotoA ? (
-            <img alt="Oštećenje A" className="aspect-square rounded-[18px] object-cover" src={damagePhotoA.dataUrl} />
+            <img alt="Ostecenje A" className="aspect-square rounded-[18px] object-cover" src={damagePhotoA.dataUrl} />
           ) : null}
           {damagePhotoB ? (
-            <img alt="Oštećenje B" className="aspect-square rounded-[18px] object-cover" src={damagePhotoB.dataUrl} />
+            <img alt="Ostecenje B" className="aspect-square rounded-[18px] object-cover" src={damagePhotoB.dataUrl} />
           ) : null}
         </div>
 

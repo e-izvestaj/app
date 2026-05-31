@@ -1,4 +1,10 @@
-export type ReportStatus = "draft" | "ready_for_signature" | "locked" | "completed";
+export type ReportStatus =
+  | "draft"
+  | "waiting_for_b"
+  | "ready_for_pdf"
+  | "completed"
+  | "ready_for_signature"
+  | "locked";
 
 export type PhotoKind =
   | "scene"
@@ -25,20 +31,6 @@ export type DamageZone =
   | "blatobran"
   | "hauba"
   | "gepek";
-
-export type ExtractedField = {
-  key: string;
-  label: string;
-  value: string;
-};
-
-export type DocumentSuggestion = {
-  documentType: DocumentType;
-  status: "idle" | "pending" | "confirmed";
-  fields: ExtractedField[];
-  sourcePhotoId: string | null;
-  rawText?: string;
-};
 
 export type DamageSuggestion = {
   status: "idle" | "pending" | "confirmed";
@@ -148,6 +140,7 @@ export type LocationDetails = {
 
 export type VehicleDraft = {
   side: "A" | "B";
+  source?: "manual" | "qr" | null;
   plate: string;
   registrationCountry: string;
   make: string;
@@ -194,8 +187,6 @@ export type VehicleDraft = {
   visibleDamage: string;
   note: string;
   documentPhotos: PhotoAsset[];
-  ocrStatus: "idle" | "mocked" | "ready";
-  ocrSuggestions: Partial<Record<DocumentType, DocumentSuggestion>>;
   damageSuggestion: DamageSuggestion;
 };
 
@@ -220,6 +211,8 @@ export type ReportDraft = {
   location: LocationDetails;
   vehicleA: VehicleDraft;
   vehicleB: VehicleDraft;
+  partyA: VehicleDraft;
+  partyB: VehicleDraft;
   circumstances: ScenarioOption[];
   note: string;
   selectedPhotoId: string | null;
@@ -229,10 +222,13 @@ export type ReportDraft = {
   signatures: {
     a: string | null;
     b: string | null;
+    partyA?: string | null;
+    partyB?: string | null;
   };
   signatureTimestamps: {
     a: string | null;
     b: string | null;
   };
   pdfDataUrl: string | null;
+  programmaticPdfDataUrl: string | null;
 };
