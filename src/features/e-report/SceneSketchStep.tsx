@@ -546,6 +546,7 @@ export default function SceneSketchStep({
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editorSketch, setEditorSketch] = useState(() => cloneSketch(sceneSketch));
   const [selectedVehicle, setSelectedVehicle] = useState<VehicleKey>("A");
+  const [isMobileVehicleSheetOpen, setIsMobileVehicleSheetOpen] = useState(false);
   const [dragTarget, setDragTarget] = useState<DragTarget>(null);
   const [drawMode, setDrawMode] = useState(false);
   const [drawingPathId, setDrawingPathId] = useState<string | null>(null);
@@ -647,6 +648,20 @@ export default function SceneSketchStep({
     }
   }, [isEditorOpen]);
 
+  useEffect(() => {
+    if (!isEditorOpen || !isMobileVehicleSheetOpen || isPointerInteractionActive) {
+      return;
+    }
+
+    leafletMapRef.current?.dragging.disable();
+    leafletMapRef.current?.touchZoom.disable();
+
+    return () => {
+      leafletMapRef.current?.dragging.enable();
+      leafletMapRef.current?.touchZoom.enable();
+    };
+  }, [isEditorOpen, isMobileVehicleSheetOpen, isPointerInteractionActive]);
+
   const updateSketch = (updater: (current: SceneSketchSuggestion) => SceneSketchSuggestion) => {
     setEditorSketch((current) => ({
       ...updater(current),
@@ -669,6 +684,7 @@ export default function SceneSketchStep({
   const openEditor = () => {
     setEditorSketch(cloneSketch(sceneSketch));
     setSelectedVehicle("A");
+    setIsMobileVehicleSheetOpen(false);
     setDrawMode(false);
     setDrawingPathId(null);
     setDragTarget(null);
@@ -704,6 +720,13 @@ export default function SceneSketchStep({
     }));
   };
 
+  const selectVehicle = (vehicle: VehicleKey, openMobileSheet = false) => {
+    setSelectedVehicle(vehicle);
+    if (openMobileSheet) {
+      setIsMobileVehicleSheetOpen(true);
+    }
+  };
+
   const nudgeMap = (latDirection: number, lngDirection: number) => {
     const { latSpan, lngSpan } = getMapSpan(mapZoom);
     setMapCenter((current) => ({
@@ -722,6 +745,12 @@ export default function SceneSketchStep({
 
     event.preventDefault();
     event.stopPropagation();
+    if (target === "vehicleA") {
+      selectVehicle("A", true);
+    }
+    if (target === "vehicleB") {
+      selectVehicle("B", true);
+    }
     leafletMapRef.current?.dragging.disable();
     leafletMapRef.current?.touchZoom.disable();
     leafletMapRef.current?.doubleClickZoom.disable();
@@ -1082,7 +1111,7 @@ export default function SceneSketchStep({
                       color="#FF4E5C"
                       label="A"
                       onPointerDown={(event) => handleDraggablePointerDown("vehicleA", event)}
-                      onSelect={() => setSelectedVehicle("A")}
+                      onSelect={() => selectVehicle("A", true)}
                       selected={selectedVehicle === "A"}
                       state={editorSketch.vehicleAState}
                     />
@@ -1090,7 +1119,7 @@ export default function SceneSketchStep({
                       color="#2F78FF"
                       label="B"
                       onPointerDown={(event) => handleDraggablePointerDown("vehicleB", event)}
-                      onSelect={() => setSelectedVehicle("B")}
+                      onSelect={() => selectVehicle("B", true)}
                       selected={selectedVehicle === "B"}
                       state={editorSketch.vehicleBState}
                     />
@@ -1117,7 +1146,60 @@ export default function SceneSketchStep({
                   </div>
                 ) : null}
 
-                <div className="space-y-4 rounded-[28px] border border-white/10 bg-card p-4">
+                {isMobileVehicleSheetOpen ? (
+                  <div className="fixed inset-x-0 bottom-0 z-[70] rounded-t-[30px] border border-white/10 bg-[#111827]/95 px-4 pb-5 pt-4 shadow-[0_-18px_45px_rgba(0,0,0,0.45)] backdrop-blur md:hidden">
+                    <div className="mx-auto max-w-md space-y-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-xs font-semibold uppercase tracking-[0.28em] text-accent/80">
+                            Vozilo
+                          </div>
+                          <div className="mt-1 text-2xl font-bold text-white">
+                            AUTO {selectedVehicle}
+                          </div>
+                        </div>
+                        <button
+                          className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white"
+                          onClick={() => setIsMobileVehicleSheetOpen(false)}
+                          type="button"
+                        >
+                          Gotovo
+                        </button>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="text-xs font-semibold uppercase tracking-[0.24em] text-white/45">
+                          Smer kretanja
+                        </div>
+                        <DirectionPicker onChange={setDirection} value={selectedState.direction} />
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="text-xs font-semibold uppercase tracking-[0.24em] text-white/45">
+                          Orijentacija vozila
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            className="rounded-[18px] border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white"
+                            onClick={() => rotateSelected(-15)}
+                            type="button"
+                          >
+                            ↺ Rotiraj ulevo
+                          </button>
+                          <button
+                            className="rounded-[18px] border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white"
+                            onClick={() => rotateSelected(15)}
+                            type="button"
+                          >
+                            ↻ Rotiraj udesno
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="hidden space-y-4 rounded-[28px] border border-white/10 bg-card p-4 md:block">
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       className={`rounded-[18px] border px-4 py-3 text-sm font-bold ${
@@ -1125,7 +1207,7 @@ export default function SceneSketchStep({
                           ? "border-white/50 bg-[#FF4E5C]/30 text-white"
                           : "border-white/10 bg-white/5 text-white/72"
                       }`}
-                      onClick={() => setSelectedVehicle("A")}
+                      onClick={() => selectVehicle("A")}
                       type="button"
                     >
                       Auto A
@@ -1136,7 +1218,7 @@ export default function SceneSketchStep({
                           ? "border-white/50 bg-[#2F78FF]/30 text-white"
                           : "border-white/10 bg-white/5 text-white/72"
                       }`}
-                      onClick={() => setSelectedVehicle("B")}
+                      onClick={() => selectVehicle("B")}
                       type="button"
                     >
                       Auto B

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "../../components/Button";
 import Card from "../../components/Card";
@@ -31,6 +31,10 @@ type Props = {
   forceReadOnly?: boolean;
 };
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
 export default function ReportWizard({
   report,
   onReportChange,
@@ -38,18 +42,41 @@ export default function ReportWizard({
 }: Props) {
   const navigate = useNavigate();
   const [stepIndex, setStepIndex] = useState(0);
+  const [isChangingStep, setIsChangingStep] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(report.pdfDataUrl);
   const [isLocking, setIsLocking] = useState(false);
   const [lockError, setLockError] = useState<string | null>(null);
+  const wizardTopRef = useRef<HTMLDivElement | null>(null);
   const activeSteps = useMemo(() => [...stepTitles], []);
   const currentStep = activeSteps[stepIndex];
   const readOnly = forceReadOnly || report.status === "locked" || report.status === "completed";
+
+  const scrollToWizardTop = () => {
+    window.requestAnimationFrame(() => {
+      wizardTopRef.current?.scrollIntoView({ block: "start" });
+      window.scrollTo({ left: 0, top: 0, behavior: "auto" });
+    });
+  };
+
+  const changeStep = (nextIndex: number) => {
+    setIsChangingStep(true);
+    setStepIndex(clampStepIndex(nextIndex));
+    scrollToWizardTop();
+  };
+
+  const clampStepIndex = (index: number) => clamp(index, 0, activeSteps.length - 1);
 
   useEffect(() => {
     if (stepIndex >= activeSteps.length) {
       setStepIndex(activeSteps.length - 1);
     }
   }, [activeSteps.length, stepIndex]);
+
+  useEffect(() => {
+    scrollToWizardTop();
+    const timeout = window.setTimeout(() => setIsChangingStep(false), 180);
+    return () => window.clearTimeout(timeout);
+  }, [stepIndex]);
 
   useEffect(() => {
     if (report.status === "locked" || report.status === "completed") {
@@ -160,7 +187,13 @@ export default function ReportWizard({
     );
   };
 
-  const goNext = () => setStepIndex((current) => Math.min(current + 1, activeSteps.length - 1));
+  const goNext = () => {
+    if (isChangingStep) {
+      return;
+    }
+
+    changeStep(stepIndex + 1);
+  };
 
   const goBack = () => {
     if (stepIndex === 0) {
@@ -168,7 +201,7 @@ export default function ReportWizard({
       return;
     }
 
-    setStepIndex((current) => Math.max(current - 1, 0));
+    changeStep(stepIndex - 1);
   };
 
   const goToStep = (step: StepTitle) => {
@@ -176,7 +209,7 @@ export default function ReportWizard({
       step === "Vozač A" ? "Vozac A" : step === "Vozač B" ? "Drugi ucesnik" : step;
     const index = activeSteps.indexOf(normalizedStep);
     if (index >= 0) {
-      setStepIndex(index);
+      changeStep(index);
     }
   };
 
@@ -471,7 +504,7 @@ export default function ReportWizard({
   };
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-8 pt-6">
+    <div ref={wizardTopRef} className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-8 pt-6">
       <div className="mb-6 flex items-center justify-between">
         <button className="text-sm text-white/55" onClick={goBack} type="button">
           Nazad
@@ -510,7 +543,7 @@ export default function ReportWizard({
                 : "Sačuvaj oba potpisa"}
           </Button>
         ) : currentStep !== "Finalizacija" ? (
-          <Button disabled={!canProceed() || readOnly} onClick={goNext} type="button">
+          <Button disabled={!canProceed() || readOnly || isChangingStep} onClick={goNext} type="button">
             Nastavi
           </Button>
         ) : (
