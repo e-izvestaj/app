@@ -3,6 +3,13 @@ export const PDF_TEMPLATE_HEIGHT = 1358;
 export const PDF_PAGE_WIDTH = 595.28;
 export const PDF_PAGE_HEIGHT = 841.89;
 export const PDF_PAGE_MARGIN = 18;
+// Coordinate system:
+// - all field coordinates below are expressed in the legacy template space (960 x 1358)
+// - runtime renderers scale and center this space into the actual PDF page size
+// Calibration notes:
+// - the official blank EI PDF is slightly larger than the legacy canvas, so we keep one
+//   stable logical map here and let the renderer apply page-size-aware offsets
+// - tune coordinates here only; avoid scattering positional numbers in render code
 export const PDF_SCALE = Math.min(
   (PDF_PAGE_WIDTH - PDF_PAGE_MARGIN * 2) / PDF_TEMPLATE_WIDTH,
   (PDF_PAGE_HEIGHT - PDF_PAGE_MARGIN * 2) / PDF_TEMPLATE_HEIGHT
@@ -18,6 +25,9 @@ export type ProgrammaticTextBox = {
   size?: number;
   maxLines?: number;
   align?: "left" | "center";
+  paddingX?: number;
+  paddingTop?: number;
+  lineGap?: number;
 };
 
 type Box = {
@@ -128,12 +138,15 @@ export const PDF_LAYOUT = {
 };
 
 export const PDF_TEXT_FIELDS = {
-  accidentDate: { left: 58, top: 88, width: 110, height: 16, size: 8 },
-  accidentTime: { left: 216, top: 88, width: 64, height: 16, size: 8 },
-  city: { left: 390, top: 88, width: 92, height: 16, size: 8 },
-  street: { left: 490, top: 88, width: 112, height: 16, size: 7.4 },
-  country: { left: 374, top: 107, width: 120, height: 14, size: 7.1 },
-  witnesses: { left: 334, top: 136, width: 570, height: 42, size: 7.1, maxLines: 3 },
+  // Header calibration:
+  // - top row text was previously too high, almost touching the title line
+  // - these values intentionally sit lower inside sections 1-5 and use slightly larger fonts
+  accidentDate: { left: 58, top: 102, width: 110, height: 16, size: 9.2 },
+  accidentTime: { left: 216, top: 102, width: 64, height: 16, size: 9.2 },
+  city: { left: 390, top: 102, width: 92, height: 16, size: 9.2 },
+  street: { left: 490, top: 102, width: 112, height: 16, size: 8.5 },
+  country: { left: 374, top: 124, width: 120, height: 14, size: 8.2 },
+  witnesses: { left: 334, top: 148, width: 570, height: 38, size: 8.1, maxLines: 3 },
 
   leftOwnerLastName: { left: 60, top: 274, width: 248, height: 14, size: 7.8 },
   leftOwnerFirstName: { left: 60, top: 301, width: 248, height: 14, size: 7.8 },

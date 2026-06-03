@@ -10,39 +10,47 @@ import {
 } from "../lib/qr";
 
 type FormState = {
-  fullName: string;
+  firstName: string;
+  lastName: string;
+  birthDate: string;
+  address: string;
   phone: string;
   email: string;
+  driverLicenseNumber: string;
+  driverLicenseCategory: string;
+  driverLicenseValidUntil: string;
   plate: string;
-  vehicle: string;
-  insurance: string;
-  policyNumber: string;
-  driverLicense: string;
-  note: string;
+  make: string;
+  vehicleType: string;
 };
 
 const emptyForm: FormState = {
-  fullName: "",
+  firstName: "",
+  lastName: "",
+  birthDate: "",
+  address: "",
   phone: "",
   email: "",
+  driverLicenseNumber: "",
+  driverLicenseCategory: "",
+  driverLicenseValidUntil: "",
   plate: "",
-  vehicle: "",
-  insurance: "",
-  policyNumber: "",
-  driverLicense: "",
-  note: ""
+  make: "",
+  vehicleType: ""
 };
 
 function Field({
   label,
   value,
   onChange,
-  optional = false
+  optional = false,
+  type = "text"
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   optional?: boolean;
+  type?: string;
 }) {
   return (
     <label className="block space-y-2">
@@ -53,8 +61,41 @@ function Field({
       <input
         className="input-glass"
         onChange={(event) => onChange(event.target.value)}
+        type={type}
         value={value}
       />
+    </label>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  options
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: string[];
+}) {
+  return (
+    <label className="block space-y-2">
+      <span className="text-xs uppercase tracking-[0.24em] text-white/40">{label}</span>
+      <select
+        className="input-glass text-white"
+        onChange={(event) => onChange(event.target.value)}
+        value={value}
+      >
+        <option className="bg-white text-slate-900" value="">
+          Izaberi
+        </option>
+        {options.map((option) => (
+          <option className="bg-white text-slate-900" key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }
@@ -71,11 +112,17 @@ export default function ParticipantPage() {
   const canGenerate = useMemo(
     () =>
       Boolean(
-        form.fullName.trim() &&
+        form.firstName.trim() &&
+          form.lastName.trim() &&
+          form.birthDate.trim() &&
+          form.address.trim() &&
           form.phone.trim() &&
+          form.driverLicenseNumber.trim() &&
+          form.driverLicenseCategory.trim() &&
+          form.driverLicenseValidUntil.trim() &&
           form.plate.trim() &&
-          form.insurance.trim() &&
-          form.policyNumber.trim() &&
+          form.make.trim() &&
+          form.vehicleType.trim() &&
           signature
       ),
     [form, signature]
@@ -111,9 +158,20 @@ export default function ParticipantPage() {
     void (async () => {
       const payload: ParticipantQrPayload = {
         type: "eizvestaj-participant",
-        version: 1,
+        version: 2,
         role: "B",
-        ...form,
+        firstName: form.firstName,
+        lastName: form.lastName,
+        birthDate: form.birthDate,
+        address: form.address,
+        phone: form.phone,
+        email: form.email,
+        driverLicenseNumber: form.driverLicenseNumber,
+        driverLicenseCategory: form.driverLicenseCategory,
+        driverLicenseValidUntil: form.driverLicenseValidUntil,
+        plate: form.plate,
+        make: form.make,
+        vehicleType: form.vehicleType,
         signature,
         createdAt: new Date().toISOString()
       };
@@ -124,7 +182,7 @@ export default function ParticipantPage() {
         setQrDataUrl(await generateQrCodeDataUrl(serialized));
       } catch {
         setQrDataUrl(null);
-        setQrError("QR je prevelik za prikaz. Skrati napomenu ili ponovo sacuvaj potpis.");
+        setQrError("QR je prevelik za prikaz. Pokušaj ponovo.");
       }
     })();
   };
@@ -140,26 +198,44 @@ export default function ParticipantPage() {
 
       <div className="space-y-4">
         <div>
-          <h1 className="text-[32px] font-semibold text-white">Moji podaci za izvestaj</h1>
+          <h1 className="text-[32px] font-semibold text-white">Podaci učesnika B</h1>
         </div>
 
         <Card className="space-y-4">
-          <Field label="Ime i prezime" onChange={(value) => updateField("fullName", value)} value={form.fullName} />
-          <Field label="Telefon" onChange={(value) => updateField("phone", value)} value={form.phone} />
-          <Field label="Email" onChange={(value) => updateField("email", value)} optional value={form.email} />
-          <Field label="Registarska oznaka" onChange={(value) => updateField("plate", value)} value={form.plate} />
-          <Field label="Marka/model vozila" onChange={(value) => updateField("vehicle", value)} optional value={form.vehicle} />
-          <Field label="Osiguravajuca kuca" onChange={(value) => updateField("insurance", value)} value={form.insurance} />
-          <Field label="Broj polise" onChange={(value) => updateField("policyNumber", value)} value={form.policyNumber} />
-          <Field label="Broj vozacke" onChange={(value) => updateField("driverLicense", value)} optional value={form.driverLicense} />
-          <label className="block space-y-2">
-            <span className="text-xs uppercase tracking-[0.24em] text-white/40">Napomena (opciono)</span>
-            <textarea
-              className="input-glass min-h-[110px]"
-              onChange={(event) => updateField("note", event.target.value)}
-              value={form.note}
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Prezime" onChange={(value) => updateField("lastName", value)} value={form.lastName} />
+            <Field label="Ime" onChange={(value) => updateField("firstName", value)} value={form.firstName} />
+          </div>
+          <Field label="Datum rođenja" onChange={(value) => updateField("birthDate", value)} type="date" value={form.birthDate} />
+          <Field label="Adresa" onChange={(value) => updateField("address", value)} value={form.address} />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Telefon" onChange={(value) => updateField("phone", value)} value={form.phone} />
+            <Field label="Mail" onChange={(value) => updateField("email", value)} optional type="email" value={form.email} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field
+              label="Broj vozačke dozvole"
+              onChange={(value) => updateField("driverLicenseNumber", value)}
+              value={form.driverLicenseNumber}
             />
-          </label>
+            <SelectField
+              label="Kategorija vozačke"
+              onChange={(value) => updateField("driverLicenseCategory", value)}
+              options={["A", "B", "C", "D", "E"]}
+              value={form.driverLicenseCategory}
+            />
+          </div>
+          <Field
+            label="Vozačka dozvola važi do"
+            onChange={(value) => updateField("driverLicenseValidUntil", value)}
+            type="date"
+            value={form.driverLicenseValidUntil}
+          />
+          <div className="grid grid-cols-3 gap-3">
+            <Field label="Registarski broj" onChange={(value) => updateField("plate", value)} value={form.plate} />
+            <Field label="Marka" onChange={(value) => updateField("make", value)} value={form.make} />
+            <Field label="Tip" onChange={(value) => updateField("vehicleType", value)} value={form.vehicleType} />
+          </div>
         </Card>
 
         <Card className="space-y-4">

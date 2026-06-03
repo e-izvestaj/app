@@ -415,7 +415,6 @@ export function isReportReadyForSignature(report: ReportDraft) {
       report.safety.injured !== null &&
       report.safety.damageOtherVehicles !== null &&
       report.safety.damageOtherObjects !== null &&
-      report.safety.vehiclesInPosition !== null &&
       vehicleAReady &&
       hasPartyB &&
       (report.annotatedPhotoDataUrl || report.sceneSketch.svgDataUrl)
@@ -440,16 +439,7 @@ export function getDocumentationMissingFields(report: ReportDraft) {
     documentType: "driver-license" | "registration" | "policy";
     side: "front" | "back";
   }> = [
-    { label: "Vozacka dozvola A - prednja", vehicle: report.vehicleA, documentType: "driver-license", side: "front" },
-    { label: "Vozacka dozvola A - zadnja", vehicle: report.vehicleA, documentType: "driver-license", side: "back" },
-    { label: "Vozacka dozvola B - prednja", vehicle: report.vehicleB, documentType: "driver-license", side: "front" },
-    { label: "Vozacka dozvola B - zadnja", vehicle: report.vehicleB, documentType: "driver-license", side: "back" },
-    { label: "Saobracajna dozvola A - prednja", vehicle: report.vehicleA, documentType: "registration", side: "front" },
-    { label: "Saobracajna dozvola A - zadnja", vehicle: report.vehicleA, documentType: "registration", side: "back" },
-    { label: "Saobracajna dozvola B - prednja", vehicle: report.vehicleB, documentType: "registration", side: "front" },
-    { label: "Saobracajna dozvola B - zadnja", vehicle: report.vehicleB, documentType: "registration", side: "back" },
-    { label: "Polisa A - prednja", vehicle: report.vehicleA, documentType: "policy", side: "front" },
-    { label: "Polisa B - prednja", vehicle: report.vehicleB, documentType: "policy", side: "front" }
+    { label: "Vozacka dozvola A - prednja", vehicle: report.vehicleA, documentType: "driver-license", side: "front" }
   ];
 
   requirements.forEach((item) => {

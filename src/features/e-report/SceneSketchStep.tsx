@@ -5,6 +5,9 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent
 } from "react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import { toPng } from "html-to-image";
 import Button from "../../components/Button";
 import Card from "../../components/Card";
 import { createId, nowIso } from "../../lib/utils";
@@ -13,7 +16,9 @@ import type { SceneSketchSuggestion } from "../../types";
 const BOARD_VIEW_SIZE = 360;
 const EXPORT_SIZE = 900;
 const MIN_ZOOM = 16;
-const MAX_ZOOM = 20;
+const MAX_ZOOM = 22;
+const VEHICLE_ICON_A_SRC = `${import.meta.env.BASE_URL}sketch-car-a.png`;
+const VEHICLE_ICON_B_SRC = `${import.meta.env.BASE_URL}sketch-car-b.png`;
 
 type Props = {
   sceneSketch: SceneSketchSuggestion;
@@ -30,6 +35,7 @@ type DragTarget = "vehicleA" | "vehicleB" | "impact" | null;
 type SketchDirection = SceneSketchSuggestion["vehicleAState"]["direction"];
 type VehicleKey = "A" | "B";
 type BoardPoint = { x: number; y: number };
+const MAP_OVERLAY_Z_INDEX = 1000;
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
@@ -59,21 +65,54 @@ function getMapSpan(zoom: number) {
   return { latSpan, lngSpan };
 }
 
-function getMapEmbedUrl(latitude: number, longitude: number, zoom: number) {
-  const { latSpan, lngSpan } = getMapSpan(zoom);
-  const left = longitude - lngSpan;
-  const right = longitude + lngSpan;
-  const top = latitude + latSpan;
-  const bottom = latitude - latSpan;
-  const bbox = [left, bottom, right, top].map((value) => value.toFixed(6)).join(",");
+function loadImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Neuspesno ucitavanje podloge za skicu."));
+    image.src = src;
+  });
+}
 
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latitude.toFixed(6)},${longitude.toFixed(6)}`;
+async function waitForLeafletTiles(container: HTMLElement) {
+  const tiles = Array.from(
+    container.querySelectorAll<HTMLImageElement>("img.leaflet-tile")
+  );
+
+  await Promise.all(
+    tiles.map(async (tile) => {
+      if (!tile.complete) {
+        await new Promise<void>((resolve) => {
+          const done = () => resolve();
+          tile.addEventListener("load", done, { once: true });
+          tile.addEventListener("error", done, { once: true });
+        });
+      }
+
+      if (typeof tile.decode === "function") {
+        try {
+          await tile.decode();
+        } catch {
+          // ignore decode failures and let export attempt proceed
+        }
+      }
+    })
+  );
+}
+
+async function exportCurrentSketchToPng(container: HTMLElement) {
+  await waitForLeafletTiles(container);
+
+  return toPng(container, {
+    cacheBust: true,
+    pixelRatio: 2,
+    backgroundColor: "#0B0D12"
+  });
 }
 
 function directionSymbol(direction: SketchDirection) {
   switch (direction) {
-    case "backward":
-      return "↓";
     case "left":
       return "↰";
     case "right":
@@ -82,6 +121,21 @@ function directionSymbol(direction: SketchDirection) {
       return "↶";
     default:
       return "↑";
+  }
+}
+
+function directionRotation(direction: SketchDirection) {
+  switch (direction) {
+    case "backward":
+      return 270;
+    case "left":
+      return 90;
+    case "right":
+      return 90;
+    case "uturn":
+      return 90;
+    default:
+      return 90;
   }
 }
 
@@ -192,6 +246,7 @@ function drawVehicle(
   state: SceneSketchSuggestion["vehicleAState"],
   color: string,
   directionColor: string,
+  icon: HTMLImageElement,
   scale = 1
 ) {
   const x = state.x * scale;
@@ -201,31 +256,16 @@ function drawVehicle(
   context.save();
   context.translate(x, y);
   context.rotate((state.rotation * Math.PI) / 180);
-
-  context.fillStyle = color;
-  drawRoundedRect(context, -12 * scale, -22 * scale, 24 * scale, 44 * scale, 10 * scale);
-  context.fill();
-
-  context.fillStyle = "rgba(255,255,255,0.22)";
-  drawRoundedRect(context, -7 * scale, -11 * scale, 14 * scale, 18 * scale, 6 * scale);
-  context.fill();
-
-  context.fillStyle = "rgba(255,255,255,0.18)";
-  drawRoundedRect(context, -8 * scale, -17 * scale, 16 * scale, 6 * scale, 4 * scale);
-  context.fill();
-
-  context.fillStyle = "rgba(0,0,0,0.18)";
-  drawRoundedRect(context, -12 * scale, -14 * scale, 2.5 * scale, 26 * scale, 2 * scale);
-  context.fill();
-  drawRoundedRect(context, 9.5 * scale, -14 * scale, 2.5 * scale, 26 * scale, 2 * scale);
-  context.fill();
+  const width = 108 * scale;
+  const height = 54 * scale;
+  context.drawImage(icon, -width / 2, -height / 2, width, height);
   context.restore();
 
   context.save();
-  context.fillStyle = "#FFFFFF";
-  context.font = `${Math.round(15 * scale)}px Arial`;
+  context.fillStyle = "rgba(255,255,255,0.96)";
+  context.font = `700 ${Math.round(18 * scale)}px Arial`;
   context.textAlign = "center";
-  context.fillText(label, x, y + 34 * scale);
+  context.fillText(label, x, y + 42 * scale);
   context.restore();
 }
 
@@ -237,13 +277,13 @@ function drawImpactMarker(
   const x = point.x * scale;
   const y = point.y * scale;
   context.save();
-  context.strokeStyle = "#F7CC45";
-  context.lineWidth = 4 * scale;
+  context.strokeStyle = "#000000";
+  context.lineWidth = 6 * scale;
   context.beginPath();
-  context.moveTo(x - 10 * scale, y - 10 * scale);
-  context.lineTo(x + 10 * scale, y + 10 * scale);
-  context.moveTo(x + 10 * scale, y - 10 * scale);
-  context.lineTo(x - 10 * scale, y + 10 * scale);
+  context.moveTo(x - 16 * scale, y - 16 * scale);
+  context.lineTo(x + 16 * scale, y + 16 * scale);
+  context.moveTo(x + 16 * scale, y - 16 * scale);
+  context.lineTo(x - 16 * scale, y + 16 * scale);
   context.stroke();
   context.restore();
 }
@@ -312,6 +352,12 @@ async function renderSketchPng(
   }
 
   drawFallbackRoad(context, sketch, EXPORT_SIZE);
+
+  const [vehicleAImage, vehicleBImage] = await Promise.all([
+    loadImage(VEHICLE_ICON_A_SRC),
+    loadImage(VEHICLE_ICON_B_SRC)
+  ]);
+
   drawDecorations(context, sketch, EXPORT_SIZE);
 
   if (sketch.drawPaths.length > 0) {
@@ -325,7 +371,10 @@ async function renderSketchPng(
         return;
       }
       context.beginPath();
-      context.moveTo(path.points[0].x * (EXPORT_SIZE / BOARD_VIEW_SIZE), path.points[0].y * (EXPORT_SIZE / BOARD_VIEW_SIZE));
+      context.moveTo(
+        path.points[0].x * (EXPORT_SIZE / BOARD_VIEW_SIZE),
+        path.points[0].y * (EXPORT_SIZE / BOARD_VIEW_SIZE)
+      );
       path.points.slice(1).forEach((point) => {
         context.lineTo(
           point.x * (EXPORT_SIZE / BOARD_VIEW_SIZE),
@@ -337,8 +386,24 @@ async function renderSketchPng(
     context.restore();
   }
 
-  drawVehicle(context, "A", sketch.vehicleAState, "#FF4E5C", "#FF9AA2", EXPORT_SIZE / BOARD_VIEW_SIZE);
-  drawVehicle(context, "B", sketch.vehicleBState, "#2F78FF", "#8DB7FF", EXPORT_SIZE / BOARD_VIEW_SIZE);
+  drawVehicle(
+    context,
+    "A",
+    sketch.vehicleAState,
+    "#FF4E5C",
+    "#FF9AA2",
+    vehicleAImage,
+    EXPORT_SIZE / BOARD_VIEW_SIZE
+  );
+  drawVehicle(
+    context,
+    "B",
+    sketch.vehicleBState,
+    "#2F78FF",
+    "#8DB7FF",
+    vehicleBImage,
+    EXPORT_SIZE / BOARD_VIEW_SIZE
+  );
   drawImpactMarker(context, sketch.impactPoint, EXPORT_SIZE / BOARD_VIEW_SIZE);
 
   if (locationLabel) {
@@ -381,43 +446,49 @@ function VehicleMarker({
 }) {
   const left = `${(state.x / BOARD_VIEW_SIZE) * 100}%`;
   const top = `${(state.y / BOARD_VIEW_SIZE) * 100}%`;
+  const vehicleIcon = label === "A" ? VEHICLE_ICON_A_SRC : VEHICLE_ICON_B_SRC;
 
   return (
     <>
       <button
-        className={`absolute h-[44px] w-[24px] -translate-x-1/2 -translate-y-1/2 rounded-[12px] border touch-none shadow-[0_10px_24px_rgba(0,0,0,0.34)] ${
-          selected ? "border-white ring-4 ring-white/20" : "border-white/20"
-        }`}
+        className="pointer-events-auto absolute h-[54px] w-[108px] -translate-x-1/2 -translate-y-1/2 touch-none"
         onClick={onSelect}
         onPointerDown={onPointerDown}
         style={{
           left,
           top,
+          zIndex: MAP_OVERLAY_Z_INDEX,
           transform: `translate(-50%, -50%) rotate(${state.rotation}deg)`,
-          background: color
+          filter: selected
+            ? "drop-shadow(0 10px 24px rgba(0,0,0,0.34)) drop-shadow(0 0 0.75rem rgba(255,255,255,0.18))"
+            : "drop-shadow(0 10px 24px rgba(0,0,0,0.34))"
         }}
         type="button"
       >
-        <span className="absolute inset-x-[4px] top-[5px] h-[11px] rounded-[8px] bg-white/22" />
-        <span className="absolute inset-y-[8px] left-[2px] w-[3px] rounded-full bg-black/20" />
-        <span className="absolute inset-y-[8px] right-[2px] w-[3px] rounded-full bg-black/20" />
+        <img
+          alt={`Auto ${label}`}
+          className={`pointer-events-none h-full w-full object-contain ${selected ? "scale-105" : ""}`}
+          src={vehicleIcon}
+        />
       </button>
       <div
         className="pointer-events-none absolute -translate-x-1/2 rounded-full bg-black/55 px-2 py-1 text-[11px] font-bold text-white"
         style={{
           left,
-          top: `calc(${top} + 34px)`
+          top: `calc(${top} + 28px)`,
+          zIndex: MAP_OVERLAY_Z_INDEX
         }}
       >
         {label}
       </div>
       <div
-        className="pointer-events-none absolute -translate-x-1/2 text-[22px] font-black"
+        className="pointer-events-none absolute -translate-x-1/2 text-[66px] font-black leading-none"
         style={{
           left,
-          top: `calc(${top} - 50px)`,
-          transform: `translateX(-50%) rotate(${state.rotation}deg)`,
-          color: label === "A" ? "#FF9AA2" : "#8DB7FF"
+          top,
+          transform: `translate(-50%, -50%) rotate(${state.rotation + directionRotation(state.direction)}deg) translate(0, -52px)`,
+          color: label === "A" ? "#FF9AA2" : "#8DB7FF",
+          zIndex: MAP_OVERLAY_Z_INDEX
         }}
       >
         {directionSymbol(state.direction)}
@@ -462,30 +533,6 @@ function DirectionPicker({
   );
 }
 
-function DecorationChip({
-  active,
-  label,
-  onClick
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      className={`rounded-full border px-3 py-2 text-sm transition ${
-        active
-          ? "border-accent/50 bg-accent/16 text-white"
-          : "border-white/10 bg-white/5 text-white/70"
-      }`}
-      onClick={onClick}
-      type="button"
-    >
-      {label}
-    </button>
-  );
-}
-
 export default function SceneSketchStep({
   sceneSketch,
   locationLabel,
@@ -508,19 +555,21 @@ export default function SceneSketchStep({
     longitude: sceneSketch.mapCenterLongitude ?? longitude ?? 0
   });
   const boardRef = useRef<HTMLDivElement | null>(null);
+  const sketchContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapHostRef = useRef<HTMLDivElement | null>(null);
+  const leafletMapRef = useRef<L.Map | null>(null);
   const activePointerIdRef = useRef<number | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   const previewImage = sceneSketch.svgDataUrl || null;
   const selectedState =
     selectedVehicle === "A" ? editorSketch.vehicleAState : editorSketch.vehicleBState;
+  const isPointerInteractionActive = dragTarget !== null || drawingPathId !== null;
 
-  const mapEmbedUrl = useMemo(() => {
-    if (!hasGps || !mapCenter.latitude || !mapCenter.longitude) {
-      return null;
-    }
-
-    return getMapEmbedUrl(mapCenter.latitude, mapCenter.longitude, mapZoom);
-  }, [hasGps, mapCenter.latitude, mapCenter.longitude, mapZoom]);
+  const hasLiveMap = useMemo(
+    () => Boolean(hasGps && mapCenter.latitude && mapCenter.longitude),
+    [hasGps, mapCenter.latitude, mapCenter.longitude]
+  );
 
   useEffect(() => {
     if (isEditorOpen) {
@@ -534,6 +583,69 @@ export default function SceneSketchStep({
       longitude: sceneSketch.mapCenterLongitude ?? longitude ?? 0
     });
   }, [isEditorOpen, sceneSketch, latitude, longitude]);
+
+  useEffect(() => {
+    if (!isEditorOpen || !hasGps || !mapHostRef.current) {
+      return;
+    }
+
+    if (!leafletMapRef.current) {
+      const map = L.map(mapHostRef.current, {
+        zoomControl: false,
+        attributionControl: false,
+        dragging: true,
+        scrollWheelZoom: true,
+        doubleClickZoom: true,
+        boxZoom: false,
+        keyboard: false,
+        touchZoom: true,
+        tapHold: false,
+        zoomSnap: 1,
+        zoomDelta: 1,
+        minZoom: MIN_ZOOM,
+        maxZoom: MAX_ZOOM,
+      });
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        subdomains: ["a", "b", "c"],
+        crossOrigin: true,
+        maxNativeZoom: 19,
+        maxZoom: MAX_ZOOM,
+      }).addTo(map);
+
+      map.on("moveend zoomend", () => {
+        const center = map.getCenter();
+        const nextZoom = map.getZoom();
+        setMapCenter((current) => {
+          if (
+            Math.abs(current.latitude - center.lat) < 0.000001 &&
+            Math.abs(current.longitude - center.lng) < 0.000001
+          ) {
+            return current;
+          }
+          return { latitude: center.lat, longitude: center.lng };
+        });
+        setMapZoom((current) => (current === nextZoom ? current : nextZoom));
+      });
+
+      leafletMapRef.current = map;
+    }
+
+    const map = leafletMapRef.current;
+    map.setView([mapCenter.latitude, mapCenter.longitude], mapZoom, { animate: false });
+    window.setTimeout(() => map.invalidateSize(false), 0);
+  }, [hasGps, isEditorOpen, mapCenter.latitude, mapCenter.longitude, mapZoom]);
+
+  useEffect(() => {
+    if (isEditorOpen) {
+      return;
+    }
+
+    if (leafletMapRef.current) {
+      leafletMapRef.current.remove();
+      leafletMapRef.current = null;
+    }
+  }, [isEditorOpen]);
 
   const updateSketch = (updater: (current: SceneSketchSuggestion) => SceneSketchSuggestion) => {
     setEditorSketch((current) => ({
@@ -560,6 +672,7 @@ export default function SceneSketchStep({
     setDrawMode(false);
     setDrawingPathId(null);
     setDragTarget(null);
+    setExportError(null);
     setMapZoom(sceneSketch.mapZoom ?? 18);
     setMapCenter({
       latitude: sceneSketch.mapCenterLatitude ?? latitude ?? 0,
@@ -609,6 +722,9 @@ export default function SceneSketchStep({
 
     event.preventDefault();
     event.stopPropagation();
+    leafletMapRef.current?.dragging.disable();
+    leafletMapRef.current?.touchZoom.disable();
+    leafletMapRef.current?.doubleClickZoom.disable();
     activePointerIdRef.current = event.pointerId;
     event.currentTarget.setPointerCapture?.(event.pointerId);
     setDragTarget(target);
@@ -685,10 +801,83 @@ export default function SceneSketchStep({
   };
 
   const handlePointerEnd = () => {
+    leafletMapRef.current?.dragging.enable();
+    leafletMapRef.current?.touchZoom.enable();
+    leafletMapRef.current?.doubleClickZoom.enable();
     activePointerIdRef.current = null;
     setDragTarget(null);
     setDrawingPathId(null);
   };
+
+  useEffect(() => {
+    if (!isEditorOpen || !isPointerInteractionActive) {
+      return;
+    }
+
+    const handleWindowPointerMove = (event: PointerEvent) => {
+      if (activePointerIdRef.current !== null && activePointerIdRef.current !== event.pointerId) {
+        return;
+      }
+
+      const point = getBoardPoint(event.clientX, event.clientY);
+      if (!point) {
+        return;
+      }
+
+      if (drawingPathId) {
+        updateSketch((current) => ({
+          ...current,
+          drawPaths: current.drawPaths.map((path) =>
+            path.id === drawingPathId ? { ...path, points: [...path.points, point] } : path
+          )
+        }));
+        return;
+      }
+
+      if (dragTarget === "impact") {
+        updateSketch((current) => ({
+          ...current,
+          impactPoint: point
+        }));
+        return;
+      }
+
+      if (dragTarget === "vehicleA") {
+        updateSketch((current) => ({
+          ...current,
+          vehicleAState: {
+            ...current.vehicleAState,
+            ...point
+          }
+        }));
+        return;
+      }
+
+      if (dragTarget === "vehicleB") {
+        updateSketch((current) => ({
+          ...current,
+          vehicleBState: {
+            ...current.vehicleBState,
+            ...point
+          }
+        }));
+      }
+    };
+
+    const handleWindowPointerUp = () => {
+      handlePointerEnd();
+    };
+
+    window.addEventListener("pointermove", handleWindowPointerMove);
+    window.addEventListener("pointerup", handleWindowPointerUp);
+    window.addEventListener("pointercancel", handleWindowPointerUp);
+
+    return () => {
+      window.removeEventListener("pointermove", handleWindowPointerMove);
+      window.removeEventListener("pointerup", handleWindowPointerUp);
+      window.removeEventListener("pointercancel", handleWindowPointerUp);
+    };
+  }, [dragTarget, drawingPathId, isEditorOpen, isPointerInteractionActive]);
 
   const confirmSketch = async () => {
     const next: SceneSketchSuggestion = {
@@ -700,13 +889,23 @@ export default function SceneSketchStep({
       confirmedAt: nowIso()
     };
 
-    const dataUrl = await renderSketchPng(next, locationLabel);
-    onChange({
-      ...next,
-      svgDataUrl: dataUrl
-    });
-    onSaveSketchImage(dataUrl);
-    setIsEditorOpen(false);
+    try {
+      setExportError(null);
+      const target = sketchContainerRef.current;
+      if (!target) {
+        throw new Error("Sketch container nije dostupan za izvoz.");
+      }
+      const dataUrl = await exportCurrentSketchToPng(target);
+      onChange({
+        ...next,
+        svgDataUrl: dataUrl
+      });
+      onSaveSketchImage(dataUrl);
+      setIsEditorOpen(false);
+    } catch (error) {
+      console.error("Sketch export failed", error);
+      setExportError("Izvoz skice nije uspeo. Pokusaj ponovo.");
+    }
   };
 
   return (
@@ -759,21 +958,17 @@ export default function SceneSketchStep({
                   onPointerUp={handlePointerEnd}
                   ref={boardRef}
                 >
-                  <div
-                    className="relative h-full w-full overflow-hidden touch-none"
-                    onPointerDown={handleBoardPointerDown}
-                  >
-                    {mapEmbedUrl ? (
+                  <div className="relative h-full w-full overflow-hidden" ref={sketchContainerRef}>
+                    {hasLiveMap ? (
                       <>
-                        <iframe
-                          className="pointer-events-none absolute inset-0 h-full w-full border-0"
-                          src={mapEmbedUrl}
-                          title="GPS podloga"
+                        <div
+                          className="absolute inset-0 z-0 h-full w-full"
+                          ref={mapHostRef}
                         />
-                        <div className="absolute inset-0 bg-[#0B0D12]/22" />
+                        <div className="pointer-events-none absolute inset-0 z-10 bg-[#0B0D12]/22" />
                       </>
                     ) : (
-                      <svg className="absolute inset-0 h-full w-full" viewBox="0 0 360 360">
+                      <svg className="absolute inset-0 z-0 h-full w-full" viewBox="0 0 360 360">
                         {editorSketch.laneType === "intersection" ? (
                           <>
                             <rect fill="#172234" height="360" rx="18" width="90" x="135" y="0" />
@@ -800,39 +995,43 @@ export default function SceneSketchStep({
                       </svg>
                     )}
 
+                    <div
+                      className="absolute inset-0"
+                      style={{ zIndex: MAP_OVERLAY_Z_INDEX, pointerEvents: "none" }}
+                    >
                     {hasGps ? (
-                      <>
+                      <div className="pointer-events-none absolute inset-0">
                         <button
-                          className="absolute left-3 top-1/2 z-20 -translate-y-1/2 rounded-full bg-black/50 px-3 py-2 text-white"
+                          className="pointer-events-auto absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-black/50 px-3 py-2 text-white"
                           onClick={() => nudgeMap(0, -0.35)}
                           type="button"
                         >
                           ←
                         </button>
                         <button
-                          className="absolute right-3 top-1/2 z-20 -translate-y-1/2 rounded-full bg-black/50 px-3 py-2 text-white"
+                          className="pointer-events-auto absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-black/50 px-3 py-2 text-white"
                           onClick={() => nudgeMap(0, 0.35)}
                           type="button"
                         >
                           →
                         </button>
                         <button
-                          className="absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-full bg-black/50 px-3 py-2 text-white"
+                          className="pointer-events-auto absolute left-1/2 top-3 -translate-x-1/2 rounded-full bg-black/50 px-3 py-2 text-white"
                           onClick={() => nudgeMap(0.35, 0)}
                           type="button"
                         >
                           ↑
                         </button>
                         <button
-                          className="absolute bottom-3 left-1/2 z-20 -translate-x-1/2 rounded-full bg-black/50 px-3 py-2 text-white"
+                          className="pointer-events-auto absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-2 text-white"
                           onClick={() => nudgeMap(-0.35, 0)}
                           type="button"
                         >
                           ↓
                         </button>
-                        <div className="absolute right-3 top-3 z-20 flex flex-col gap-2">
+                        <div className="absolute right-3 top-3 flex flex-col gap-2">
                           <button
-                            className="rounded-full bg-black/55 px-3 py-2 text-lg text-white"
+                            className="pointer-events-auto rounded-full bg-black/55 px-3 py-2 text-lg text-white"
                             disabled={mapZoom >= MAX_ZOOM}
                             onClick={() =>
                               setMapZoom((current) => clamp(current + 1, MIN_ZOOM, MAX_ZOOM))
@@ -842,7 +1041,7 @@ export default function SceneSketchStep({
                             +
                           </button>
                           <button
-                            className="rounded-full bg-black/55 px-3 py-2 text-lg text-white"
+                            className="pointer-events-auto rounded-full bg-black/55 px-3 py-2 text-lg text-white"
                             disabled={mapZoom <= MIN_ZOOM}
                             onClick={() =>
                               setMapZoom((current) => clamp(current - 1, MIN_ZOOM, MAX_ZOOM))
@@ -852,7 +1051,7 @@ export default function SceneSketchStep({
                             −
                           </button>
                         </div>
-                      </>
+                      </div>
                     ) : null}
 
                     {editorSketch.drawPaths.length > 0 ? (
@@ -869,6 +1068,14 @@ export default function SceneSketchStep({
                           />
                         ))}
                       </svg>
+                    ) : null}
+
+                    {drawMode ? (
+                      <div
+                        className="absolute inset-0 cursor-crosshair touch-none"
+                        onPointerDown={handleBoardPointerDown}
+                        style={{ pointerEvents: "auto" }}
+                      />
                     ) : null}
 
                     <VehicleMarker
@@ -889,18 +1096,26 @@ export default function SceneSketchStep({
                     />
 
                     <button
-                      className="absolute -translate-x-1/2 -translate-y-1/2 text-[34px] font-black text-[#F7CC45] drop-shadow-[0_2px_4px_rgba(0,0,0,0.65)] touch-none"
+                      className="pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 text-[52px] font-black leading-none text-black drop-shadow-[0_2px_6px_rgba(255,255,255,0.5)] touch-none"
                       onPointerDown={(event) => handleDraggablePointerDown("impact", event)}
                       style={{
                         left: `${(editorSketch.impactPoint.x / BOARD_VIEW_SIZE) * 100}%`,
-                        top: `${(editorSketch.impactPoint.y / BOARD_VIEW_SIZE) * 100}%`
+                        top: `${(editorSketch.impactPoint.y / BOARD_VIEW_SIZE) * 100}%`,
+                        zIndex: MAP_OVERLAY_Z_INDEX
                       }}
                       type="button"
                     >
                       ×
                     </button>
+                    </div>
                   </div>
                 </div>
+
+                {exportError ? (
+                  <div className="rounded-[18px] border border-red-400/25 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+                    {exportError}
+                  </div>
+                ) : null}
 
                 <div className="space-y-4 rounded-[28px] border border-white/10 bg-card p-4">
                   <div className="grid grid-cols-2 gap-2">
@@ -928,6 +1143,10 @@ export default function SceneSketchStep({
                     </button>
                   </div>
 
+                  <div className="text-center text-xs font-semibold uppercase tracking-[0.28em] text-white/45">
+                    Pravac kretanja automobila
+                  </div>
+
                   <DirectionPicker onChange={setDirection} value={selectedState.direction} />
 
                   <div className="grid grid-cols-2 gap-2">
@@ -945,45 +1164,6 @@ export default function SceneSketchStep({
                     >
                       Rotiraj udesno
                     </button>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      fullWidth={false}
-                      onClick={() => setDrawMode((current) => !current)}
-                      type="button"
-                      variant={drawMode ? "primary" : "secondary"}
-                    >
-                      {drawMode ? "Crtanje ukljuceno" : "Crtaj trag"}
-                    </Button>
-                    <Button
-                      disabled={editorSketch.drawPaths.length === 0}
-                      fullWidth={false}
-                      onClick={() =>
-                        updateSketch((current) => ({
-                          ...current,
-                          drawPaths: current.drawPaths.slice(0, -1)
-                        }))
-                      }
-                      type="button"
-                      variant="secondary"
-                    >
-                      Vrati potez
-                    </Button>
-                    <Button
-                      disabled={editorSketch.drawPaths.length === 0}
-                      fullWidth={false}
-                      onClick={() =>
-                        updateSketch((current) => ({
-                          ...current,
-                          drawPaths: []
-                        }))
-                      }
-                      type="button"
-                      variant="secondary"
-                    >
-                      Reset
-                    </Button>
                   </div>
 
                   {!hasGps ? (
@@ -1014,94 +1194,6 @@ export default function SceneSketchStep({
                       ))}
                     </div>
                   ) : null}
-
-                  <div className="flex flex-wrap gap-2">
-                    <DecorationChip
-                      active={editorSketch.decorations.stop}
-                      label="STOP"
-                      onClick={() =>
-                        updateSketch((current) => ({
-                          ...current,
-                          decorations: { ...current.decorations, stop: !current.decorations.stop }
-                        }))
-                      }
-                    />
-                    <DecorationChip
-                      active={editorSketch.decorations.trafficLight}
-                      label="Semafor"
-                      onClick={() =>
-                        updateSketch((current) => ({
-                          ...current,
-                          decorations: {
-                            ...current.decorations,
-                            trafficLight: !current.decorations.trafficLight
-                          }
-                        }))
-                      }
-                    />
-                    <DecorationChip
-                      active={editorSketch.decorations.crosswalk}
-                      label="Prelaz"
-                      onClick={() =>
-                        updateSketch((current) => ({
-                          ...current,
-                          decorations: {
-                            ...current.decorations,
-                            crosswalk: !current.decorations.crosswalk
-                          }
-                        }))
-                      }
-                    />
-                    <DecorationChip
-                      active={editorSketch.decorations.priority}
-                      label="Prvenstvo"
-                      onClick={() =>
-                        updateSketch((current) => ({
-                          ...current,
-                          decorations: {
-                            ...current.decorations,
-                            priority: !current.decorations.priority
-                          }
-                        }))
-                      }
-                    />
-                    <DecorationChip
-                      active={editorSketch.decorations.parkedVehicle}
-                      label="Parkirano"
-                      onClick={() =>
-                        updateSketch((current) => ({
-                          ...current,
-                          decorations: {
-                            ...current.decorations,
-                            parkedVehicle: !current.decorations.parkedVehicle
-                          }
-                        }))
-                      }
-                    />
-                    <DecorationChip
-                      active={editorSketch.decorations.curb}
-                      label="Ivicnjak"
-                      onClick={() =>
-                        updateSketch((current) => ({
-                          ...current,
-                          decorations: { ...current.decorations, curb: !current.decorations.curb }
-                        }))
-                      }
-                    />
-                    <DecorationChip
-                      active={editorSketch.decorations.centerLine}
-                      label="Linija"
-                      onClick={() =>
-                        updateSketch((current) => ({
-                          ...current,
-                          decorations: {
-                            ...current.decorations,
-                            centerLine: !current.decorations.centerLine
-                          }
-                        }))
-                      }
-                    />
-                  </div>
 
                   <Button onClick={confirmSketch} type="button">
                     Potvrdi skicu

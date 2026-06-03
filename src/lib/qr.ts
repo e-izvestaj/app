@@ -3,6 +3,26 @@ import type { VehicleDraft } from "../types";
 
 export type ParticipantQrPayload = {
   type: "eizvestaj-participant";
+  version: 2;
+  role: "B";
+  firstName: string;
+  lastName: string;
+  birthDate: string;
+  address: string;
+  phone: string;
+  email: string;
+  driverLicenseNumber: string;
+  driverLicenseCategory: string;
+  driverLicenseValidUntil: string;
+  plate: string;
+  make: string;
+  vehicleType: string;
+  signature: string;
+  createdAt: string;
+};
+
+type LegacyParticipantQrPayload = {
+  type: "eizvestaj-participant";
   version: 1;
   role: "B";
   fullName: string;
@@ -34,57 +54,86 @@ export function stringifyParticipantPayload(payload: ParticipantQrPayload) {
 }
 
 export function parseParticipantPayload(value: string): ParticipantQrPayload {
-  const parsed = JSON.parse(value) as Partial<ParticipantQrPayload>;
+  const parsed = JSON.parse(value) as Partial<ParticipantQrPayload> & Partial<LegacyParticipantQrPayload>;
 
-  if (
-    parsed.type !== "eizvestaj-participant" ||
-    parsed.version !== 1 ||
-    parsed.role !== "B"
-  ) {
+  if (parsed.type !== "eizvestaj-participant" || parsed.role !== "B") {
+    throw new Error("QR kod nije podatak drugog ucesnika.");
+  }
+
+  if (parsed.version === 1) {
+    const fullName = parsed.fullName || "";
+    const nameParts = fullName.trim().split(/\s+/).filter(Boolean);
+    const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : fullName;
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+    const vehicleParts = (parsed.vehicle || "").split(/\s+/).filter(Boolean);
+
+    return {
+      type: "eizvestaj-participant",
+      version: 2,
+      role: "B",
+      firstName,
+      lastName,
+      birthDate: "",
+      address: "",
+      phone: parsed.phone || "",
+      email: parsed.email || "",
+      driverLicenseNumber: parsed.driverLicense || "",
+      driverLicenseCategory: "",
+      driverLicenseValidUntil: "",
+      plate: parsed.plate || "",
+      make: vehicleParts[0] || "",
+      vehicleType: vehicleParts.slice(1).join(" "),
+      signature: parsed.signature || "",
+      createdAt: parsed.createdAt || new Date().toISOString()
+    };
+  }
+
+  if (parsed.version !== 2) {
     throw new Error("QR kod nije podatak drugog ucesnika.");
   }
 
   return {
     type: "eizvestaj-participant",
-    version: 1,
+    version: 2,
     role: "B",
-    fullName: parsed.fullName || "",
+    firstName: parsed.firstName || "",
+    lastName: parsed.lastName || "",
+    birthDate: parsed.birthDate || "",
+    address: parsed.address || "",
     phone: parsed.phone || "",
     email: parsed.email || "",
+    driverLicenseNumber: parsed.driverLicenseNumber || "",
+    driverLicenseCategory: parsed.driverLicenseCategory || "",
+    driverLicenseValidUntil: parsed.driverLicenseValidUntil || "",
     plate: parsed.plate || "",
-    vehicle: parsed.vehicle || "",
-    insurance: parsed.insurance || "",
-    policyNumber: parsed.policyNumber || "",
-    driverLicense: parsed.driverLicense || "",
-    note: parsed.note || "",
+    make: parsed.make || "",
+    vehicleType: parsed.vehicleType || "",
     signature: parsed.signature || "",
     createdAt: parsed.createdAt || new Date().toISOString()
   };
 }
 
 export function participantPayloadToVehicle(payload: ParticipantQrPayload, base: VehicleDraft) {
-  const nameParts = payload.fullName.trim().split(/\s+/).filter(Boolean);
-  const firstName = nameParts.length > 1 ? nameParts.slice(0, -1).join(" ") : payload.fullName;
-  const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
-  const vehicleParts = payload.vehicle.split(/\s+/).filter(Boolean);
-
   return {
     ...base,
     source: "qr" as const,
-    driverFirstName: firstName,
-    driverLastName: lastName,
+    driverFirstName: payload.firstName,
+    driverLastName: payload.lastName,
+    driverBirthDate: payload.birthDate,
+    driverAddress: payload.address,
     driverPhone: payload.phone,
     driverEmail: payload.email,
-    driverLicenseNumber: payload.driverLicense,
-    ownerFirstName: firstName,
-    ownerLastName: lastName,
+    driverLicenseNumber: payload.driverLicenseNumber,
+    driverLicenseCategory: payload.driverLicenseCategory,
+    driverLicenseValidUntil: payload.driverLicenseValidUntil,
+    ownerFirstName: payload.firstName,
+    ownerLastName: payload.lastName,
+    ownerAddress: payload.address,
     ownerPhone: payload.phone,
     ownerEmail: payload.email,
+    ownerSameAsDriver: true,
     plate: payload.plate,
-    make: vehicleParts[0] || "",
-    model: vehicleParts.slice(1).join(" "),
-    insurer: payload.insurance,
-    policyNumber: payload.policyNumber,
-    note: payload.note
+    make: payload.make,
+    type: payload.vehicleType
   };
 }

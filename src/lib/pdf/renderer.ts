@@ -15,6 +15,9 @@ type FontSet = { regular: PDFFont; bold: PDFFont };
 
 const TEXT_COLOR = rgb(0.08, 0.10, 0.13);
 const DAMAGE_COLOR = rgb(0.85, 0.16, 0.23);
+const DEFAULT_TEXT_PADDING_X = 3;
+const DEFAULT_TEXT_PADDING_TOP = 1.5;
+const DEFAULT_LINE_GAP = 1.14;
 
 function sx(value: number) {
   return PDF_OFFSET_X + value * PDF_SCALE;
@@ -34,6 +37,30 @@ function normalizeWhitespace(text: string) {
 
 function textWidth(font: PDFFont, text: string, size: number) {
   return font.widthOfTextAtSize(text, ss(size));
+}
+
+function boxPaddingX(box: ProgrammaticTextBox) {
+  return box.paddingX ?? DEFAULT_TEXT_PADDING_X;
+}
+
+function boxPaddingTop(box: ProgrammaticTextBox) {
+  return box.paddingTop ?? DEFAULT_TEXT_PADDING_TOP;
+}
+
+function boxLineGap(box: ProgrammaticTextBox) {
+  return box.lineGap ?? DEFAULT_LINE_GAP;
+}
+
+function availableBoxWidth(box: ProgrammaticTextBox) {
+  return Math.max(8, box.width - boxPaddingX(box) * 2);
+}
+
+function measureTextHeight(font: PDFFont, size: number) {
+  return font.heightAtSize(ss(size)) / PDF_SCALE;
+}
+
+function baselineFromGlyphTop(glyphTop: number, font: PDFFont, size: number) {
+  return glyphTop + measureTextHeight(font, size) * 0.82;
 }
 
 function fitSingleLine(font: PDFFont, text: string, width: number, desiredSize: number) {
@@ -60,7 +87,7 @@ function wrapText(font: PDFFont, text: string, box: ProgrammaticTextBox, size: n
 
   for (const word of words) {
     const candidate = current ? `${current} ${word}` : word;
-    if (textWidth(font, candidate, size) <= ss(box.width)) {
+    if (textWidth(font, candidate, size) <= ss(availableBoxWidth(box))) {
       current = candidate;
       continue;
     }
@@ -91,21 +118,31 @@ function drawTextBox(page: PDFPage, text: string, box: ProgrammaticTextBox, font
   const font = bold ? fonts.bold : fonts.regular;
   let size = box.size ?? 8;
   let lines = wrapText(font, normalized, box, size);
-  while (size > 5.5 && lines.length * size * 1.14 > box.height) {
+  const lineGap = boxLineGap(box);
+  while (size > 5.5 && lines.length * size * lineGap > box.height - boxPaddingTop(box) * 2) {
     size -= 0.2;
     lines = wrapText(font, normalized, box, size);
   }
   if (lines.length === 1) {
-    size = fitSingleLine(font, lines[0], box.width, size);
+    size = fitSingleLine(font, lines[0], availableBoxWidth(box), size);
   }
+
+  const left = sx(box.left + boxPaddingX(box));
+  const availableWidth = ss(availableBoxWidth(box));
+  const glyphHeight = measureTextHeight(font, size);
+  const startTop = box.top + boxPaddingTop(box);
 
   lines.forEach((line, index) => {
     const lineWidth = textWidth(font, line, size);
     const x =
       box.align === "center"
-        ? sx(box.left) + Math.max(0, (ss(box.width) - lineWidth) / 2)
-        : sx(box.left);
-    const y = sy(box.top + index * size * 1.14, size);
+        ? left + Math.max(0, (availableWidth - lineWidth) / 2)
+        : left;
+    const glyphTop =
+      lines.length === 1
+        ? startTop + Math.max(0, (Math.max(glyphHeight, box.height - boxPaddingTop(box) * 2) - glyphHeight) / 2)
+        : startTop + index * size * lineGap;
+    const y = sy(baselineFromGlyphTop(glyphTop, font, size));
     page.drawText(line, {
       x,
       y,
