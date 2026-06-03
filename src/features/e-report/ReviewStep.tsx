@@ -92,7 +92,11 @@ export default function ReviewStep({ report, onEditStep }: Props) {
             "Nije uneto",
           report.vehicleB.plate || "Registracija nije uneta",
           report.vehicleB.insurer || "Polisa nije uneta",
-          report.vehicleB.source === "qr" ? "QR dodat" : "Ceka QR"
+          report.vehicleB.source === "qr"
+            ? "QR dodat"
+            : report.vehicleB.source === "manual"
+              ? "Podaci uneti rucno"
+              : "Podaci nisu uneti"
         ]}
         onEdit={() => onEditStep("Vozač B")}
         title="Ucesnik B"

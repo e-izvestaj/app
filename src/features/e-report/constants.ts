@@ -9,6 +9,9 @@ export const stepTitles = [
   "Okolnosti nezgode",
   "Skica nezgode",
   "Podaci ucesnika B",
+  "Vozac B",
+  "Vozilo B",
+  "Polisa B",
   "Pregled izvestaja",
   "Potpisi",
   "Finalizacija"

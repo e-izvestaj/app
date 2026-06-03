@@ -13,7 +13,7 @@ import {
   getVehicleSectionMissingFields,
   nowIso,
 } from "../../lib/utils";
-import type { ReportDraft } from "../../types";
+import type { ReportDraft, VehicleDraft } from "../../types";
 import AccidentDetails from "./AccidentDetails";
 import { stepTitles, type StepTitle } from "./constants";
 import DocumentationStep from "./DocumentationStep";
@@ -188,6 +188,17 @@ export default function ReportWizard({
     );
   };
 
+  const updateVehicleB = (vehicleB: VehicleDraft, signature?: string) => {
+    const nextVehicleB = vehicleB.source ? vehicleB : { ...vehicleB, source: "manual" as const };
+    updateReport({
+      vehicleB: nextVehicleB,
+      partyB: nextVehicleB,
+      signatures: signature
+        ? { ...report.signatures, b: signature, partyB: signature }
+        : report.signatures
+    });
+  };
+
   const goNext = () => {
     if (isChangingStep) {
       return;
@@ -207,7 +218,7 @@ export default function ReportWizard({
 
   const goToStep = (step: StepTitle) => {
     const normalizedStep =
-      step === "Vozač A" ? "Vozac A" : step === "Vozač B" ? "Drugi ucesnik" : step;
+      step === "Vozač A" ? "Vozac A" : step === "Vozač B" ? "Vozac B" : step;
     const index = activeSteps.indexOf(normalizedStep);
     if (index >= 0) {
       changeStep(index);
@@ -317,9 +328,19 @@ export default function ReportWizard({
       case "Drugi ucesnik":
         return true;
       case "Podaci ucesnika B":
-        return Boolean(report.vehicleB.source);
+        return true;
+      case "Vozac B":
+        return getVehicleSectionMissingFields(report.vehicleB, "driver").length === 0;
+      case "Vozilo B":
+        return getVehicleSectionMissingFields(report.vehicleB, "vehicle").length === 0;
+      case "Polisa B":
+        return getVehicleSectionMissingFields(report.vehicleB, "policy").length === 0;
       case "Pregled izvestaja":
-        return Boolean(report.vehicleB.source);
+        return (
+          getVehicleSectionMissingFields(report.vehicleB, "driver").length === 0 &&
+          getVehicleSectionMissingFields(report.vehicleB, "vehicle").length === 0 &&
+          getVehicleSectionMissingFields(report.vehicleB, "policy").length === 0
+        );
       case "Potpisi":
         return false;
       case "Finalizacija":
@@ -455,17 +476,42 @@ export default function ReportWizard({
         return (
           <SecondParticipantStep
             mode="import"
-            onChange={(vehicleB, signature) =>
-              updateReport({
-                vehicleB,
-                partyB: vehicleB,
-                signatures: signature
-                  ? { ...report.signatures, b: signature, partyB: signature }
-                  : report.signatures
-              })
-            }
+            onChange={updateVehicleB}
             readOnly={readOnly}
             signature={report.signatures.b}
+            value={report.vehicleB}
+          />
+        );
+      case "Vozac B":
+        return (
+          <VehicleForm
+            accent="yellow"
+            onChange={updateVehicleB}
+            readOnly={readOnly}
+            section="driver"
+            title="Vozac B"
+            value={report.vehicleB}
+          />
+        );
+      case "Vozilo B":
+        return (
+          <VehicleForm
+            accent="yellow"
+            onChange={updateVehicleB}
+            readOnly={readOnly}
+            section="vehicle"
+            title="Vozilo B"
+            value={report.vehicleB}
+          />
+        );
+      case "Polisa B":
+        return (
+          <VehicleForm
+            accent="yellow"
+            onChange={updateVehicleB}
+            readOnly={readOnly}
+            section="policy"
+            title="Polisa B"
             value={report.vehicleB}
           />
         );
