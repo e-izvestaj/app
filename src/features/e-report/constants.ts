@@ -1,8 +1,8 @@
 export const stepTitles = [
   "Bezbednost",
   "Vreme i mesto",
-  "Drugi ucesnik",
   "Dokumentacija",
+  "Drugi ucesnik",
   "Vozac A",
   "Vozilo A",
   "Polisa A",
