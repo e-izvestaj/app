@@ -89,12 +89,6 @@ export default function SafetyCheckStep({ value, onChange, readOnly = false }: P
         {value.injured === false ? (
           <>
             <ToggleRow
-              label="Da li su vozila i dalje u položaju nakon kontakta?"
-              onSelect={(vehiclesInPosition) => onChange({ ...value, vehiclesInPosition })}
-              readOnly={readOnly}
-              value={value.vehiclesInPosition}
-            />
-            <ToggleRow
               label="Materijalna šteta na drugim vozilima pored A i B?"
               onSelect={(damageOtherVehicles) => onChange({ ...value, damageOtherVehicles })}
               readOnly={readOnly}

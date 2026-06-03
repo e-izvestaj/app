@@ -1,34 +1,19 @@
 import Camera from "../../components/Camera";
 import Card from "../../components/Card";
-import { createId } from "../../lib/utils";
-import type { DocumentSide, DocumentType, PhotoKind, VehicleDraft } from "../../types";
+import { DAMAGE_ZONE_OPTIONS, createId } from "../../lib/utils";
+import type { DamageZone, DocumentSide, DocumentType, PhotoAsset, PhotoKind, VehicleDraft } from "../../types";
 
 type Props = {
+  scenePhotos: PhotoAsset[];
   vehicleA: VehicleDraft;
+  vehicleB: VehicleDraft;
+  onScenePhotosChange: (photos: PhotoAsset[]) => void;
   onVehicleAChange: (vehicle: VehicleDraft) => void;
+  onVehicleBChange: (vehicle: VehicleDraft) => void;
   readOnly?: boolean;
 };
 
 type Accent = "blue" | "yellow";
-
-type DocumentCardProps = {
-  accent: Accent;
-  title: string;
-  documentType: DocumentType;
-  photoKind: PhotoKind;
-  sides: DocumentSide[];
-  vehicle: VehicleDraft;
-  onChange: (vehicle: VehicleDraft) => void;
-  readOnly?: boolean;
-};
-
-type VehicleSectionProps = {
-  accent: Accent;
-  title: string;
-  vehicle: VehicleDraft;
-  onChange: (vehicle: VehicleDraft) => void;
-  readOnly?: boolean;
-};
 
 const accentTheme = {
   blue: {
@@ -66,32 +51,30 @@ function sideLabel(side: DocumentSide, totalSides: number) {
   return side === "front" ? "Prednja strana" : "Zadnja strana";
 }
 
-function sideButtonLabel(side: DocumentSide, totalSides: number) {
-  if (totalSides === 1) {
-    return "Dodaj sliku dokumenta";
-  }
-
-  return side === "front" ? "Dodaj prednju stranu" : "Dodaj zadnju stranu";
-}
-
 function getDocumentPhotos(vehicle: VehicleDraft, documentType: DocumentType) {
   return vehicle.documentPhotos.filter((photo) => photo.documentType === documentType);
 }
 
-function DocumentUploader({
+function photosByKind(photos: PhotoAsset[], kind: PhotoKind) {
+  return photos.filter((photo) => photo.kind === kind);
+}
+
+function DriverLicenseUploader({
   accent,
-  title,
-  documentType,
-  photoKind,
-  sides,
   vehicle,
   onChange,
   readOnly = false
-}: DocumentCardProps) {
-  const photos = getDocumentPhotos(vehicle, documentType);
+}: {
+  accent: Accent;
+  vehicle: VehicleDraft;
+  onChange: (vehicle: VehicleDraft) => void;
+  readOnly?: boolean;
+}) {
+  const photos = getDocumentPhotos(vehicle, "driver-license");
+  const photo = photos.find((item) => item.documentSide === "front");
   const theme = accentTheme[accent];
 
-  const saveFiles = async (files: FileList, side: DocumentSide) => {
+  const saveFiles = async (files: FileList) => {
     const file = files[0];
     if (!file) {
       return;
@@ -101,159 +84,216 @@ function DocumentUploader({
       id: createId("doc"),
       dataUrl: await fileToDataUrl(file),
       label: file.name,
-      kind: photoKind,
-      documentType,
-      documentSide: side
+      kind: "document-a" as PhotoKind,
+      documentType: "driver-license" as DocumentType,
+      documentSide: "front" as DocumentSide
     };
 
-    const nextVehicle = {
+    onChange({
       ...vehicle,
       documentPhotos: [
         ...vehicle.documentPhotos.filter(
-          (photo) => !(photo.documentType === documentType && photo.documentSide === side)
+          (item) => !(item.documentType === "driver-license" && item.documentSide === "front")
         ),
         upload
       ]
-    };
-
-    onChange(nextVehicle);
-  };
-
-  const removePhoto = (photoId: string) => {
-    const nextVehicle = {
-      ...vehicle,
-      documentPhotos: vehicle.documentPhotos.filter((photo) => photo.id !== photoId)
-    };
-
-    onChange(nextVehicle);
+    });
   };
 
   return (
     <div className={`space-y-4 rounded-[24px] border p-4 ${theme.panel}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className={`text-base font-semibold ${theme.text}`}>{title}</div>
-          <div className={`mt-1 text-sm ${theme.muted}`}>
-            {photos.length}/{sides.length} dodatih strana
-          </div>
+          <div className={`text-base font-semibold ${theme.text}`}>Vozacka dozvola A</div>
+          <div className={`mt-1 text-sm ${theme.muted}`}>Samo prednja strana</div>
         </div>
         <div className={`rounded-full border px-3 py-1 text-xs uppercase tracking-[0.22em] ${theme.pill}`}>
-          {sides.length === 1 ? "1 strana" : "2 strane"}
+          1 strana
         </div>
       </div>
 
-      <div className="grid gap-4">
-        {sides.map((side) => {
-          const photo = photos.find((item) => item.documentSide === side);
-
-          return (
-            <div key={side} className="rounded-[20px] border border-white/10 bg-black/15 p-4">
-              <div className="mb-3 text-sm font-medium text-white">{sideLabel(side, sides.length)}</div>
-              <Camera
-                buttonLabel={sideButtonLabel(side, sides.length)}
-                disabled={readOnly}
-                multiple={false}
-                onCapture={(files) => saveFiles(files, side)}
-                title={title}
-              />
-              {photo ? (
-                <div className="relative mt-3 overflow-hidden rounded-[18px] bg-white/5">
-                  <img
-                    alt={`${title} ${sideLabel(side, sides.length)}`}
-                    className="aspect-[4/3] w-full object-cover"
-                    src={photo.dataUrl}
-                  />
-                  {!readOnly ? (
-                    <button
-                      className={`absolute right-2 top-2 rounded-full border px-3 py-1 text-xs ${theme.button}`}
-                      onClick={() => removePhoto(photo.id)}
-                      type="button"
-                    >
-                      Obrisi
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          );
-        })}
+      <div className="rounded-[20px] border border-white/10 bg-black/15 p-4">
+        <div className="mb-3 text-sm font-medium text-white">{sideLabel("front", 1)}</div>
+        <Camera
+          buttonLabel="Dodaj sliku vozacke"
+          disabled={readOnly}
+          multiple={false}
+          onCapture={saveFiles}
+          title="Vozacka dozvola A"
+        />
+        {photo ? (
+          <div className="relative mt-3 overflow-hidden rounded-[18px] bg-white/5">
+            <img
+              alt="Vozacka dozvola A"
+              className="aspect-[4/3] w-full object-cover"
+              src={photo.dataUrl}
+            />
+            {!readOnly ? (
+              <button
+                className={`absolute right-2 top-2 rounded-full border px-3 py-1 text-xs ${theme.button}`}
+                onClick={() =>
+                  onChange({
+                    ...vehicle,
+                    documentPhotos: vehicle.documentPhotos.filter((item) => item.id !== photo.id)
+                  })
+                }
+                type="button"
+              >
+                Obrisi
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );
 }
 
-function VehicleSection({
+function DamageCard({
   accent,
   title,
+  photos,
+  photoKind,
   vehicle,
-  onChange,
+  onPhotosChange,
+  onVehicleChange,
   readOnly = false
-}: VehicleSectionProps) {
+}: {
+  accent: Accent;
+  title: string;
+  photos: PhotoAsset[];
+  photoKind: PhotoKind;
+  vehicle: VehicleDraft;
+  onPhotosChange: (photos: PhotoAsset[]) => void;
+  onVehicleChange: (vehicle: VehicleDraft) => void;
+  readOnly?: boolean;
+}) {
   const theme = accentTheme[accent];
+  const zone = vehicle.impactZone || vehicle.damageSuggestion.manualZone;
+
+  const handleCapture = async (files: FileList) => {
+    const uploads = await Promise.all(
+      Array.from(files).map(async (file) => ({
+        id: createId("scene"),
+        dataUrl: await fileToDataUrl(file),
+        label: file.name,
+        kind: photoKind
+      }))
+    );
+
+    onPhotosChange([...photos, ...uploads]);
+  };
 
   return (
-    <Card className={`space-y-5 border-2 ${theme.card}`}>
-      <div className="space-y-2">
-        <div className={`inline-flex rounded-full border px-3 py-1 text-xs uppercase tracking-[0.24em] ${theme.pill}`}>
-          {title}
-        </div>
-        <h3 className={`text-2xl font-semibold ${theme.text}`}>{title}</h3>
-      </div>
+    <div className={`space-y-4 rounded-[24px] border p-4 ${theme.panel}`}>
+      <div className={`text-base font-semibold ${theme.text}`}>{title}</div>
+      <Camera
+        buttonLabel="Dodaj fotografije stete"
+        disabled={readOnly}
+        onCapture={handleCapture}
+        title={title}
+      />
 
-      <div className="grid gap-4">
-        <DocumentUploader
-          accent={accent}
-          documentType="driver-license"
-          onChange={onChange}
-          photoKind={vehicle.side === "A" ? "document-a" : "document-b"}
-          readOnly={readOnly}
-          sides={["front", "back"]}
-          title={`Vozacka dozvola ${vehicle.side}`}
-          vehicle={vehicle}
-        />
-        <DocumentUploader
-          accent={accent}
-          documentType="registration"
-          onChange={onChange}
-          photoKind={vehicle.side === "A" ? "document-a" : "document-b"}
-          readOnly={readOnly}
-          sides={["front", "back"]}
-          title={`Saobracajna dozvola ${vehicle.side}`}
-          vehicle={vehicle}
-        />
-        <DocumentUploader
-          accent={accent}
-          documentType="policy"
-          onChange={onChange}
-          photoKind={vehicle.side === "A" ? "document-a" : "document-b"}
-          readOnly={readOnly}
-          sides={["front"]}
-          title={`Polisa ${vehicle.side}`}
-          vehicle={vehicle}
-        />
-      </div>
-    </Card>
+      {photos.length ? (
+        <div className="grid grid-cols-2 gap-3">
+          {photos.map((photo, index) => (
+            <div key={photo.id} className="relative overflow-hidden rounded-[18px] bg-white/5">
+              <img alt={`${title} ${index + 1}`} className="aspect-[4/3] w-full object-cover" src={photo.dataUrl} />
+              {!readOnly ? (
+                <button
+                  className={`absolute right-2 top-2 rounded-full border px-3 py-1 text-xs ${theme.button}`}
+                  onClick={() => onPhotosChange(photos.filter((item) => item.id !== photo.id))}
+                  type="button"
+                >
+                  Obrisi
+                </button>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      <label className="space-y-2">
+        <span className="text-sm text-white/60">Mesto inicijalnog udara</span>
+        <select
+          className="input-glass text-white"
+          disabled={readOnly}
+          value={zone}
+          onChange={(event) =>
+            onVehicleChange({
+              ...vehicle,
+              impactZone: event.target.value as DamageZone,
+              damageSuggestion: {
+                ...vehicle.damageSuggestion,
+                manualZone: event.target.value as DamageZone,
+                suggestedZone: event.target.value as DamageZone,
+                status: event.target.value ? "confirmed" : "idle"
+              }
+            })
+          }
+        >
+          <option className="bg-white text-slate-900" value="">
+            Izaberi
+          </option>
+          {DAMAGE_ZONE_OPTIONS.map((item) => (
+            <option className="bg-white text-slate-900" key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
   );
 }
 
 export default function DocumentationStep({
+  scenePhotos,
   vehicleA,
+  vehicleB,
+  onScenePhotosChange,
   onVehicleAChange,
+  onVehicleBChange,
   readOnly = false
 }: Props) {
   return (
     <div className="space-y-5">
       <div className="space-y-2">
-        <h2 className="text-[30px] font-semibold text-white">Dokumentacija</h2>
+        <h2 className="text-[30px] font-semibold text-white">Dokumentacija i steta</h2>
       </div>
 
-      <VehicleSection
-        accent="blue"
-        onChange={onVehicleAChange}
-        readOnly={readOnly}
-        title="Dokumenta za vozilo A"
-        vehicle={vehicleA}
-      />
+      <Card className={`space-y-5 border-2 ${accentTheme.blue.card}`}>
+        <DriverLicenseUploader accent="blue" onChange={onVehicleAChange} readOnly={readOnly} vehicle={vehicleA} />
+        <DamageCard
+          accent="blue"
+          onPhotosChange={(next) =>
+            onScenePhotosChange([
+              ...scenePhotos.filter((photo) => photo.kind !== "damage-a"),
+              ...next
+            ])
+          }
+          onVehicleChange={onVehicleAChange}
+          photoKind="damage-a"
+          photos={photosByKind(scenePhotos, "damage-a")}
+          readOnly={readOnly}
+          title="Steta na vozilu A"
+          vehicle={vehicleA}
+        />
+        <DamageCard
+          accent="yellow"
+          onPhotosChange={(next) =>
+            onScenePhotosChange([
+              ...scenePhotos.filter((photo) => photo.kind !== "damage-b"),
+              ...next
+            ])
+          }
+          onVehicleChange={onVehicleBChange}
+          photoKind="damage-b"
+          photos={photosByKind(scenePhotos, "damage-b")}
+          readOnly={readOnly}
+          title="Steta na vozilu B"
+          vehicle={vehicleB}
+        />
+      </Card>
     </div>
   );
 }

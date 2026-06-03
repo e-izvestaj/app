@@ -15,12 +15,10 @@ import {
 import type { ReportDraft } from "../../types";
 import AccidentDetails from "./AccidentDetails";
 import { stepTitles, type StepTitle } from "./constants";
-import DamageCaptureStep from "./DamageCaptureStep";
 import DocumentationStep from "./DocumentationStep";
 import LocationTimeStep from "./LocationTimeStep";
 import ReviewStep from "./ReviewStep";
 import SafetyCheckStep from "./SafetyCheckStep";
-import SceneSituationStep from "./SceneSituationStep";
 import SceneSketchStep from "./SceneSketchStep";
 import ShareStep from "./ShareStep";
 import SignatureStep from "./SignatureStep";
@@ -258,7 +256,6 @@ export default function ReportWizard({
       case "Bezbednost":
         return (
           report.safety.injured === false &&
-          report.safety.vehiclesInPosition !== null &&
           report.safety.damageOtherVehicles !== null &&
           report.safety.damageOtherObjects !== null
         );
@@ -279,15 +276,6 @@ export default function ReportWizard({
         return getVehicleSectionMissingFields(report.vehicleA, "vehicle").length === 0;
       case "Polisa A":
         return getVehicleSectionMissingFields(report.vehicleA, "policy").length === 0;
-      case "Ostecenja vozila":
-        return Boolean(
-          report.scenePhotos.some((photo) => photo.kind === "damage-a") &&
-            report.scenePhotos.some((photo) => photo.kind === "damage-b") &&
-            report.vehicleA.impactZone &&
-            report.vehicleB.impactZone
-        );
-      case "Fotografija mesta nezgode":
-        return Boolean(report.scenePhotos.some((photo) => photo.kind === "scene"));
       case "Okolnosti nezgode":
         return true;
       case "Skica nezgode":
@@ -330,9 +318,13 @@ export default function ReportWizard({
       case "Dokumentacija":
         return (
           <DocumentationStep
+            onScenePhotosChange={(scenePhotos) => updateReport({ scenePhotos })}
             onVehicleAChange={(vehicleA) => updateReport({ vehicleA })}
+            onVehicleBChange={(vehicleB) => updateReport({ vehicleB })}
             readOnly={readOnly}
+            scenePhotos={report.scenePhotos}
             vehicleA={report.vehicleA}
+            vehicleB={report.vehicleB}
           />
         );
       case "Vozac A":
@@ -366,26 +358,6 @@ export default function ReportWizard({
             section="policy"
             title="Polisa A"
             value={report.vehicleA}
-          />
-        );
-      case "Ostecenja vozila":
-        return (
-          <DamageCaptureStep
-            onChange={(scenePhotos) => updateReport({ scenePhotos })}
-            onVehicleAChange={(vehicleA) => updateReport({ vehicleA })}
-            onVehicleBChange={(vehicleB) => updateReport({ vehicleB })}
-            photos={report.scenePhotos}
-            readOnly={readOnly}
-            vehicleA={report.vehicleA}
-            vehicleB={report.vehicleB}
-          />
-        );
-      case "Fotografija mesta nezgode":
-        return (
-          <SceneSituationStep
-            onChange={(scenePhotos) => updateReport({ scenePhotos })}
-            photos={report.scenePhotos}
-            readOnly={readOnly}
           />
         );
       case "Okolnosti nezgode":
