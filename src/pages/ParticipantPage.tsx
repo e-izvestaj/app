@@ -3,107 +3,19 @@ import { useNavigate } from "react-router-dom";
 import SignatureCanvas from "react-signature-canvas";
 import Button from "../components/Button";
 import Card from "../components/Card";
+import VehicleForm from "../features/e-report/VehicleForm";
 import {
   generateQrCodeDataUrl,
   stringifyParticipantPayload,
   type ParticipantQrPayload
 } from "../lib/qr";
-
-type FormState = {
-  firstName: string;
-  lastName: string;
-  birthDate: string;
-  address: string;
-  phone: string;
-  email: string;
-  driverLicenseNumber: string;
-  driverLicenseCategory: string;
-  driverLicenseValidUntil: string;
-  plate: string;
-  make: string;
-  vehicleType: string;
-};
-
-const emptyForm: FormState = {
-  firstName: "",
-  lastName: "",
-  birthDate: "",
-  address: "",
-  phone: "",
-  email: "",
-  driverLicenseNumber: "",
-  driverLicenseCategory: "",
-  driverLicenseValidUntil: "",
-  plate: "",
-  make: "",
-  vehicleType: ""
-};
-
-function Field({
-  label,
-  value,
-  onChange,
-  optional = false,
-  type = "text"
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  optional?: boolean;
-  type?: string;
-}) {
-  return (
-    <label className="block space-y-2">
-      <span className="text-xs uppercase tracking-[0.24em] text-white/40">
-        {label}
-        {optional ? " (opciono)" : ""}
-      </span>
-      <input
-        className="input-glass"
-        onChange={(event) => onChange(event.target.value)}
-        type={type}
-        value={value}
-      />
-    </label>
-  );
-}
-
-function SelectField({
-  label,
-  value,
-  onChange,
-  options
-}: {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  options: string[];
-}) {
-  return (
-    <label className="block space-y-2">
-      <span className="text-xs uppercase tracking-[0.24em] text-white/40">{label}</span>
-      <select
-        className="input-glass text-white"
-        onChange={(event) => onChange(event.target.value)}
-        value={value}
-      >
-        <option className="bg-white text-slate-900" value="">
-          Izaberi
-        </option>
-        {options.map((option) => (
-          <option className="bg-white text-slate-900" key={option} value={option}>
-            {option}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
+import { defaultVehicle, getVehicleSectionMissingFields } from "../lib/utils";
+import type { VehicleDraft } from "../types";
 
 export default function ParticipantPage() {
   const navigate = useNavigate();
   const signatureRef = useRef<any>(null);
-  const [form, setForm] = useState<FormState>(emptyForm);
+  const [vehicle, setVehicle] = useState<VehicleDraft>(() => defaultVehicle("B"));
   const [signature, setSignature] = useState("");
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [payloadText, setPayloadText] = useState("");
@@ -111,25 +23,15 @@ export default function ParticipantPage() {
 
   const canGenerate = useMemo(
     () =>
-      Boolean(
-        form.firstName.trim() &&
-          form.lastName.trim() &&
-          form.birthDate.trim() &&
-          form.address.trim() &&
-          form.phone.trim() &&
-          form.driverLicenseNumber.trim() &&
-          form.driverLicenseCategory.trim() &&
-          form.driverLicenseValidUntil.trim() &&
-          form.plate.trim() &&
-          form.make.trim() &&
-          form.vehicleType.trim() &&
-          signature
-      ),
-    [form, signature]
+      getVehicleSectionMissingFields(vehicle, "driver").length === 0 &&
+      getVehicleSectionMissingFields(vehicle, "vehicle").length === 0 &&
+      getVehicleSectionMissingFields(vehicle, "policy").length === 0 &&
+      Boolean(signature),
+    [vehicle, signature]
   );
 
-  const updateField = (key: keyof FormState, value: string) => {
-    setForm((current) => ({ ...current, [key]: value }));
+  const updateVehicle = (next: VehicleDraft) => {
+    setVehicle({ ...next, source: "qr" });
     setQrDataUrl(null);
   };
 
@@ -158,20 +60,50 @@ export default function ParticipantPage() {
     void (async () => {
       const payload: ParticipantQrPayload = {
         type: "eizvestaj-participant",
-        version: 2,
+        version: 3,
         role: "B",
-        firstName: form.firstName,
-        lastName: form.lastName,
-        birthDate: form.birthDate,
-        address: form.address,
-        phone: form.phone,
-        email: form.email,
-        driverLicenseNumber: form.driverLicenseNumber,
-        driverLicenseCategory: form.driverLicenseCategory,
-        driverLicenseValidUntil: form.driverLicenseValidUntil,
-        plate: form.plate,
-        make: form.make,
-        vehicleType: form.vehicleType,
+        firstName: vehicle.driverFirstName,
+        lastName: vehicle.driverLastName,
+        birthDate: vehicle.driverBirthDate,
+        address: vehicle.driverAddress,
+        postalCode: vehicle.driverPostalCode,
+        city: vehicle.driverCity,
+        country: vehicle.driverCountry,
+        phone: vehicle.driverPhone,
+        email: vehicle.driverEmail,
+        driverLicenseNumber: vehicle.driverLicenseNumber,
+        driverLicenseCategory: vehicle.driverLicenseCategory,
+        driverLicenseValidUntil: vehicle.driverLicenseValidUntil,
+        plate: vehicle.plate,
+        registrationCountry: vehicle.registrationCountry,
+        make: vehicle.make,
+        model: vehicle.model,
+        vehicleType: vehicle.type,
+        vin: vehicle.vin,
+        trailerPlate: vehicle.trailerPlate,
+        trailerRegistrationCountry: vehicle.trailerRegistrationCountry,
+        ownerFirstName: vehicle.ownerFirstName,
+        ownerLastName: vehicle.ownerLastName,
+        ownerAddress: vehicle.ownerAddress,
+        ownerCity: vehicle.ownerCity,
+        ownerPostalCode: vehicle.ownerPostalCode,
+        ownerCountry: vehicle.ownerCountry,
+        ownerPhone: vehicle.ownerPhone,
+        ownerEmail: vehicle.ownerEmail,
+        ownerSameAsDriver: vehicle.ownerSameAsDriver,
+        insurer: vehicle.insurer,
+        policyNumber: vehicle.policyNumber,
+        greenCardNumber: vehicle.greenCardNumber,
+        policyValidFrom: vehicle.policyValidFrom,
+        policyValidUntil: vehicle.policyValidUntil,
+        insuranceBranch: vehicle.insuranceBranch,
+        insuranceOfficeName: vehicle.insuranceOfficeName,
+        insuranceAddress: vehicle.insuranceAddress,
+        insuranceCity: vehicle.insuranceCity,
+        insuranceCountry: vehicle.insuranceCountry,
+        insurancePhone: vehicle.insurancePhone,
+        insuranceEmail: vehicle.insuranceEmail,
+        coveredDamage: vehicle.coveredDamage,
         signature,
         createdAt: new Date().toISOString()
       };
@@ -182,7 +114,7 @@ export default function ParticipantPage() {
         setQrDataUrl(await generateQrCodeDataUrl(serialized));
       } catch {
         setQrDataUrl(null);
-        setQrError("QR je prevelik za prikaz. Pokušaj ponovo.");
+        setQrError("QR je prevelik za prikaz. Kopiraj payload ispod i nalepi ga kod uvoza.");
       }
     })();
   };
@@ -196,47 +128,32 @@ export default function ParticipantPage() {
         <div className="text-xs uppercase tracking-[0.26em] text-white/40">Offline unos</div>
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div>
-          <h1 className="text-[32px] font-semibold text-white">Podaci učesnika B</h1>
+          <h1 className="text-[32px] font-semibold text-white">Podaci ucesnika B</h1>
         </div>
 
-        <Card className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Prezime" onChange={(value) => updateField("lastName", value)} value={form.lastName} />
-            <Field label="Ime" onChange={(value) => updateField("firstName", value)} value={form.firstName} />
-          </div>
-          <Field label="Datum rođenja" onChange={(value) => updateField("birthDate", value)} type="date" value={form.birthDate} />
-          <Field label="Adresa" onChange={(value) => updateField("address", value)} value={form.address} />
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Telefon" onChange={(value) => updateField("phone", value)} value={form.phone} />
-            <Field label="Mail" onChange={(value) => updateField("email", value)} optional type="email" value={form.email} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field
-              label="Broj vozačke dozvole"
-              onChange={(value) => updateField("driverLicenseNumber", value)}
-              value={form.driverLicenseNumber}
-            />
-            <SelectField
-              label="Kategorija vozačke"
-              onChange={(value) => updateField("driverLicenseCategory", value)}
-              options={["A", "B", "C", "D", "E"]}
-              value={form.driverLicenseCategory}
-            />
-          </div>
-          <Field
-            label="Vozačka dozvola važi do"
-            onChange={(value) => updateField("driverLicenseValidUntil", value)}
-            type="date"
-            value={form.driverLicenseValidUntil}
-          />
-          <div className="grid grid-cols-3 gap-3">
-            <Field label="Registarski broj" onChange={(value) => updateField("plate", value)} value={form.plate} />
-            <Field label="Marka" onChange={(value) => updateField("make", value)} value={form.make} />
-            <Field label="Tip" onChange={(value) => updateField("vehicleType", value)} value={form.vehicleType} />
-          </div>
-        </Card>
+        <VehicleForm
+          accent="yellow"
+          onChange={updateVehicle}
+          section="driver"
+          title="Vozac B"
+          value={vehicle}
+        />
+        <VehicleForm
+          accent="yellow"
+          onChange={updateVehicle}
+          section="vehicle"
+          title="Vozilo B"
+          value={vehicle}
+        />
+        <VehicleForm
+          accent="yellow"
+          onChange={updateVehicle}
+          section="policy"
+          title="Polisa B"
+          value={vehicle}
+        />
 
         <Card className="space-y-4">
           <div className="text-xs uppercase tracking-[0.24em] text-white/40">Potpis</div>
@@ -276,9 +193,15 @@ export default function ParticipantPage() {
           </div>
         ) : null}
 
-        {qrDataUrl ? (
+        {(qrDataUrl || payloadText) ? (
           <Card className="space-y-4 text-center">
-            <img alt="QR kod za prenos podataka" className="mx-auto w-full max-w-[320px] rounded-[24px] bg-white p-3" src={qrDataUrl} />
+            {qrDataUrl ? (
+              <img
+                alt="QR kod za prenos podataka"
+                className="mx-auto w-full max-w-[320px] rounded-[24px] bg-white p-3"
+                src={qrDataUrl}
+              />
+            ) : null}
             <details className="text-left text-xs text-white/45">
               <summary>Prikazi payload</summary>
               <textarea className="input-glass mt-3 min-h-[130px]" readOnly value={payloadText} />

@@ -57,6 +57,13 @@ function extensionFromDataUrl(dataUrl: string) {
   return "png";
 }
 
+function safeName(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "file";
+}
+
 function createZip(entries: ZipEntry[]) {
   const localParts: Uint8Array[] = [];
   const centralParts: Uint8Array[] = [];
@@ -142,6 +149,22 @@ export async function generateReportZip(report: ReportDraft) {
         bytes: await dataUrlToBytes(photo.dataUrl)
       });
     })
+  );
+
+  await Promise.all(
+    ([
+      ["A", report.vehicleA.documentPhotos],
+      ["B", report.vehicleB.documentPhotos]
+    ] as const).flatMap(([side, photos]) =>
+      photos.map(async (photo, index) => {
+        const documentType = safeName(photo.documentType || "dokument");
+        const documentSide = safeName(photo.documentSide || "strana");
+        entries.push({
+          name: `${report.publicId}/dokumenti/vozilo-${side}/${String(index + 1).padStart(2, "0")}-${documentType}-${documentSide}.${extensionFromDataUrl(photo.dataUrl)}`,
+          bytes: await dataUrlToBytes(photo.dataUrl)
+        });
+      })
+    )
   );
 
   const sketch = report.annotatedPhotoDataUrl || report.sceneSketch.svgDataUrl;
