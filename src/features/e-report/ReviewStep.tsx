@@ -34,6 +34,13 @@ function SummaryCard({
   );
 }
 
+function hasDriverLicenseFront(report: ReportDraft, vehicle: "A" | "B") {
+  const target = vehicle === "A" ? report.vehicleA : report.vehicleB;
+  return target.documentPhotos.some(
+    (item) => item.documentType === "driver-license" && item.documentSide === "front"
+  );
+}
+
 export default function ReviewStep({ report, onEditStep }: Props) {
   const scenePhotos = report.scenePhotos.filter((photo) => photo.kind === "scene");
   const damagePhotoA = report.scenePhotos.find((photo) => photo.kind === "damage-a");
@@ -59,9 +66,10 @@ export default function ReviewStep({ report, onEditStep }: Props) {
 
       <SummaryCard
         body={[
-          `Vozacka A: ${report.vehicleA.documentPhotos.filter((item) => item.documentType === "driver-license").length}/2`,
-          `Saobracajna A: ${report.vehicleA.documentPhotos.filter((item) => item.documentType === "registration").length}/2`,
-          `Polisa A: ${report.vehicleA.documentPhotos.filter((item) => item.documentType === "policy").length}/1`
+          `Vozacka A - prednja: ${hasDriverLicenseFront(report, "A") ? "dodata" : "nedostaje"}`,
+          `Vozacka B - prednja: ${hasDriverLicenseFront(report, "B") ? "dodata" : "nedostaje"}`,
+          `Steta A: ${damagePhotoA ? "dodata" : "nije dodata"}`,
+          `Steta B: ${damagePhotoB ? "dodata" : "nije dodata"}`
         ]}
         onEdit={() => onEditStep("Dokumentacija")}
         title="Dokumentacija"

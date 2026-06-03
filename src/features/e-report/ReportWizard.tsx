@@ -8,6 +8,7 @@ import { generatePdf } from "../../lib/pdf";
 import { generateReportZip } from "../../lib/zip";
 import {
   deriveReportStatus,
+  getDocumentationMissingFields,
   getReportStatusLabel,
   getVehicleSectionMissingFields,
   nowIso,
@@ -302,7 +303,7 @@ export default function ReportWizard({
               report.location.city)
         );
       case "Dokumentacija":
-        return true;
+        return getDocumentationMissingFields(report).length === 0;
       case "Vozac A":
         return getVehicleSectionMissingFields(report.vehicleA, "driver").length === 0;
       case "Vozilo A":

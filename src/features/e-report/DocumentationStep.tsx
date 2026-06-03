@@ -61,11 +61,15 @@ function photosByKind(photos: PhotoAsset[], kind: PhotoKind) {
 
 function DriverLicenseUploader({
   accent,
+  title,
+  photoKind,
   vehicle,
   onChange,
   readOnly = false
 }: {
   accent: Accent;
+  title: string;
+  photoKind: PhotoKind;
   vehicle: VehicleDraft;
   onChange: (vehicle: VehicleDraft) => void;
   readOnly?: boolean;
@@ -84,7 +88,7 @@ function DriverLicenseUploader({
       id: createId("doc"),
       dataUrl: await fileToDataUrl(file),
       label: file.name,
-      kind: "document-a" as PhotoKind,
+      kind: photoKind,
       documentType: "driver-license" as DocumentType,
       documentSide: "front" as DocumentSide
     };
@@ -104,7 +108,7 @@ function DriverLicenseUploader({
     <div className={`space-y-4 rounded-[24px] border p-4 ${theme.panel}`}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className={`text-base font-semibold ${theme.text}`}>Vozacka dozvola A</div>
+          <div className={`text-base font-semibold ${theme.text}`}>{title}</div>
           <div className={`mt-1 text-sm ${theme.muted}`}>Samo prednja strana</div>
         </div>
         <div className={`rounded-full border px-3 py-1 text-xs uppercase tracking-[0.22em] ${theme.pill}`}>
@@ -119,12 +123,12 @@ function DriverLicenseUploader({
           disabled={readOnly}
           multiple={false}
           onCapture={saveFiles}
-          title="Vozacka dozvola A"
+          title={title}
         />
         {photo ? (
           <div className="relative mt-3 overflow-hidden rounded-[18px] bg-white/5">
             <img
-              alt="Vozacka dozvola A"
+              alt={title}
               className="aspect-[4/3] w-full object-cover"
               src={photo.dataUrl}
             />
@@ -262,7 +266,22 @@ export default function DocumentationStep({
       </div>
 
       <Card className={`space-y-5 border-2 ${accentTheme.blue.card}`}>
-        <DriverLicenseUploader accent="blue" onChange={onVehicleAChange} readOnly={readOnly} vehicle={vehicleA} />
+        <DriverLicenseUploader
+          accent="blue"
+          onChange={onVehicleAChange}
+          photoKind="document-a"
+          readOnly={readOnly}
+          title="Vozacka dozvola A"
+          vehicle={vehicleA}
+        />
+        <DriverLicenseUploader
+          accent="yellow"
+          onChange={onVehicleBChange}
+          photoKind="document-b"
+          readOnly={readOnly}
+          title="Vozacka dozvola B"
+          vehicle={vehicleB}
+        />
         <DamageCard
           accent="blue"
           onPhotosChange={(next) =>
