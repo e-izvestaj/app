@@ -40,6 +40,14 @@ function SignatureModal({
   onChange: Props["onChange"];
 }) {
   const ref = useRef<any>(null);
+  const canvasAreaRef = useRef<HTMLDivElement>(null);
+  const pendingSignatureRef = useRef<string | null>(null);
+  const [canvasSize, setCanvasSize] = useState({
+    displayHeight: 540,
+    displayWidth: 1200,
+    height: 540,
+    width: 1200
+  });
 
   useEffect(() => {
     if (!open) {
@@ -72,6 +80,64 @@ function SignatureModal({
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open || !canvasAreaRef.current) {
+      return;
+    }
+
+    const area = canvasAreaRef.current;
+    let resizeFrame = 0;
+
+    const syncCanvasSize = () => {
+      window.cancelAnimationFrame(resizeFrame);
+      resizeFrame = window.requestAnimationFrame(() => {
+        const rect = area.getBoundingClientRect();
+        const displayWidth = Math.max(1, Math.min(1200, rect.width, rect.height * (20 / 9)));
+        const displayHeight = displayWidth * (9 / 20);
+        const width = Math.max(1, Math.round(displayWidth));
+        const height = Math.max(1, Math.round(displayHeight));
+
+        if (ref.current && !ref.current.isEmpty?.()) {
+          pendingSignatureRef.current = ref.current.getCanvas?.().toDataURL("image/png") || null;
+        }
+
+        setCanvasSize((current) =>
+          current.width === width && current.height === height
+            ? current
+            : { displayHeight, displayWidth, height, width }
+        );
+      });
+    };
+
+    const resizeObserver = new ResizeObserver(syncCanvasSize);
+    resizeObserver.observe(area);
+    window.addEventListener("orientationchange", syncCanvasSize);
+    window.addEventListener("resize", syncCanvasSize);
+    syncCanvasSize();
+
+    return () => {
+      window.cancelAnimationFrame(resizeFrame);
+      resizeObserver.disconnect();
+      window.removeEventListener("orientationchange", syncCanvasSize);
+      window.removeEventListener("resize", syncCanvasSize);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!pendingSignatureRef.current) {
+      return;
+    }
+
+    const signature = pendingSignatureRef.current;
+    pendingSignatureRef.current = null;
+    window.requestAnimationFrame(() => {
+      ref.current?.fromDataURL?.(signature, {
+        height: canvasSize.height,
+        width: canvasSize.width
+      });
+    });
+  }, [canvasSize.height, canvasSize.width]);
+
   if (!open) {
     return null;
   }
@@ -95,7 +161,7 @@ function SignatureModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-bg">
+    <div className="fixed inset-0 z-50 flex h-[100dvh] flex-col bg-bg">
       <div className="flex items-center justify-between px-4 py-4 text-white">
         <button onClick={onClose} type="button">
           Odustani
@@ -109,13 +175,16 @@ function SignatureModal({
           <div className="text-sm text-white/55 md:hidden">Okreni telefon horizontalno za lakse potpisivanje.</div>
         </div>
 
-        <div className="my-4 flex flex-1 items-center justify-center">
-          <div className="aspect-[20/9] w-full max-w-[1200px] overflow-hidden rounded-[28px] border border-dashed border-slate-300 bg-white shadow-glass">
+        <div className="my-4 flex min-h-0 flex-1 items-center justify-center" ref={canvasAreaRef}>
+          <div
+            className="overflow-hidden rounded-[28px] border border-dashed border-slate-300 bg-white shadow-glass"
+            style={{ height: canvasSize.displayHeight, width: canvasSize.displayWidth }}
+          >
             <SignatureCanvas
               canvasProps={{
                 className: "h-full w-full bg-white",
-                height: 540,
-                width: 1200
+                height: canvasSize.height,
+                width: canvasSize.width
               }}
               penColor="#0B0D12"
               ref={ref}
@@ -155,8 +224,31 @@ function SignatureCard({
   readOnly?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const requestedFullscreenRef = useRef(false);
   const currentSignature = signatures[signatureKey];
   const timestamp = signatureTimestamps[signatureKey];
+
+  const openSignatureModal = async () => {
+    if (window.matchMedia("(max-width: 767px)").matches && !document.fullscreenElement) {
+      try {
+        await document.documentElement.requestFullscreen();
+        requestedFullscreenRef.current = true;
+      } catch {
+        // Fullscreen is best effort only; signing still works without it.
+      }
+    }
+    setOpen(true);
+  };
+
+  const closeSignatureModal = () => {
+    setOpen(false);
+    if (requestedFullscreenRef.current && document.fullscreenElement) {
+      requestedFullscreenRef.current = false;
+      void document.exitFullscreen().catch(() => {
+        // Ignore browsers that do not allow programmatic fullscreen exit.
+      });
+    }
+  };
 
   return (
     <>
@@ -184,7 +276,7 @@ function SignatureCard({
           </div>
         )}
         <div className="grid grid-cols-2 gap-3">
-          <Button disabled={readOnly} onClick={() => setOpen(true)} type="button">
+          <Button disabled={readOnly} onClick={openSignatureModal} type="button">
             {currentSignature ? "Potpiši ponovo" : "Potpiši"}
           </Button>
           <Button
@@ -205,7 +297,7 @@ function SignatureCard({
       <SignatureModal
         label={label}
         onChange={onChange}
-        onClose={() => setOpen(false)}
+        onClose={closeSignatureModal}
         open={open}
         signatureKey={signatureKey}
         signatures={signatures}
