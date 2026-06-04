@@ -517,7 +517,7 @@ function DirectionPicker({
       {options.map((option) => (
         <button
           key={option.value}
-          className={`rounded-[18px] border px-2 py-3 text-center transition ${
+          className={`pointer-events-auto rounded-[18px] border px-2 py-3 text-center transition ${
             value === option.value
               ? "border-accent/55 bg-accent/18 text-white"
               : "border-white/10 bg-white/5 text-white/72"
@@ -1272,7 +1272,7 @@ export default function SceneSketchStep({
                 ) : null}
 
                 {isMobileVehicleSheetOpen && useMobileEditorLayout ? (
-                  <div className="fixed inset-x-0 bottom-0 z-[2000] rounded-t-[30px] border border-white/10 bg-[#111827]/95 px-4 pb-5 pt-4 shadow-[0_-18px_45px_rgba(0,0,0,0.45)] backdrop-blur">
+                  <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[2000] rounded-t-[30px] border border-white/10 bg-[#111827]/72 px-4 pb-5 pt-4 shadow-[0_-18px_45px_rgba(0,0,0,0.35)] backdrop-blur-sm">
                     <div className="mx-auto max-w-md space-y-4">
                       <div className="flex items-center justify-between gap-3">
                         <div>
@@ -1284,7 +1284,7 @@ export default function SceneSketchStep({
                           </div>
                         </div>
                         <button
-                          className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white"
+                          className="pointer-events-auto rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white"
                           onClick={() => setIsMobileVehicleSheetOpen(false)}
                           type="button"
                         >
@@ -1305,14 +1305,14 @@ export default function SceneSketchStep({
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <button
-                            className="rounded-[18px] border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white"
+                            className="pointer-events-auto rounded-[18px] border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white"
                             onClick={() => rotateSelected(-15)}
                             type="button"
                           >
                             ↺ Rotiraj ulevo
                           </button>
                           <button
-                            className="rounded-[18px] border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white"
+                            className="pointer-events-auto rounded-[18px] border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white"
                             onClick={() => rotateSelected(15)}
                             type="button"
                           >
