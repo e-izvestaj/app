@@ -68,6 +68,36 @@ export const VEHICLE_TYPE_OPTIONS = [
   "Teretno"
 ] as const;
 
+export const SERBIAN_REGISTRATION_AREA_OPTIONS = [
+  { code: "BG", city: "Beograd" },
+  { code: "NS", city: "Novi Sad" },
+  { code: "NI", city: "Nis" },
+  { code: "KG", city: "Kragujevac" },
+  { code: "SU", city: "Subotica" },
+  { code: "PA", city: "Pancevo" },
+  { code: "ZR", city: "Zrenjanin" },
+  { code: "SO", city: "Sombor" },
+  { code: "SM", city: "Sremska Mitrovica" },
+  { code: "KI", city: "Kikinda" },
+  { code: "BP", city: "Backa Palanka" },
+  { code: "BT", city: "Backa Topola" },
+  { code: "BO", city: "Bor" },
+  { code: "VA", city: "Valjevo" },
+  { code: "ZA", city: "Zajecar" },
+  { code: "JA", city: "Jagodina" },
+  { code: "KV", city: "Kraljevo" },
+  { code: "KS", city: "Krusevac" },
+  { code: "LE", city: "Leskovac" },
+  { code: "LO", city: "Loznica" },
+  { code: "NP", city: "Novi Pazar" },
+  { code: "PI", city: "Pirot" },
+  { code: "PO", city: "Pozarevac" },
+  { code: "SD", city: "Smederevo" },
+  { code: "UE", city: "Uzice" },
+  { code: "ČA", city: "Cacak" },
+  { code: "ŠA", city: "Sabac" }
+] as const;
+
 export const POSTAL_CODE_CITY_OPTIONS = [
   { postalCode: "11000", city: "Beograd" },
   { postalCode: "11010", city: "Beograd" },

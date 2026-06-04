@@ -3,6 +3,7 @@ import Card from "../../components/Card";
 import {
   INSURER_OPTIONS,
   POSTAL_CODE_CITY_OPTIONS,
+  SERBIAN_REGISTRATION_AREA_OPTIONS,
   VEHICLE_MAKE_OPTIONS,
   VEHICLE_MODELS_BY_MAKE,
   VEHICLE_TYPE_OPTIONS,
@@ -38,6 +39,31 @@ const accentClassMap: Record<AccentTone, { ring: string; soft: string; text: str
 
 function normalizePostalCode(value: string) {
   return value.replace(/\D/g, "").slice(0, 5);
+}
+
+const SERBIAN_PLATE_LETTERS = "A-ZČĆŠĐŽ";
+const SERBIAN_PLATE_PATTERN = new RegExp(
+  `^[${SERBIAN_PLATE_LETTERS}]{2} \\d{3,6} [${SERBIAN_PLATE_LETTERS}]{2}$`,
+  "u"
+);
+
+function isSerbianRegistrationCountry(value: string) {
+  return ["srbija", "serbia", "rs"].includes(value.trim().toLocaleLowerCase("sr-Latn-RS"));
+}
+
+function formatSerbianPlate(value: string) {
+  const normalized = value
+    .toLocaleUpperCase("sr-Latn-RS")
+    .replace(new RegExp(`[^${SERBIAN_PLATE_LETTERS}0-9]`, "gu"), "");
+  const area = normalized.match(new RegExp(`^[${SERBIAN_PLATE_LETTERS}]{0,2}`, "u"))?.[0] || "";
+  const afterArea = normalized.slice(area.length);
+  const digits = afterArea.match(/^\d{0,6}/)?.[0] || "";
+  const suffix = afterArea
+    .slice(digits.length)
+    .replace(new RegExp(`[^${SERBIAN_PLATE_LETTERS}]`, "gu"), "")
+    .slice(0, 2);
+
+  return [area, digits, suffix].filter(Boolean).join(" ");
 }
 
 function Field({
@@ -78,6 +104,49 @@ function Field({
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
+    </label>
+  );
+}
+
+function PlateField({
+  value,
+  registrationCountry,
+  onChange,
+  readOnly,
+  invalid,
+  accent,
+  listId
+}: {
+  value: string;
+  registrationCountry: string;
+  onChange: (value: string) => void;
+  readOnly: boolean;
+  invalid: boolean;
+  accent: AccentTone;
+  listId: string;
+}) {
+  const isSerbian = isSerbianRegistrationCountry(registrationCountry);
+  const hasFormatWarning = isSerbian && Boolean(value) && !SERBIAN_PLATE_PATTERN.test(value);
+  const accentBorder =
+    accent === "yellow"
+      ? "border-2 border-amber-300/40 focus:border-amber-200/80"
+      : "border-2 border-sky-400/40 focus:border-sky-300/75";
+
+  return (
+    <label className="space-y-2">
+      <span className={`text-sm ${invalid ? "text-red-200" : "text-white/60"}`}>Registarski broj</span>
+      <input
+        autoCapitalize="characters"
+        className={`input-glass ${accentBorder} ${invalid ? "border-red-400/70 bg-red-500/8 placeholder:text-red-200/80" : ""}`}
+        disabled={readOnly}
+        list={isSerbian ? listId : undefined}
+        placeholder={invalid ? "Obavezno polje" : isSerbian ? "BG 1234 AB" : "Registracija"}
+        value={value}
+        onChange={(event) => onChange(isSerbian ? formatSerbianPlate(event.target.value) : event.target.value)}
+      />
+      {hasFormatWarning ? (
+        <span className="block text-xs text-amber-200/80">Format za Srbiju: BG 1234 AB</span>
+      ) : null}
     </label>
   );
 }
@@ -225,7 +294,8 @@ function VehicleFields({
   onChange,
   accent,
   makeListId,
-  modelListId
+  modelListId,
+  plateAreaListId
 }: {
   value: VehicleDraft;
   readOnly: boolean;
@@ -234,6 +304,7 @@ function VehicleFields({
   accent: AccentTone;
   makeListId: string;
   modelListId: string;
+  plateAreaListId: string;
 }) {
   const selectedMake = VEHICLE_MAKE_OPTIONS.find(
     (make) => make.toLowerCase() === value.make.trim().toLowerCase()
@@ -252,9 +323,40 @@ function VehicleFields({
           <option key={model} value={model} />
         ))}
       </datalist>
+      <datalist id={plateAreaListId}>
+        {SERBIAN_REGISTRATION_AREA_OPTIONS.map((option) => (
+          <option key={option.code} value={option.code}>
+            {option.city}
+          </option>
+        ))}
+      </datalist>
       <div className="grid grid-cols-2 gap-3">
-        <Field accent={accent} invalid={isMissing("Registarska oznaka")} label="Registarski broj" onChange={(plate) => onChange({ ...value, plate })} placeholder="Registracija" readOnly={readOnly} value={value.plate} />
-        <Field accent={accent} invalid={isMissing("Drzava registracije")} label="Drzava registracije" onChange={(registrationCountry) => onChange({ ...value, registrationCountry })} placeholder="Drzava registracije" readOnly={readOnly} value={value.registrationCountry} />
+        <PlateField
+          accent={accent}
+          invalid={isMissing("Registarska oznaka")}
+          listId={plateAreaListId}
+          onChange={(plate) => onChange({ ...value, plate })}
+          readOnly={readOnly}
+          registrationCountry={value.registrationCountry}
+          value={value.plate}
+        />
+        <Field
+          accent={accent}
+          invalid={isMissing("Drzava registracije")}
+          label="Drzava registracije"
+          onChange={(registrationCountry) =>
+            onChange({
+              ...value,
+              registrationCountry,
+              plate: isSerbianRegistrationCountry(registrationCountry)
+                ? formatSerbianPlate(value.plate)
+                : value.plate
+            })
+          }
+          placeholder="Drzava registracije"
+          readOnly={readOnly}
+          value={value.registrationCountry}
+        />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Field accent={accent} invalid={isMissing("Marka vozila")} label="Marka" list={makeListId} onChange={(make) => onChange({ ...value, make })} placeholder="Marka" readOnly={readOnly} value={value.make} />
@@ -486,6 +588,7 @@ export default function VehicleForm({
   const postalCodeListId = useMemo(() => `postal-${value.side}-${section}`, [section, value.side]);
   const makeListId = useMemo(() => `vehicle-makes-${value.side}`, [value.side]);
   const modelListId = useMemo(() => `vehicle-models-${value.side}`, [value.side]);
+  const plateAreaListId = useMemo(() => `plate-areas-${value.side}`, [value.side]);
   const accentClasses = accentClassMap[accent];
   const missingFields = getVehicleSectionMissingFields(value, section);
 
@@ -518,6 +621,7 @@ export default function VehicleForm({
             isMissing={isMissing}
             makeListId={makeListId}
             modelListId={modelListId}
+            plateAreaListId={plateAreaListId}
             onChange={onChange}
             readOnly={readOnly}
             value={value}
