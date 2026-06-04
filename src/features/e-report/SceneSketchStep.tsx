@@ -556,11 +556,16 @@ export default function SceneSketchStep({
     longitude: sceneSketch.mapCenterLongitude ?? longitude ?? 0
   });
   const boardRef = useRef<HTMLDivElement | null>(null);
+  const boardAreaRef = useRef<HTMLDivElement | null>(null);
   const sketchContainerRef = useRef<HTMLDivElement | null>(null);
   const mapHostRef = useRef<HTMLDivElement | null>(null);
   const leafletMapRef = useRef<L.Map | null>(null);
+  const requestedFullscreenRef = useRef(false);
   const activePointerIdRef = useRef<number | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
+  const [mobileBoardSize, setMobileBoardSize] = useState<{ height: number; width: number } | null>(
+    null
+  );
 
   const previewImage = sceneSketch.svgDataUrl || null;
   const selectedState =
@@ -584,6 +589,50 @@ export default function SceneSketchStep({
       longitude: sceneSketch.mapCenterLongitude ?? longitude ?? 0
     });
   }, [isEditorOpen, sceneSketch, latitude, longitude]);
+
+  useEffect(() => {
+    if (!isEditorOpen || !boardAreaRef.current) {
+      return;
+    }
+
+    const area = boardAreaRef.current;
+    let resizeFrame = 0;
+
+    const syncBoardSize = () => {
+      window.cancelAnimationFrame(resizeFrame);
+      resizeFrame = window.requestAnimationFrame(() => {
+        if (!window.matchMedia("(max-width: 767px)").matches) {
+          setMobileBoardSize(null);
+          leafletMapRef.current?.invalidateSize(false);
+          return;
+        }
+
+        const rect = area.getBoundingClientRect();
+        const targetHeight = Math.min(rect.height, window.innerHeight * 0.7);
+        const width = Math.max(1, Math.min(rect.width, targetHeight * (20 / 9)));
+        const height = width * (9 / 20);
+        setMobileBoardSize((current) =>
+          current && Math.abs(current.width - width) < 1 && Math.abs(current.height - height) < 1
+            ? current
+            : { height, width }
+        );
+        window.setTimeout(() => leafletMapRef.current?.invalidateSize(false), 0);
+      });
+    };
+
+    const resizeObserver = new ResizeObserver(syncBoardSize);
+    resizeObserver.observe(area);
+    window.addEventListener("orientationchange", syncBoardSize);
+    window.addEventListener("resize", syncBoardSize);
+    syncBoardSize();
+
+    return () => {
+      window.cancelAnimationFrame(resizeFrame);
+      resizeObserver.disconnect();
+      window.removeEventListener("orientationchange", syncBoardSize);
+      window.removeEventListener("resize", syncBoardSize);
+    };
+  }, [isEditorOpen]);
 
   useEffect(() => {
     if (!isEditorOpen || !hasGps || !mapHostRef.current) {
@@ -681,7 +730,27 @@ export default function SceneSketchStep({
     };
   };
 
-  const openEditor = () => {
+  const openEditor = async () => {
+    if (window.matchMedia("(max-width: 767px)").matches && !document.fullscreenElement) {
+      try {
+        await document.documentElement.requestFullscreen();
+        requestedFullscreenRef.current = true;
+      } catch {
+        // Fullscreen is best effort only; the editor still works without it.
+      }
+    }
+
+    if (window.matchMedia("(max-width: 767px)").matches) {
+      try {
+        const orientation = screen.orientation as ScreenOrientation & {
+          lock?: (orientation: "landscape") => Promise<void>;
+        };
+        await orientation.lock?.("landscape");
+      } catch {
+        // Orientation lock is best effort only.
+      }
+    }
+
     setEditorSketch(cloneSketch(sceneSketch));
     setSelectedVehicle("A");
     setIsMobileVehicleSheetOpen(false);
@@ -695,6 +764,28 @@ export default function SceneSketchStep({
       longitude: sceneSketch.mapCenterLongitude ?? longitude ?? 0
     });
     setIsEditorOpen(true);
+  };
+
+  const closeEditor = () => {
+    setIsEditorOpen(false);
+    setIsMobileVehicleSheetOpen(false);
+    setMobileBoardSize(null);
+
+    try {
+      const orientation = screen.orientation as ScreenOrientation & {
+        unlock?: () => void;
+      };
+      orientation.unlock?.();
+    } catch {
+      // Ignore browsers that do not support orientation unlock.
+    }
+
+    if (requestedFullscreenRef.current && document.fullscreenElement) {
+      requestedFullscreenRef.current = false;
+      void document.exitFullscreen().catch(() => {
+        // Ignore browsers that do not allow programmatic fullscreen exit.
+      });
+    }
   };
 
   const rotateSelected = (delta: number) => {
@@ -930,7 +1021,7 @@ export default function SceneSketchStep({
         svgDataUrl: dataUrl
       });
       onSaveSketchImage(dataUrl);
-      setIsEditorOpen(false);
+      closeEditor();
     } catch (error) {
       console.error("Sketch export failed", error);
       setExportError("Izvoz skice nije uspeo. Pokusaj ponovo.");
@@ -964,10 +1055,10 @@ export default function SceneSketchStep({
       </div>
 
       {isEditorOpen ? (
-        <div className="fixed inset-0 z-50 overflow-hidden bg-[#0B0D12] text-white">
-          <div className="mx-auto flex h-full w-full max-w-5xl flex-col px-4 pb-4 pt-4">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <button className="text-sm text-white/60" onClick={() => setIsEditorOpen(false)} type="button">
+        <div className="fixed inset-0 z-50 h-[100dvh] overflow-hidden bg-[#0B0D12] text-white">
+          <div className="mx-auto flex h-full w-full max-w-5xl flex-col px-4 pb-4 pt-2 md:pt-4">
+            <div className="mb-2 flex min-h-[56px] items-center justify-between gap-3 md:mb-4">
+              <button className="text-sm text-white/60" onClick={closeEditor} type="button">
                 Nazad
               </button>
               <div className="truncate text-sm text-white/55">
@@ -981,12 +1072,17 @@ export default function SceneSketchStep({
             <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="space-y-4 pb-6">
                 <div
-                  className="relative mx-auto aspect-[20/9] w-full max-w-[920px] overflow-hidden rounded-[30px] border border-white/10 bg-[#0B0D12]"
-                  onPointerCancel={handlePointerEnd}
-                  onPointerMove={handlePointerMove}
-                  onPointerUp={handlePointerEnd}
-                  ref={boardRef}
+                  className="flex min-h-[calc(100dvh-90px)] items-center justify-center md:min-h-0 md:block"
+                  ref={boardAreaRef}
                 >
+                  <div
+                    className="relative mx-auto aspect-[20/9] w-full max-w-[920px] overflow-hidden rounded-[30px] border border-white/10 bg-[#0B0D12]"
+                    onPointerCancel={handlePointerEnd}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerEnd}
+                    ref={boardRef}
+                    style={mobileBoardSize ? { height: mobileBoardSize.height, width: mobileBoardSize.width } : undefined}
+                  >
                   <div className="relative h-full w-full overflow-hidden" ref={sketchContainerRef}>
                     {hasLiveMap ? (
                       <>
@@ -1138,6 +1234,7 @@ export default function SceneSketchStep({
                     </button>
                     </div>
                   </div>
+                </div>
                 </div>
 
                 {exportError ? (
