@@ -606,7 +606,7 @@ function PolicyFields({
             <Field accent={accent} label="Broj zelene karte" onChange={(greenCardNumber) => onChange({ ...value, greenCardNumber })} placeholder="Broj zelene karte" readOnly={readOnly} value={value.greenCardNumber} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field accent={accent} invalid={isMissing("Polisa vazi od")} label="Vazi od" onChange={(policyValidFrom) => onChange({ ...value, policyValidFrom, policyValidUntil: value.policyValidUntil || addOneYear(policyValidFrom) })} readOnly={readOnly} type="date" value={value.policyValidFrom} />
+            <Field accent={accent} invalid={isMissing("Polisa vazi od")} label="Vazi od" onChange={(policyValidFrom) => onChange({ ...value, policyValidFrom, policyValidUntil: addOneYear(policyValidFrom) })} readOnly={readOnly} type="date" value={value.policyValidFrom} />
             <div className="space-y-2">
               <Field accent={accent} invalid={isMissing("Polisa vazi do")} label="Vazi do" onChange={(policyValidUntil) => onChange({ ...value, policyValidUntil })} readOnly={readOnly} type="date" value={value.policyValidUntil} />
               {policyDatesReversed ? <FieldHint>Datum isteka polise je pre datuma pocetka.</FieldHint> : null}

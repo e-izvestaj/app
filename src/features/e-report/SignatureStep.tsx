@@ -104,12 +104,19 @@ function SignatureModal({
       </div>
 
       <div className="flex flex-1 flex-col justify-between p-4">
-        <div className="text-center text-2xl font-semibold text-white">{label}</div>
+        <div className="space-y-2 text-center">
+          <div className="text-2xl font-semibold text-white">{label}</div>
+          <div className="text-sm text-white/55 md:hidden">Okreni telefon horizontalno za lakse potpisivanje.</div>
+        </div>
 
-        <div className="my-4 flex-1 rounded-[32px] border border-accent/25 bg-white p-3 shadow-glass">
-          <div className="flex h-full items-center justify-center rounded-[28px] border border-dashed border-slate-300 bg-white">
+        <div className="my-4 flex flex-1 items-center justify-center">
+          <div className="aspect-[20/9] w-full max-w-[1200px] overflow-hidden rounded-[28px] border border-dashed border-slate-300 bg-white shadow-glass">
             <SignatureCanvas
-              canvasProps={{ className: "h-[70vh] max-h-[420px] w-[92vw] max-w-[920px] bg-white" }}
+              canvasProps={{
+                className: "h-full w-full bg-white",
+                height: 540,
+                width: 1200
+              }}
               penColor="#0B0D12"
               ref={ref}
             />
@@ -162,8 +169,8 @@ function SignatureCard({
         </div>
         {currentSignature ? (
           <div className="space-y-2">
-            <div className="overflow-hidden rounded-[24px] bg-white">
-              <img alt={label} className="h-[140px] w-full object-contain" src={currentSignature} />
+            <div className="aspect-[20/9] overflow-hidden rounded-[24px] bg-white">
+              <img alt={label} className="h-full w-full object-contain" src={currentSignature} />
             </div>
             {timestamp ? (
               <div className="text-xs text-white/45">

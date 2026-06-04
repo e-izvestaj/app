@@ -224,18 +224,23 @@ function DamageCard({
           className="input-glass text-white"
           disabled={readOnly}
           value={zone}
-          onChange={(event) =>
+          onChange={(event) => {
+            const nextZone = event.target.value as DamageZone;
+            const shouldSuggestVisibleDamage =
+              !vehicle.visibleDamage || vehicle.visibleDamage === zone;
+
             onVehicleChange({
               ...vehicle,
-              impactZone: event.target.value as DamageZone,
+              impactZone: nextZone,
+              visibleDamage: shouldSuggestVisibleDamage ? nextZone : vehicle.visibleDamage,
               damageSuggestion: {
                 ...vehicle.damageSuggestion,
-                manualZone: event.target.value as DamageZone,
-                suggestedZone: event.target.value as DamageZone,
-                status: event.target.value ? "confirmed" : "idle"
+                manualZone: nextZone,
+                suggestedZone: nextZone,
+                status: nextZone ? "confirmed" : "idle"
               }
-            })
-          }
+            });
+          }}
         >
           <option className="bg-white text-slate-900" value="">
             Izaberi
