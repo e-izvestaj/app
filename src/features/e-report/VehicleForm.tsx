@@ -87,6 +87,10 @@ function normalizePlateForComparison(value: string) {
   return value.toLocaleUpperCase("sr-Latn-RS").replace(/[^A-ZČĆŠĐŽ0-9]/gu, "");
 }
 
+function capitalizeFirstLetter(value: string) {
+  return value ? `${value.charAt(0).toLocaleUpperCase("sr-Latn-RS")}${value.slice(1)}` : value;
+}
+
 function FieldHint({ children }: { children: string }) {
   return <span className="block text-xs text-amber-200/80">{children}</span>;
 }
@@ -101,6 +105,7 @@ function Field({
   placeholder,
   invalid = false,
   errorMessage,
+  max,
   accent = "blue"
 }: {
   label: string;
@@ -112,6 +117,7 @@ function Field({
   placeholder?: string;
   invalid?: boolean;
   errorMessage?: string;
+  max?: string;
   accent?: AccentTone;
 }) {
   const accentBorder =
@@ -126,6 +132,7 @@ function Field({
         className={`input-glass ${accentBorder} ${invalid ? "border-red-400/70 bg-red-500/8 placeholder:text-red-200/80" : ""}`}
         disabled={readOnly}
         list={list}
+        max={max}
         placeholder={invalid ? placeholder || "Obavezno polje" : placeholder}
         type={type}
         value={value}
@@ -270,6 +277,8 @@ function DriverFields({
   accidentDate?: string;
 }) {
   const licenseExpired = isBefore(value.driverLicenseValidUntil, accidentDate || "");
+  const birthDateInFuture = isMissing("Datum rodjenja ne moze biti u buducnosti");
+  const today = new Date().toISOString().slice(0, 10);
 
   return (
     <div className="space-y-4">
@@ -301,7 +310,7 @@ function DriverFields({
         <Field accent={accent} errorMessage={isMissing("Ispravan e-mail vozaca") ? "Unesi e-mail u formatu ime@domen.rs." : undefined} invalid={(isMissing("Telefon ili e-mail vozaca") && !value.driverEmail) || isMissing("Ispravan e-mail vozaca")} label="E-mail" onChange={(driverEmail) => onChange({ ...value, driverEmail })} placeholder="ime@domen.rs" readOnly={readOnly} type="email" value={value.driverEmail} />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field accent={accent} invalid={isMissing("Datum rodjenja")} label="Datum rodjenja" onChange={(driverBirthDate) => onChange({ ...value, driverBirthDate })} readOnly={readOnly} type="date" value={value.driverBirthDate} />
+        <Field accent={accent} errorMessage={birthDateInFuture ? "Datum rodjenja ne moze biti u buducnosti." : undefined} invalid={isMissing("Datum rodjenja") || birthDateInFuture} label="Datum rodjenja" max={today} onChange={(driverBirthDate) => onChange({ ...value, driverBirthDate })} readOnly={readOnly} type="date" value={value.driverBirthDate} />
         <Field accent={accent} invalid={isMissing("Broj vozacke dozvole")} label="Broj vozacke dozvole" onChange={(driverLicenseNumber) => onChange({ ...value, driverLicenseNumber })} placeholder="Broj dozvole" readOnly={readOnly} value={value.driverLicenseNumber} />
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -447,6 +456,7 @@ function PolicyFields({
   readOnly,
   insurerListId,
   postalCodeListId,
+  cityListId,
   isMissing,
   onChange,
   accent,
@@ -456,6 +466,7 @@ function PolicyFields({
   readOnly: boolean;
   insurerListId: string;
   postalCodeListId: string;
+  cityListId: string;
   isMissing: (label: string) => boolean;
   onChange: (next: VehicleDraft) => void;
   accent: AccentTone;
@@ -532,7 +543,7 @@ function PolicyFields({
             className={`w-full rounded-[18px] border px-4 py-3 text-sm font-semibold transition ${
               value.ownerSameAsDriver
                 ? "border-emerald-300/60 bg-emerald-500 text-white shadow-[0_14px_36px_rgba(16,185,129,0.35)]"
-                : "border-emerald-300/45 bg-emerald-500/18 text-emerald-100 shadow-[0_10px_28px_rgba(16,185,129,0.18)] hover:bg-emerald-500/24"
+                : "border-emerald-300/70 bg-emerald-500/45 text-white shadow-[0_12px_34px_rgba(16,185,129,0.3)] hover:bg-emerald-500/60"
             }`}
             disabled={readOnly}
             onClick={() =>
@@ -608,7 +619,7 @@ function PolicyFields({
           </div>
           <Field accent={accent} invalid={isMissing("Adresa osiguranja")} label="Adresa osiguranja" onChange={(insuranceAddress) => onChange({ ...value, insuranceAddress })} placeholder="Adresa osiguranja" readOnly={readOnly} value={value.insuranceAddress} />
           <div className="grid grid-cols-2 gap-3">
-            <Field accent={accent} invalid={isMissing("Grad osiguranja")} label="Grad osiguranja" onChange={(insuranceCity) => onChange({ ...value, insuranceCity })} placeholder="Grad" readOnly={readOnly} value={value.insuranceCity} />
+            <Field accent={accent} invalid={isMissing("Grad osiguranja")} label="Grad osiguranja" list={cityListId} onChange={(insuranceCity) => onChange({ ...value, insuranceCity: capitalizeFirstLetter(insuranceCity) })} placeholder="Grad" readOnly={readOnly} value={value.insuranceCity} />
             <Field accent={accent} invalid={isMissing("Drzava osiguranja")} label="Drzava osiguranja" onChange={(insuranceCountry) => onChange({ ...value, insuranceCountry })} placeholder="Drzava" readOnly={readOnly} value={value.insuranceCountry} />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -654,6 +665,7 @@ export default function VehicleForm({
 }: Props) {
   const insurerListId = useMemo(() => `insurer-${value.side}-${section}`, [section, value.side]);
   const postalCodeListId = useMemo(() => `postal-${value.side}-${section}`, [section, value.side]);
+  const cityListId = useMemo(() => `cities-${value.side}-${section}`, [section, value.side]);
   const makeListId = useMemo(() => `vehicle-makes-${value.side}`, [value.side]);
   const modelListId = useMemo(() => `vehicle-models-${value.side}`, [value.side]);
   const plateAreaListId = useMemo(() => `plate-areas-${value.side}`, [value.side]);
@@ -672,6 +684,11 @@ export default function VehicleForm({
             <option key={`${option.postalCode}-${option.city}`} value={option.postalCode}>
               {option.city}
             </option>
+          ))}
+        </datalist>
+        <datalist id={cityListId}>
+          {[...new Set(POSTAL_CODE_CITY_OPTIONS.map((option) => option.city))].map((city) => (
+            <option key={city} value={city} />
           ))}
         </datalist>
         {section === "driver" ? (
@@ -703,6 +720,7 @@ export default function VehicleForm({
             isMissing={isMissing}
             onChange={onChange}
             postalCodeListId={postalCodeListId}
+            cityListId={cityListId}
             readOnly={readOnly}
             value={value}
             accidentDate={accidentDate}

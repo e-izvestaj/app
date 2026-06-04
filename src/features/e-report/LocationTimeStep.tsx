@@ -36,7 +36,7 @@ function parseWitnesses(value: string): Witness[] {
 
 function serializeWitnesses(witnesses: Witness[]) {
   return witnesses
-    .map((witness) => [witness.name, witness.address, witness.phone].map((part) => part.trim()).join(", "))
+    .map((witness) => [witness.name, witness.address, witness.phone].join(", "))
     .filter((line) => line.replace(/,/g, "").trim())
     .join("\n");
 }
@@ -344,7 +344,7 @@ export default function LocationTimeStep({
                   <input
                     className="input-glass"
                     disabled={readOnly}
-                    placeholder="Ime i prezime"
+                    placeholder="Prezime i ime"
                     value={witness.name}
                     onChange={(event) => updateWitness(index, { name: event.target.value })}
                   />

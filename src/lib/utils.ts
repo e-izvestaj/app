@@ -562,6 +562,9 @@ export function getVehicleMissingFields(vehicle: VehicleDraft) {
   requireValue("Prezime vozaca", vehicle.driverLastName);
   requireValue("Ime vozaca", vehicle.driverFirstName);
   requireValue("Datum rodjenja", vehicle.driverBirthDate);
+  if (vehicle.driverBirthDate && vehicle.driverBirthDate > new Date().toISOString().slice(0, 10)) {
+    missing.push("Datum rodjenja ne moze biti u buducnosti");
+  }
   requireValue("Adresa vozaca", vehicle.driverAddress);
   requireValue("Postanski broj vozaca", vehicle.driverPostalCode);
   if (vehicle.driverPostalCode && !/^\d{5}$/.test(vehicle.driverPostalCode)) {
@@ -631,6 +634,7 @@ export function getVehicleSectionMissingFields(vehicle: VehicleDraft, section: V
         "Prezime vozaca",
         "Ime vozaca",
         "Datum rodjenja",
+        "Datum rodjenja ne moze biti u buducnosti",
         "Adresa vozaca",
         "Postanski broj vozaca",
         "Ispravan postanski broj vozaca",
