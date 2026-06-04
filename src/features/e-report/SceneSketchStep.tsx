@@ -981,7 +981,7 @@ export default function SceneSketchStep({
             <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="space-y-4 pb-6">
                 <div
-                  className="relative mx-auto aspect-[9/14] w-full max-w-[420px] overflow-hidden rounded-[30px] border border-white/10 bg-[#0B0D12]"
+                  className="relative mx-auto aspect-[14/9] w-full max-w-[760px] overflow-hidden rounded-[30px] border border-white/10 bg-[#0B0D12]"
                   onPointerCancel={handlePointerEnd}
                   onPointerMove={handlePointerMove}
                   onPointerUp={handlePointerEnd}
