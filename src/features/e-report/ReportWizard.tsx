@@ -188,14 +188,11 @@ export default function ReportWizard({
     );
   };
 
-  const updateVehicleB = (vehicleB: VehicleDraft, signature?: string) => {
+  const updateVehicleB = (vehicleB: VehicleDraft) => {
     const nextVehicleB = vehicleB.source ? vehicleB : { ...vehicleB, source: "manual" as const };
     updateReport({
       vehicleB: nextVehicleB,
-      partyB: nextVehicleB,
-      signatures: signature
-        ? { ...report.signatures, b: signature, partyB: signature }
-        : report.signatures
+      partyB: nextVehicleB
     });
   };
 
@@ -458,17 +455,8 @@ export default function ReportWizard({
         return (
           <SecondParticipantStep
             mode="invite"
-            onChange={(vehicleB, signature) =>
-              updateReport({
-                vehicleB,
-                partyB: vehicleB,
-                signatures: signature
-                  ? { ...report.signatures, b: signature, partyB: signature }
-                  : report.signatures
-              })
-            }
+            onChange={updateVehicleB}
             readOnly={readOnly}
-            signature={report.signatures.b}
             value={report.vehicleB}
           />
         );
@@ -478,7 +466,6 @@ export default function ReportWizard({
             mode="import"
             onChange={updateVehicleB}
             readOnly={readOnly}
-            signature={report.signatures.b}
             value={report.vehicleB}
           />
         );

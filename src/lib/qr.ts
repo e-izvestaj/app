@@ -3,7 +3,7 @@ import type { VehicleDraft } from "../types";
 
 export type ParticipantQrPayload = {
   type: "eizvestaj-participant";
-  version: 3;
+  version: 4;
   role: "B";
   firstName: string;
   lastName: string;
@@ -47,7 +47,6 @@ export type ParticipantQrPayload = {
   insurancePhone: string;
   insuranceEmail: string;
   coveredDamage: boolean | null;
-  signature: string;
   createdAt: string;
 };
 
@@ -80,11 +79,116 @@ export async function generateQrCodeDataUrl(value: string) {
 }
 
 export function stringifyParticipantPayload(payload: ParticipantQrPayload) {
-  return JSON.stringify(payload);
+  return JSON.stringify([
+    "ei",
+    4,
+    payload.firstName,
+    payload.lastName,
+    payload.birthDate,
+    payload.address,
+    payload.postalCode,
+    payload.city,
+    payload.country === "Srbija" ? "" : payload.country,
+    payload.phone,
+    payload.email,
+    payload.driverLicenseNumber,
+    payload.driverLicenseCategory,
+    payload.driverLicenseValidUntil,
+    payload.plate,
+    payload.registrationCountry === "Srbija" ? "" : payload.registrationCountry,
+    payload.make,
+    payload.model,
+    payload.vehicleType,
+    payload.vin,
+    payload.trailerPlate,
+    payload.trailerRegistrationCountry,
+    payload.ownerSameAsDriver ? 1 : 0,
+    payload.ownerFirstName,
+    payload.ownerLastName,
+    payload.ownerAddress,
+    payload.ownerCity,
+    payload.ownerPostalCode,
+    payload.ownerCountry === "Srbija" ? "" : payload.ownerCountry,
+    payload.ownerPhone,
+    payload.ownerEmail,
+    payload.insurer,
+    payload.policyNumber,
+    payload.greenCardNumber,
+    payload.policyValidFrom,
+    payload.policyValidUntil,
+    payload.insuranceBranch,
+    payload.insuranceOfficeName,
+    payload.insuranceAddress,
+    payload.insuranceCity,
+    payload.insuranceCountry === "Srbija" ? "" : payload.insuranceCountry,
+    payload.insurancePhone,
+    payload.insuranceEmail,
+    payload.coveredDamage === null ? "" : payload.coveredDamage ? 1 : 0,
+    payload.createdAt
+  ]);
 }
 
 export function parseParticipantPayload(value: string): ParticipantQrPayload {
-  const parsed = JSON.parse(value) as Partial<ParticipantQrPayload> & Partial<LegacyParticipantQrPayload>;
+  const parsedValue = JSON.parse(value) as unknown;
+
+  if (Array.isArray(parsedValue) && parsedValue[0] === "ei" && parsedValue[1] === 4) {
+    const stringValue = (index: number) =>
+      typeof parsedValue[index] === "string" ? parsedValue[index] : "";
+    const countryValue = (index: number) => stringValue(index) || "Srbija";
+    const coveredDamageValue =
+      parsedValue[43] === 1 ? true : parsedValue[43] === 0 ? false : null;
+
+    return {
+      type: "eizvestaj-participant",
+      version: 4,
+      role: "B",
+      firstName: stringValue(2),
+      lastName: stringValue(3),
+      birthDate: stringValue(4),
+      address: stringValue(5),
+      postalCode: stringValue(6),
+      city: stringValue(7),
+      country: countryValue(8),
+      phone: stringValue(9),
+      email: stringValue(10),
+      driverLicenseNumber: stringValue(11),
+      driverLicenseCategory: stringValue(12),
+      driverLicenseValidUntil: stringValue(13),
+      plate: stringValue(14),
+      registrationCountry: countryValue(15),
+      make: stringValue(16),
+      model: stringValue(17),
+      vehicleType: stringValue(18),
+      vin: stringValue(19),
+      trailerPlate: stringValue(20),
+      trailerRegistrationCountry: stringValue(21),
+      ownerSameAsDriver: parsedValue[22] === 1,
+      ownerFirstName: stringValue(23),
+      ownerLastName: stringValue(24),
+      ownerAddress: stringValue(25),
+      ownerCity: stringValue(26),
+      ownerPostalCode: stringValue(27),
+      ownerCountry: countryValue(28),
+      ownerPhone: stringValue(29),
+      ownerEmail: stringValue(30),
+      insurer: stringValue(31),
+      policyNumber: stringValue(32),
+      greenCardNumber: stringValue(33),
+      policyValidFrom: stringValue(34),
+      policyValidUntil: stringValue(35),
+      insuranceBranch: stringValue(36),
+      insuranceOfficeName: stringValue(37),
+      insuranceAddress: stringValue(38),
+      insuranceCity: stringValue(39),
+      insuranceCountry: countryValue(40),
+      insurancePhone: stringValue(41),
+      insuranceEmail: stringValue(42),
+      coveredDamage: coveredDamageValue,
+      createdAt: stringValue(44) || new Date().toISOString()
+    };
+  }
+
+  const parsed = parsedValue as Partial<ParticipantQrPayload> & Partial<LegacyParticipantQrPayload>;
 
   if (parsed.type !== "eizvestaj-participant" || parsed.role !== "B") {
     throw new Error("QR kod nije podatak drugog ucesnika.");
@@ -99,7 +203,7 @@ export function parseParticipantPayload(value: string): ParticipantQrPayload {
 
     return {
       type: "eizvestaj-participant",
-      version: 3,
+      version: 4,
       role: "B",
       firstName,
       lastName,
@@ -143,7 +247,6 @@ export function parseParticipantPayload(value: string): ParticipantQrPayload {
       insurancePhone: "",
       insuranceEmail: "",
       coveredDamage: null,
-      signature: parsed.signature || "",
       createdAt: parsed.createdAt || new Date().toISOString()
     };
   }
@@ -154,7 +257,7 @@ export function parseParticipantPayload(value: string): ParticipantQrPayload {
 
   return {
     type: "eizvestaj-participant",
-    version: 3,
+    version: 4,
     role: "B",
     firstName: parsed.firstName || "",
     lastName: parsed.lastName || "",
@@ -198,7 +301,6 @@ export function parseParticipantPayload(value: string): ParticipantQrPayload {
     insurancePhone: parsed.insurancePhone || "",
     insuranceEmail: parsed.insuranceEmail || "",
     coveredDamage: parsed.coveredDamage ?? null,
-    signature: parsed.signature || "",
     createdAt: parsed.createdAt || new Date().toISOString()
   };
 }

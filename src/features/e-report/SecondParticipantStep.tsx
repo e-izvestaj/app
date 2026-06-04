@@ -10,8 +10,7 @@ import type { VehicleDraft } from "../../types";
 
 type Props = {
   value: VehicleDraft;
-  signature: string | null;
-  onChange: (vehicle: VehicleDraft, signature?: string) => void;
+  onChange: (vehicle: VehicleDraft) => void;
   readOnly?: boolean;
   mode: "invite" | "import";
 };
@@ -25,7 +24,6 @@ function participantFormUrl() {
 
 export default function SecondParticipantStep({
   value,
-  signature,
   onChange,
   readOnly = false,
   mode
@@ -49,7 +47,7 @@ export default function SecondParticipantStep({
   const importPayload = (raw: string) => {
     try {
       const payload = parseParticipantPayload(raw);
-      onChange(participantPayloadToVehicle(payload, value), payload.signature || undefined);
+      onChange(participantPayloadToVehicle(payload, value));
       setMessage("Podaci drugog ucesnika su uspesno dodati.");
       setScanText("");
     } catch {

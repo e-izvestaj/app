@@ -1,6 +1,5 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import SignatureCanvas from "react-signature-canvas";
 import Button from "../components/Button";
 import Card from "../components/Card";
 import VehicleForm from "../features/e-report/VehicleForm";
@@ -14,53 +13,31 @@ import type { VehicleDraft } from "../types";
 
 export default function ParticipantPage() {
   const navigate = useNavigate();
-  const signatureRef = useRef<any>(null);
   const [vehicle, setVehicle] = useState<VehicleDraft>(() => defaultVehicle("B"));
-  const [signature, setSignature] = useState("");
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
   const [payloadText, setPayloadText] = useState("");
   const [qrError, setQrError] = useState<string | null>(null);
 
-  const canGenerate = useMemo(
-    () =>
-      getVehicleSectionMissingFields(vehicle, "driver").length === 0 &&
-      getVehicleSectionMissingFields(vehicle, "vehicle").length === 0 &&
-      getVehicleSectionMissingFields(vehicle, "policy").length === 0 &&
-      Boolean(signature),
-    [vehicle, signature]
+  const missingFields = useMemo(
+    () => [
+      ...getVehicleSectionMissingFields(vehicle, "driver"),
+      ...getVehicleSectionMissingFields(vehicle, "vehicle"),
+      ...getVehicleSectionMissingFields(vehicle, "policy")
+    ],
+    [vehicle]
   );
+  const canGenerate = missingFields.length === 0;
 
   const updateVehicle = (next: VehicleDraft) => {
     setVehicle({ ...next, source: "qr" });
     setQrDataUrl(null);
   };
 
-  const saveSignature = () => {
-    const canvas = signatureRef.current?.getTrimmedCanvas();
-    if (canvas) {
-      const compact = document.createElement("canvas");
-      compact.width = 220;
-      compact.height = 90;
-      const context = compact.getContext("2d");
-      if (!context) {
-        return;
-      }
-      context.fillStyle = "#ffffff";
-      context.fillRect(0, 0, compact.width, compact.height);
-      const ratio = Math.min(compact.width / canvas.width, compact.height / canvas.height);
-      const width = canvas.width * ratio;
-      const height = canvas.height * ratio;
-      context.drawImage(canvas, (compact.width - width) / 2, (compact.height - height) / 2, width, height);
-      setSignature(compact.toDataURL("image/jpeg", 0.28));
-      setQrDataUrl(null);
-    }
-  };
-
   const generateQr = () => {
     void (async () => {
       const payload: ParticipantQrPayload = {
         type: "eizvestaj-participant",
-        version: 3,
+        version: 4,
         role: "B",
         firstName: vehicle.driverFirstName,
         lastName: vehicle.driverLastName,
@@ -104,7 +81,6 @@ export default function ParticipantPage() {
         insurancePhone: vehicle.insurancePhone,
         insuranceEmail: vehicle.insuranceEmail,
         coveredDamage: vehicle.coveredDamage,
-        signature,
         createdAt: new Date().toISOString()
       };
       const serialized = stringifyParticipantPayload(payload);
@@ -155,36 +131,19 @@ export default function ParticipantPage() {
           value={vehicle}
         />
 
-        <Card className="space-y-4">
-          <div className="text-xs uppercase tracking-[0.24em] text-white/40">Potpis</div>
-          <div className="rounded-[24px] bg-white p-2">
-            <SignatureCanvas
-              canvasProps={{ className: "h-[180px] w-full rounded-[18px] bg-white" }}
-              penColor="#0B0D12"
-              ref={signatureRef}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Button
-              onClick={() => {
-                signatureRef.current?.clear();
-                setSignature("");
-                setQrDataUrl(null);
-              }}
-              type="button"
-              variant="secondary"
-            >
-              Obrisi
-            </Button>
-            <Button onClick={saveSignature} type="button">
-              Sacuvaj potpis
-            </Button>
-          </div>
-          {signature ? <div className="text-sm text-emerald-100">Potpis je sacuvan.</div> : null}
-        </Card>
+        {!canGenerate ? (
+          <Card className="space-y-3">
+            <div className="text-sm font-semibold text-white">Nedostaju obavezni podaci</div>
+            <div className="space-y-1 text-sm text-white/60">
+              {missingFields.map((field) => (
+                <div key={field}>{field}</div>
+              ))}
+            </div>
+          </Card>
+        ) : null}
 
         <Button disabled={!canGenerate} onClick={generateQr} type="button" variant="success">
-          Generisi QR za prenos podataka
+          Generisi QR za ucesnika A
         </Button>
 
         {qrError ? (
@@ -195,6 +154,12 @@ export default function ParticipantPage() {
 
         {(qrDataUrl || payloadText) ? (
           <Card className="space-y-4 text-center">
+            <div className="space-y-1">
+              <div className="text-lg font-semibold text-white">Podaci su spremni</div>
+              <div className="text-sm text-white/60">
+                Pokazi ovaj QR kod ucesniku A da uveze tvoje podatke.
+              </div>
+            </div>
             {qrDataUrl ? (
               <img
                 alt="QR kod za prenos podataka"
