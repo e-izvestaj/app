@@ -247,6 +247,17 @@ function DamageCard({
           ))}
         </select>
       </label>
+
+      <label className="space-y-2">
+        <span className="text-sm text-white/60">Vidljiva ostecenja na vozilu</span>
+        <textarea
+          className="input-glass min-h-[88px]"
+          disabled={readOnly}
+          onChange={(event) => onVehicleChange({ ...vehicle, visibleDamage: event.target.value })}
+          placeholder="Primer: prednji branik, levi far i hauba"
+          value={vehicle.visibleDamage}
+        />
+      </label>
     </div>
   );
 }
