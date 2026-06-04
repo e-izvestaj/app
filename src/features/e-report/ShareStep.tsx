@@ -46,17 +46,17 @@ export default function ShareStep({
 
   return (
     <div className="space-y-4">
-      <h2 className="text-[30px] font-semibold text-white">Izvestaj je spreman</h2>
+      <h2 className="text-[30px] font-semibold text-white">Izveštaj je spreman</h2>
 
       <Card className="space-y-4 border border-accent/25 bg-[radial-gradient(circle_at_top_left,rgba(47,128,255,0.22),transparent_55%),linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.02))]">
-        <div className="text-xs uppercase tracking-[0.28em] text-white/40">Broj izvestaja</div>
+        <div className="text-xs uppercase tracking-[0.28em] text-white/40">Broj izveštaja</div>
         <div className="text-3xl font-semibold text-white">{reportId}</div>
       </Card>
 
       <Card className="space-y-3">
         <div className="text-xs uppercase tracking-[0.28em] text-white/40">Pregled</div>
         <Button disabled={!pdfUrl} onClick={onPreview} type="button" variant="secondary">
-          Pregledaj e-izvestaj.pdf
+          Pregledaj e-Izveštaj.pdf
         </Button>
         <Button disabled={!documents.length} onClick={() => setDocumentsOpen(true)} type="button" variant="secondary">
           Pregledaj dokumenta
@@ -67,10 +67,10 @@ export default function ShareStep({
         <div className="text-xs uppercase tracking-[0.28em] text-emerald-100/60">Kompletan ZIP paket</div>
         <div className="text-sm text-white/65">Podeli isti paket ucesniku B i osiguranju.</div>
         <Button disabled={!pdfUrl || !zipReady || isSharing} onClick={() => void shareZip()} type="button" variant="success">
-          {isSharing ? "Otvaram deljenje..." : zipReady ? "Podeli e-izvestaj.zip" : "Pripremam e-izvestaj.zip..."}
+          {isSharing ? "Otvaram deljenje..." : zipReady ? "Podeli e-Izveštaj.zip" : "Pripremam e-Izveštaj.zip..."}
         </Button>
         <Button disabled={!pdfUrl || !zipReady || isSharing} onClick={onSaveZip} type="button" variant="secondary">
-          Preuzmi e-izvestaj.zip
+          Preuzmi e-Izveštaj.zip
         </Button>
         {shareMessage ? (
           <div className="rounded-[18px] border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/65">

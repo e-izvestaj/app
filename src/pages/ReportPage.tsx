@@ -46,7 +46,7 @@ export default function ReportPage() {
   if (!report) {
     return (
       <div className="mx-auto flex min-h-screen w-full max-w-md items-center px-4">
-        <Card className="w-full text-center text-white/65">Ucitam izvestaj...</Card>
+        <Card className="w-full text-center text-white/65">Učitavam izveštaj...</Card>
       </div>
     );
   }

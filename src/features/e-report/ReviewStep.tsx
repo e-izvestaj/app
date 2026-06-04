@@ -49,7 +49,7 @@ export default function ReviewStep({ report, onEditStep }: Props) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-[30px] font-semibold text-white">Pregled izvestaja</h2>
+      <h2 className="text-[30px] font-semibold text-white">Pregled izveštaja</h2>
 
       <SummaryCard
         body={[

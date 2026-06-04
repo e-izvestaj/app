@@ -23,7 +23,7 @@ function SplashIntro({ onDone }: { onDone: () => void }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-bg">
       <div className="text-center">
         <div className="typewriter-title text-[42px] font-semibold tracking-[0.08em] text-white">
-          E-Izvestaj
+          e-Izveštaj
         </div>
         <div
           className={`mt-3 text-sm uppercase tracking-[0.28em] text-white/55 transition duration-500 ${
@@ -79,7 +79,7 @@ export default function HomePage() {
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-10 pt-6">
         <div className="mb-8 text-center">
           <img alt="AutoPulse logo" className="mx-auto h-24 w-auto" src={logoSrc} />
-          <h1 className="mt-5 text-[38px] font-semibold text-white">E-Izvestaj</h1>
+          <h1 className="mt-5 text-[38px] font-semibold text-white">e-Izveštaj</h1>
           <div className="mt-2 text-sm uppercase tracking-[0.28em] text-white/45">by AutoPulse</div>
         </div>
 
@@ -88,10 +88,10 @@ export default function HomePage() {
             <div className="space-y-3">
               <div className="text-xs uppercase tracking-[0.28em] text-white/45">Glavne akcije</div>
               <Button onClick={startNewReport} type="button">
-                Kreiraj novi e-Izvestaj
+                Kreiraj novi e-Izveštaj
               </Button>
               <Button onClick={() => navigate("/participant")} type="button" variant="secondary">
-                Popuni moje podatke za drugi izvestaj
+                Popuni moje podatke za drugi izveštaj
               </Button>
               <Button
                 disabled={!activeDraftId}
@@ -99,13 +99,13 @@ export default function HomePage() {
                 type="button"
                 variant="secondary"
               >
-                Nastavi sacuvani izvestaj
+                Nastavi sačuvani izveštaj
               </Button>
             </div>
           </Card>
 
           <Card className="space-y-4">
-            <div className="text-lg font-semibold text-white">Zavrseni izvestaji</div>
+            <div className="text-lg font-semibold text-white">Završeni izveštaji</div>
             {completedReports.length ? (
               completedReports.map((report) => (
                 <button
@@ -120,7 +120,7 @@ export default function HomePage() {
               ))
             ) : (
               <div className="rounded-[22px] border border-dashed border-white/10 px-4 py-8 text-center text-sm text-white/45">
-                Nema sacuvanih zavrsnih izvestaja.
+                Nema sačuvanih završenih izveštaja.
               </div>
             )}
           </Card>

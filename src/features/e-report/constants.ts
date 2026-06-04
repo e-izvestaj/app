@@ -12,7 +12,7 @@ export const stepTitles = [
   "Vozac B",
   "Vozilo B",
   "Polisa B",
-  "Pregled izvestaja",
+  "Pregled izveštaja",
   "Potpisi",
   "Finalizacija"
 ] as const;

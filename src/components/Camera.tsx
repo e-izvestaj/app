@@ -75,8 +75,8 @@ export default function Camera({
       setStatusTone("success");
       setStatusMessage(
         files.length === 1
-          ? "Fotografija je uspesno dodata u izvestaj."
-          : "Fotografije su uspesno dodate u izvestaj."
+          ? "Fotografija je uspešno dodata u izveštaj."
+          : "Fotografije su uspešno dodate u izveštaj."
       );
     } catch {
       setStatusTone("error");

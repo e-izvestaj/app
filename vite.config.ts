@@ -14,9 +14,9 @@ export default defineConfig({
         maximumFileSizeToCacheInBytes: 32 * 1024 * 1024
       },
       manifest: {
-        name: "e-Izvestaj",
-        short_name: "e-Izvestaj",
-        description: "Digitalni evropski izvestaj o saobracajnoj nezgodi.",
+        name: "e-Izveštaj",
+        short_name: "e-Izveštaj",
+        description: "Digitalni evropski izveštaj o saobraćajnoj nezgodi.",
         theme_color: "#0B0D12",
         background_color: "#0B0D12",
         display: "standalone",

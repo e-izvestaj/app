@@ -291,8 +291,8 @@ export default function ReportWizard({
     }
 
     const shareData = {
-      title: `E-izvestaj ${report.publicId}`,
-      text: `Kompletan paket evropskog izvestaja ${report.publicId}`,
+      title: `e-Izveštaj ${report.publicId}`,
+      text: `Kompletan paket evropskog izveštaja ${report.publicId}`,
       files: [file]
     };
 
@@ -376,7 +376,7 @@ export default function ReportWizard({
         return getVehicleSectionMissingFields(report.vehicleB, "vehicle").length === 0;
       case "Polisa B":
         return getVehicleSectionMissingFields(report.vehicleB, "policy").length === 0;
-      case "Pregled izvestaja":
+      case "Pregled izveštaja":
         return (
           getVehicleSectionMissingFields(report.vehicleB, "driver").length === 0 &&
           getVehicleSectionMissingFields(report.vehicleB, "vehicle").length === 0 &&
@@ -573,7 +573,7 @@ export default function ReportWizard({
             value={report.vehicleB}
           />
         );
-      case "Pregled izvestaja":
+      case "Pregled izveštaja":
         return <ReviewStep onEditStep={goToStep} report={report} />;
       case "Potpisi":
         return (
