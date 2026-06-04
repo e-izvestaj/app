@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import Button from "../../components/Button";
 import Card from "../../components/Card";
+import { trackEvent } from "../../lib/analytics";
 import { normalizePhone } from "../../lib/utils";
 import type { LocationDetails } from "../../types";
 
@@ -186,6 +187,7 @@ export default function LocationTimeStep({
               : "GPS koordinate su preuzete, ali adresa nije automatski pronadjena. Proveri ulicu i broj."
           );
           onChange(nextValue);
+          trackEvent("gps_captured");
         } catch {
           setGpsState("done");
           setGpsMessage(
@@ -197,6 +199,7 @@ export default function LocationTimeStep({
             longitude,
             address: value.address || `Lat ${latitude.toFixed(5)}, Lon ${longitude.toFixed(5)}`
           });
+          trackEvent("gps_captured");
         }
       },
       (error) => {

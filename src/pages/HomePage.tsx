@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "../components/Button";
 import Card from "../components/Card";
+import { trackEvent } from "../lib/analytics";
 import { getActiveDraftId, getAllReports } from "../lib/indexedDb";
 import { createEmptyReport, reportTitle } from "../lib/utils";
 import type { ReportDraft } from "../types";
@@ -69,6 +70,7 @@ export default function HomePage() {
 
   const startNewReport = () => {
     const report = createEmptyReport();
+    trackEvent("report_started");
     navigate(`/report/${report.id}`, { state: { report } });
   };
 

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Button from "../../components/Button";
 import Card from "../../components/Card";
 import ProgressBar from "../../components/ProgressBar";
+import { trackEvent, trackEventOnce } from "../../lib/analytics";
 import { saveReport, setActiveDraftId } from "../../lib/indexedDb";
 import { generatePdf } from "../../lib/pdf";
 import { generateReportZip } from "../../lib/zip";
@@ -10,6 +11,7 @@ import {
   deriveReportStatus,
   getDocumentationMissingFields,
   getReportStatusLabel,
+  getVehicleMissingFields,
   getVehicleSectionMissingFields,
   nowIso,
 } from "../../lib/utils";
@@ -53,6 +55,21 @@ export default function ReportWizard({
   const currentStep = activeSteps[stepIndex];
   const readOnly = forceReadOnly || report.status === "locked" || report.status === "completed";
 
+  const generateTrackedPdf = async (sourceReport: ReportDraft) => {
+    const startedAt = performance.now();
+
+    try {
+      const result = await generatePdf(sourceReport);
+      trackEventOnce("pdf_generated", sourceReport.id, {
+        duration_seconds: (performance.now() - startedAt) / 1000
+      });
+      return result;
+    } catch (error) {
+      trackEvent("pdf_generation_failed");
+      throw error;
+    }
+  };
+
   const scrollToWizardTop = () => {
     window.requestAnimationFrame(() => {
       wizardTopRef.current?.scrollIntoView({ block: "start" });
@@ -91,6 +108,21 @@ export default function ReportWizard({
       setPdfUrl(report.pdfDataUrl);
     }
   }, [pdfUrl, report.pdfDataUrl]);
+
+  useEffect(() => {
+    if (
+      getVehicleMissingFields(report.vehicleA).length === 0 &&
+      getVehicleMissingFields(report.vehicleB).length === 0
+    ) {
+      trackEventOnce("participants_completed", report.id);
+    }
+  }, [report.id, report.vehicleA, report.vehicleB]);
+
+  useEffect(() => {
+    if (report.signatures.a && report.signatures.b) {
+      trackEventOnce("signatures_completed", report.id);
+    }
+  }, [report.id, report.signatures.a, report.signatures.b]);
 
   useEffect(() => {
     if (currentStep !== "Finalizacija") {
@@ -162,7 +194,7 @@ export default function ReportWizard({
           updatedAt: nowIso()
         };
 
-        const pdfResult = await generatePdf(lockedReport);
+        const pdfResult = await generateTrackedPdf(lockedReport);
         const finalizedReport = {
           ...lockedReport,
           pdfDataUrl: pdfResult.dataUrl
@@ -258,7 +290,7 @@ export default function ReportWizard({
       return pdfUrl;
     }
 
-    const pdfResult = await generatePdf(report);
+    const pdfResult = await generateTrackedPdf(report);
     setPdfUrl(pdfResult.url);
     const updatedReport = {
       ...report,

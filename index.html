@@ -8,6 +8,19 @@
     />
     <meta name="theme-color" content="#0B0D12" />
     <title>e-Izveštaj</title>
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-XXXXXXXXXX', {
+        anonymize_ip: true,
+        send_page_view: false,
+        page_location: window.location.origin + window.location.pathname
+      });
+    </script>
   </head>
   <body>
     <div id="root"></div>

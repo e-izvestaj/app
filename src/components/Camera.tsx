@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import Button from "./Button";
 import Card from "./Card";
 import DocumentCropper from "./DocumentCropper";
+import { trackEvent } from "../lib/analytics";
 
 type Props = {
   title: string;
@@ -72,6 +73,7 @@ export default function Camera({
   const saveFiles = async (files: FileList) => {
     try {
       await onCapture(files);
+      trackEvent("photos_added", { photo_count: files.length });
       setStatusTone("success");
       setStatusMessage(
         files.length === 1
