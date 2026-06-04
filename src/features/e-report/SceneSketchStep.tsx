@@ -499,10 +499,12 @@ function VehicleMarker({
 
 function DirectionPicker({
   value,
-  onChange
+  onChange,
+  solidBackground = false
 }: {
   value: SketchDirection;
   onChange: (value: SketchDirection) => void;
+  solidBackground?: boolean;
 }) {
   const options: Array<{ value: SketchDirection; symbol: string; label: string }> = [
     { value: "forward", symbol: "↑", label: "Napred" },
@@ -519,8 +521,8 @@ function DirectionPicker({
           key={option.value}
           className={`pointer-events-auto rounded-[18px] border px-2 py-3 text-center transition ${
             value === option.value
-              ? "border-accent/55 bg-accent/18 text-white"
-              : "border-white/10 bg-white/5 text-white/72"
+              ? `border-accent/55 text-white ${solidBackground ? "bg-[#17345f]" : "bg-accent/18"}`
+              : `border-white/10 text-white/72 ${solidBackground ? "bg-[#202938]" : "bg-white/5"}`
           }`}
           onClick={() => onChange(option.value)}
           type="button"
@@ -1284,7 +1286,7 @@ export default function SceneSketchStep({
                           </div>
                         </div>
                         <button
-                          className="pointer-events-auto rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white"
+                          className="pointer-events-auto rounded-full border border-white/10 bg-[#202938] px-4 py-2 text-sm font-semibold text-white"
                           onClick={() => setIsMobileVehicleSheetOpen(false)}
                           type="button"
                         >
@@ -1296,7 +1298,11 @@ export default function SceneSketchStep({
                         <div className="text-xs font-semibold uppercase tracking-[0.24em] text-white/45">
                           Smer kretanja
                         </div>
-                        <DirectionPicker onChange={setDirection} value={selectedState.direction} />
+                        <DirectionPicker
+                          onChange={setDirection}
+                          solidBackground
+                          value={selectedState.direction}
+                        />
                       </div>
 
                       <div className="space-y-2">
@@ -1305,14 +1311,14 @@ export default function SceneSketchStep({
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                           <button
-                            className="pointer-events-auto rounded-[18px] border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white"
+                            className="pointer-events-auto rounded-[18px] border border-white/10 bg-[#202938] px-4 py-3 text-sm font-semibold text-white"
                             onClick={() => rotateSelected(-15)}
                             type="button"
                           >
                             ↺ Rotiraj ulevo
                           </button>
                           <button
-                            className="pointer-events-auto rounded-[18px] border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white"
+                            className="pointer-events-auto rounded-[18px] border border-white/10 bg-[#202938] px-4 py-3 text-sm font-semibold text-white"
                             onClick={() => rotateSelected(15)}
                             type="button"
                           >
