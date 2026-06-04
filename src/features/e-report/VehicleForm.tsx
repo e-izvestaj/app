@@ -3,6 +3,9 @@ import Card from "../../components/Card";
 import {
   INSURER_OPTIONS,
   POSTAL_CODE_CITY_OPTIONS,
+  VEHICLE_MAKE_OPTIONS,
+  VEHICLE_MODELS_BY_MAKE,
+  VEHICLE_TYPE_OPTIONS,
   getVehicleSectionMissingFields,
   resolveCityFromPostalCode,
   type VehicleSection
@@ -220,23 +223,42 @@ function VehicleFields({
   readOnly,
   isMissing,
   onChange,
-  accent
+  accent,
+  makeListId,
+  modelListId
 }: {
   value: VehicleDraft;
   readOnly: boolean;
   isMissing: (label: string) => boolean;
   onChange: (next: VehicleDraft) => void;
   accent: AccentTone;
+  makeListId: string;
+  modelListId: string;
 }) {
+  const selectedMake = VEHICLE_MAKE_OPTIONS.find(
+    (make) => make.toLowerCase() === value.make.trim().toLowerCase()
+  );
+  const modelOptions = selectedMake ? VEHICLE_MODELS_BY_MAKE[selectedMake] : [];
+
   return (
     <div className="space-y-4">
+      <datalist id={makeListId}>
+        {VEHICLE_MAKE_OPTIONS.map((make) => (
+          <option key={make} value={make} />
+        ))}
+      </datalist>
+      <datalist id={modelListId}>
+        {modelOptions.map((model) => (
+          <option key={model} value={model} />
+        ))}
+      </datalist>
       <div className="grid grid-cols-2 gap-3">
         <Field accent={accent} invalid={isMissing("Registarska oznaka")} label="Registarski broj" onChange={(plate) => onChange({ ...value, plate })} placeholder="Registracija" readOnly={readOnly} value={value.plate} />
         <Field accent={accent} invalid={isMissing("Drzava registracije")} label="Drzava registracije" onChange={(registrationCountry) => onChange({ ...value, registrationCountry })} placeholder="Drzava registracije" readOnly={readOnly} value={value.registrationCountry} />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field accent={accent} invalid={isMissing("Marka vozila")} label="Marka" onChange={(make) => onChange({ ...value, make })} placeholder="Marka" readOnly={readOnly} value={value.make} />
-        <Field accent={accent} invalid={isMissing("Model vozila")} label="Model" onChange={(model) => onChange({ ...value, model })} placeholder="Model" readOnly={readOnly} value={value.model} />
+        <Field accent={accent} invalid={isMissing("Marka vozila")} label="Marka" list={makeListId} onChange={(make) => onChange({ ...value, make })} placeholder="Marka" readOnly={readOnly} value={value.make} />
+        <Field accent={accent} invalid={isMissing("Model vozila")} label="Model" list={modelListId} onChange={(model) => onChange({ ...value, model })} placeholder="Model" readOnly={readOnly} value={value.model} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <SelectField
@@ -244,7 +266,7 @@ function VehicleFields({
           invalid={isMissing("Tip vozila")}
           label="Tip vozila"
           onChange={(type) => onChange({ ...value, type })}
-          options={["Putničko", "Teretno"]}
+          options={[...VEHICLE_TYPE_OPTIONS]}
           readOnly={readOnly}
           value={value.type}
         />
@@ -462,6 +484,8 @@ export default function VehicleForm({
 }: Props) {
   const insurerListId = useMemo(() => `insurer-${value.side}-${section}`, [section, value.side]);
   const postalCodeListId = useMemo(() => `postal-${value.side}-${section}`, [section, value.side]);
+  const makeListId = useMemo(() => `vehicle-makes-${value.side}`, [value.side]);
+  const modelListId = useMemo(() => `vehicle-models-${value.side}`, [value.side]);
   const accentClasses = accentClassMap[accent];
   const missingFields = getVehicleSectionMissingFields(value, section);
 
@@ -489,7 +513,15 @@ export default function VehicleForm({
             value={value}
           />
         ) : section === "vehicle" ? (
-          <VehicleFields accent={accent} isMissing={isMissing} onChange={onChange} readOnly={readOnly} value={value} />
+          <VehicleFields
+            accent={accent}
+            isMissing={isMissing}
+            makeListId={makeListId}
+            modelListId={modelListId}
+            onChange={onChange}
+            readOnly={readOnly}
+            value={value}
+          />
         ) : (
           <PolicyFields
             accent={accent}

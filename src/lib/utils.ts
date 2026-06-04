@@ -20,6 +20,61 @@ export const INSURER_OPTIONS = [
   "Drugo"
 ] as const;
 
+export const VEHICLE_MODELS_BY_MAKE: Record<string, readonly string[]> = {
+  "Alfa Romeo": ["Giulia", "Giulietta", "Stelvio", "Tonale"],
+  Audi: ["A1", "A3", "A4", "A5", "A6", "A7", "A8", "Q2", "Q3", "Q5", "Q7", "Q8"],
+  BMW: ["Serija 1", "Serija 2", "Serija 3", "Serija 4", "Serija 5", "Serija 7", "X1", "X3", "X5", "X6"],
+  Chevrolet: ["Aveo", "Captiva", "Cruze", "Orlando", "Spark"],
+  Citroen: ["C1", "C3", "C4", "C5", "Berlingo", "Jumper", "Jumpy"],
+  Cupra: ["Ateca", "Born", "Formentor", "Leon"],
+  Dacia: ["Duster", "Jogger", "Logan", "Sandero", "Spring"],
+  Fiat: ["500", "500L", "500X", "Bravo", "Doblo", "Ducato", "Panda", "Punto", "Tipo"],
+  Ford: ["C-Max", "Fiesta", "Focus", "Kuga", "Mondeo", "Ranger", "Transit"],
+  Honda: ["Accord", "Civic", "CR-V", "HR-V", "Jazz"],
+  Hyundai: ["Bayon", "i10", "i20", "i30", "Kona", "Santa Fe", "Tucson"],
+  Iveco: ["Daily", "Eurocargo", "S-Way", "Stralis"],
+  Jaguar: ["E-Pace", "F-Pace", "I-Pace", "XE", "XF"],
+  Jeep: ["Cherokee", "Compass", "Grand Cherokee", "Renegade", "Wrangler"],
+  Kia: ["Ceed", "Picanto", "Rio", "Sorento", "Sportage", "Stonic"],
+  Lada: ["Niva", "Samara"],
+  "Land Rover": ["Defender", "Discovery", "Evoque", "Range Rover", "Range Rover Sport"],
+  Lexus: ["ES", "IS", "NX", "RX", "UX"],
+  Mazda: ["2", "3", "6", "CX-3", "CX-30", "CX-5", "CX-60"],
+  "Mercedes-Benz": ["A klasa", "B klasa", "C klasa", "E klasa", "S klasa", "CLA", "GLA", "GLC", "GLE", "Sprinter", "Vito"],
+  Mini: ["Clubman", "Cooper", "Countryman"],
+  Mitsubishi: ["ASX", "Colt", "Lancer", "Outlander", "Pajero"],
+  Nissan: ["Juke", "Micra", "Navara", "Note", "Qashqai", "X-Trail"],
+  Opel: ["Astra", "Corsa", "Crossland", "Insignia", "Mokka", "Vivaro", "Zafira"],
+  Peugeot: ["107", "208", "308", "508", "2008", "3008", "5008", "Partner", "Boxer"],
+  Porsche: ["911", "Cayenne", "Macan", "Panamera", "Taycan"],
+  Renault: ["Captur", "Clio", "Kadjar", "Kangoo", "Megane", "Scenic", "Trafic"],
+  Saab: ["9-3", "9-5"],
+  Seat: ["Arona", "Ateca", "Ibiza", "Leon", "Tarraco"],
+  Skoda: ["Fabia", "Karoq", "Kodiaq", "Octavia", "Rapid", "Scala", "Superb"],
+  Smart: ["Forfour", "Fortwo"],
+  Subaru: ["Forester", "Impreza", "Legacy", "Outback", "XV"],
+  Suzuki: ["Baleno", "Ignis", "S-Cross", "Swift", "Vitara"],
+  Tesla: ["Model 3", "Model S", "Model X", "Model Y"],
+  Toyota: ["Auris", "Avensis", "C-HR", "Corolla", "Hilux", "Land Cruiser", "RAV4", "Yaris"],
+  Volkswagen: ["Arteon", "Caddy", "Golf", "Jetta", "Passat", "Polo", "T-Cross", "T-Roc", "Tiguan", "Touareg", "Transporter"],
+  Volvo: ["S60", "S90", "V40", "V60", "V90", "XC40", "XC60", "XC90"],
+  Zastava: ["101", "128", "750", "Florida", "Yugo"]
+};
+
+export const VEHICLE_MAKE_OPTIONS = Object.keys(VEHICLE_MODELS_BY_MAKE);
+
+export const VEHICLE_TYPE_OPTIONS = [
+  "Putnicko",
+  "Teretno",
+  "Motocikl",
+  "Moped",
+  "Autobus",
+  "Kombi",
+  "Traktor",
+  "Prikolica",
+  "Drugo"
+] as const;
+
 export const POSTAL_CODE_CITY_OPTIONS = [
   { postalCode: "11000", city: "Beograd" },
   { postalCode: "11010", city: "Beograd" },
