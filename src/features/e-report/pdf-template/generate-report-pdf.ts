@@ -103,8 +103,8 @@ const TEXT_FIELD_BINDINGS: Record<string, (report: ReportDraft) => string> = {
 
   text_77dbtl: (report) => report.vehicleA.driverLastName || "",
   text_78qgte: (report) => report.vehicleA.driverFirstName || "",
-  text_79rili: (report) => report.vehicleA.driverBirthDate || "",
-  text_80ewsd: (report) => report.vehicleA.driverAddress || "",
+  text_79rili: (report) => report.vehicleA.driverAddress || "",
+  text_80ewsd: (report) => report.vehicleA.driverBirthDate || "",
   text_81zleo: (report) => report.vehicleA.driverCity || "",
   text_82tulj: (report) => report.vehicleA.driverCountry || "",
   text_83imne: (report) => preferredContact(report.vehicleA.driverPhone, report.vehicleA.driverEmail),
