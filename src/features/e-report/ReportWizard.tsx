@@ -45,6 +45,7 @@ export default function ReportWizard({
   const [stepIndex, setStepIndex] = useState(0);
   const [isChangingStep, setIsChangingStep] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(report.pdfDataUrl);
+  const [zipFile, setZipFile] = useState<File | null>(null);
   const [isLocking, setIsLocking] = useState(false);
   const [lockError, setLockError] = useState<string | null>(null);
   const wizardTopRef = useRef<HTMLDivElement | null>(null);
@@ -90,6 +91,25 @@ export default function ReportWizard({
       setPdfUrl(report.pdfDataUrl);
     }
   }, [pdfUrl, report.pdfDataUrl]);
+
+  useEffect(() => {
+    if (currentStep !== "Finalizacija") {
+      return;
+    }
+
+    let cancelled = false;
+    setZipFile(null);
+
+    void generateReportZip(report).then((zip) => {
+      if (!cancelled) {
+        setZipFile(new File([zip.blob], `${report.publicId}.zip`, { type: "application/zip" }));
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentStep, report.id, report.publicId, report.updatedAt]);
 
   useEffect(() => {
     if (report.status !== "locked" && report.status !== "completed" && !forceReadOnly) {
@@ -250,41 +270,42 @@ export default function ReportWizard({
     return pdfResult.url;
   };
 
-  const savePdf = () => {
+  const saveZip = () => {
     void (async () => {
-      const readyUrl = await ensurePdfReady();
-      if (!readyUrl) {
+      const file = zipFile;
+      if (!file) {
         return;
       }
 
       const link = document.createElement("a");
-      link.href = readyUrl;
-      link.download = `${report.publicId}.pdf`;
+      link.href = URL.createObjectURL(file);
+      link.download = file.name;
       link.click();
     })();
   };
 
-  const saveZip = () => {
-    void (async () => {
-      await ensurePdfReady();
-      const zip = await generateReportZip(report);
-      const link = document.createElement("a");
-      link.href = zip.url;
-      link.download = `${report.publicId}.zip`;
-      link.click();
-    })();
-  };
+  const shareZip = async () => {
+    const file = zipFile;
+    if (!file) {
+      throw new Error("ZIP paket jos nije spreman.");
+    }
 
-  const emailPdf = () => {
-    window.location.href = `mailto:?subject=${encodeURIComponent(report.publicId)}&body=${encodeURIComponent("PDF je spreman za slanje iz aplikacije.")}`;
-  };
+    const shareData = {
+      title: `E-izvestaj ${report.publicId}`,
+      text: `Kompletan paket evropskog izvestaja ${report.publicId}`,
+      files: [file]
+    };
 
-  const whatsappPdf = () => {
-    previewPdf();
-  };
+    if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
+      await navigator.share(shareData);
+      return "Otvoren je meni za deljenje. Izaberi ucesnika B, Mail, Viber, WhatsApp ili drugu aplikaciju.";
+    }
 
-  const viberPdf = () => {
-    previewPdf();
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(file);
+    link.download = file.name;
+    link.click();
+    return "Ovaj browser ne podrzava direktno deljenje ZIP fajla. Paket je preuzet na uredjaj.";
   };
 
   const locationLabel =
@@ -292,6 +313,29 @@ export default function ReportWizard({
     [report.location.street, report.location.streetNumber, report.location.city]
       .filter(Boolean)
       .join(", ");
+
+  const finalDocuments = [
+    ...report.scenePhotos.map((photo, index) => ({
+      dataUrl: photo.dataUrl,
+      label: `Fotografija nezgode ${index + 1}`
+    })),
+    ...report.vehicleA.documentPhotos.map((photo, index) => ({
+      dataUrl: photo.dataUrl,
+      label: `Dokument vozila A ${index + 1}`
+    })),
+    ...report.vehicleB.documentPhotos.map((photo, index) => ({
+      dataUrl: photo.dataUrl,
+      label: `Dokument vozila B ${index + 1}`
+    })),
+    ...(report.annotatedPhotoDataUrl || report.sceneSketch.svgDataUrl
+      ? [
+          {
+            dataUrl: report.annotatedPhotoDataUrl || report.sceneSketch.svgDataUrl || "",
+            label: "Skica nezgode"
+          }
+        ]
+      : [])
+  ];
 
   const canProceed = () => {
     switch (currentStep) {
@@ -549,14 +593,13 @@ export default function ReportWizard({
       case "Finalizacija":
         return (
           <ShareStep
-            onEmail={emailPdf}
+            documents={finalDocuments}
             onPreview={previewPdf}
-            onSave={savePdf}
             onSaveZip={saveZip}
-            onViber={viberPdf}
-            onWhatsApp={whatsappPdf}
+            onShareZip={shareZip}
             pdfUrl={pdfUrl}
             reportId={report.publicId}
+            zipReady={Boolean(zipFile)}
           />
         );
       default:
