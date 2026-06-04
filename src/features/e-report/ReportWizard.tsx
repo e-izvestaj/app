@@ -383,6 +383,7 @@ export default function ReportWizard({
         return (
           <VehicleForm
             accent="blue"
+            accidentDate={report.location.date}
             onChange={(vehicleA) => updateReport({ vehicleA })}
             readOnly={readOnly}
             section="driver"
@@ -394,7 +395,9 @@ export default function ReportWizard({
         return (
           <VehicleForm
             accent="blue"
+            accidentDate={report.location.date}
             onChange={(vehicleA) => updateReport({ vehicleA })}
+            otherPlate={report.vehicleB.plate}
             readOnly={readOnly}
             section="vehicle"
             title="Vozilo A"
@@ -405,6 +408,7 @@ export default function ReportWizard({
         return (
           <VehicleForm
             accent="blue"
+            accidentDate={report.location.date}
             onChange={(vehicleA) => updateReport({ vehicleA })}
             readOnly={readOnly}
             section="policy"
@@ -473,6 +477,7 @@ export default function ReportWizard({
         return (
           <VehicleForm
             accent="yellow"
+            accidentDate={report.location.date}
             onChange={updateVehicleB}
             readOnly={readOnly}
             section="driver"
@@ -484,7 +489,9 @@ export default function ReportWizard({
         return (
           <VehicleForm
             accent="yellow"
+            accidentDate={report.location.date}
             onChange={updateVehicleB}
+            otherPlate={report.vehicleA.plate}
             readOnly={readOnly}
             section="vehicle"
             title="Vozilo B"
@@ -495,6 +502,7 @@ export default function ReportWizard({
         return (
           <VehicleForm
             accent="yellow"
+            accidentDate={report.location.date}
             onChange={updateVehicleB}
             readOnly={readOnly}
             section="policy"

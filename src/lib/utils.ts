@@ -159,6 +159,22 @@ export function resolveCityFromPostalCode(postalCode: string) {
   return POSTAL_CODE_CITY_OPTIONS.find((option) => option.postalCode === normalized)?.city || "";
 }
 
+export function normalizePhone(value: string) {
+  const trimmed = value.trimStart();
+  const hasLeadingPlus = trimmed.startsWith("+");
+  const digits = value.replace(/\D/g, "");
+  return `${hasLeadingPlus ? "+" : ""}${digits}`;
+}
+
+export function isValidPhone(value: string) {
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15;
+}
+
+export function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
 export function createPublicReportId() {
   return `EI-${Math.floor(10000 + Math.random() * 90000)}`;
 }
@@ -550,6 +566,12 @@ export function getVehicleMissingFields(vehicle: VehicleDraft) {
   requireValue("Postanski broj vozaca", vehicle.driverPostalCode);
   requireValue("Grad vozaca", vehicle.driverCity);
   requireOneOf("Telefon ili e-mail vozaca", [vehicle.driverPhone, vehicle.driverEmail]);
+  if (vehicle.driverPhone && !isValidPhone(vehicle.driverPhone)) {
+    missing.push("Ispravan telefon vozaca");
+  }
+  if (vehicle.driverEmail && !isValidEmail(vehicle.driverEmail)) {
+    missing.push("Ispravan e-mail vozaca");
+  }
   requireValue("Broj vozacke dozvole", vehicle.driverLicenseNumber);
   requireValue("Kategorija dozvole", vehicle.driverLicenseCategory);
   requireValue("Vazenje vozacke dozvole", vehicle.driverLicenseValidUntil);
@@ -567,6 +589,12 @@ export function getVehicleMissingFields(vehicle: VehicleDraft) {
   requireValue("Postanski broj ugovaraca", vehicle.ownerPostalCode);
   requireValue("Drzava ugovaraca", vehicle.ownerCountry);
   requireOneOf("Telefon ili e-mail ugovaraca", [vehicle.ownerPhone, vehicle.ownerEmail]);
+  if (vehicle.ownerPhone && !isValidPhone(vehicle.ownerPhone)) {
+    missing.push("Ispravan telefon ugovaraca");
+  }
+  if (vehicle.ownerEmail && !isValidEmail(vehicle.ownerEmail)) {
+    missing.push("Ispravan e-mail ugovaraca");
+  }
 
   requireValue("Osiguravajuca kuca", vehicle.insurer);
   requireValue("Broj ugovora", vehicle.policyNumber);
@@ -578,6 +606,12 @@ export function getVehicleMissingFields(vehicle: VehicleDraft) {
   requireValue("Grad osiguranja", vehicle.insuranceCity);
   requireValue("Drzava osiguranja", vehicle.insuranceCountry);
   requireOneOf("Telefon ili e-mail osiguranja", [vehicle.insurancePhone, vehicle.insuranceEmail]);
+  if (vehicle.insurancePhone && !isValidPhone(vehicle.insurancePhone)) {
+    missing.push("Ispravan telefon osiguranja");
+  }
+  if (vehicle.insuranceEmail && !isValidEmail(vehicle.insuranceEmail)) {
+    missing.push("Ispravan e-mail osiguranja");
+  }
 
   return missing;
 }
@@ -595,6 +629,8 @@ export function getVehicleSectionMissingFields(vehicle: VehicleDraft, section: V
         "Postanski broj vozaca",
         "Grad vozaca",
         "Telefon ili e-mail vozaca",
+        "Ispravan telefon vozaca",
+        "Ispravan e-mail vozaca",
         "Broj vozacke dozvole",
         "Kategorija dozvole",
         "Vazenje vozacke dozvole"
@@ -623,6 +659,8 @@ export function getVehicleSectionMissingFields(vehicle: VehicleDraft, section: V
       "Postanski broj ugovaraca",
       "Drzava ugovaraca",
       "Telefon ili e-mail ugovaraca",
+      "Ispravan telefon ugovaraca",
+      "Ispravan e-mail ugovaraca",
       "Osiguravajuca kuca",
       "Broj ugovora",
       "Polisa vazi od",
@@ -632,7 +670,9 @@ export function getVehicleSectionMissingFields(vehicle: VehicleDraft, section: V
       "Adresa osiguranja",
       "Grad osiguranja",
       "Drzava osiguranja",
-      "Telefon ili e-mail osiguranja"
+      "Telefon ili e-mail osiguranja",
+      "Ispravan telefon osiguranja",
+      "Ispravan e-mail osiguranja"
     ].includes(field)
   );
 }

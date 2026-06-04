@@ -8,6 +8,7 @@ import {
   VEHICLE_MODELS_BY_MAKE,
   VEHICLE_TYPE_OPTIONS,
   getVehicleSectionMissingFields,
+  normalizePhone,
   resolveCityFromPostalCode,
   type VehicleSection
 } from "../../lib/utils";
@@ -22,6 +23,8 @@ type Props = {
   onChange: (value: VehicleDraft) => void;
   readOnly?: boolean;
   accent?: AccentTone;
+  accidentDate?: string;
+  otherPlate?: string;
 };
 
 const accentClassMap: Record<AccentTone, { ring: string; soft: string; text: string }> = {
@@ -64,6 +67,28 @@ function formatSerbianPlate(value: string) {
     .slice(0, 2);
 
   return [area, digits, suffix].filter(Boolean).join(" ");
+}
+
+function addOneYear(dateValue: string) {
+  if (!dateValue) {
+    return "";
+  }
+
+  const date = new Date(`${dateValue}T00:00:00`);
+  date.setFullYear(date.getFullYear() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function isBefore(left: string, right: string) {
+  return Boolean(left && right && left < right);
+}
+
+function normalizePlateForComparison(value: string) {
+  return value.toLocaleUpperCase("sr-Latn-RS").replace(/[^A-ZČĆŠĐŽ0-9]/gu, "");
+}
+
+function FieldHint({ children }: { children: string }) {
+  return <span className="block text-xs text-amber-200/80">{children}</span>;
 }
 
 function Field({
@@ -230,7 +255,8 @@ function DriverFields({
   isMissing,
   onChange,
   postalCodeListId,
-  accent
+  accent,
+  accidentDate
 }: {
   value: VehicleDraft;
   readOnly: boolean;
@@ -238,7 +264,10 @@ function DriverFields({
   onChange: (next: VehicleDraft) => void;
   postalCodeListId: string;
   accent: AccentTone;
+  accidentDate?: string;
 }) {
+  const licenseExpired = isBefore(value.driverLicenseValidUntil, accidentDate || "");
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
@@ -264,8 +293,8 @@ function DriverFields({
         <Field accent={accent} label="Grad" onChange={(driverCity) => onChange({ ...value, driverCity })} placeholder="Grad" readOnly={readOnly} value={value.driverCity} />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field accent={accent} invalid={isMissing("Telefon ili e-mail vozaca") && !value.driverPhone} label="Telefon" onChange={(driverPhone) => onChange({ ...value, driverPhone })} placeholder="Telefon" readOnly={readOnly} type="tel" value={value.driverPhone} />
-        <Field accent={accent} invalid={isMissing("Telefon ili e-mail vozaca") && !value.driverEmail} label="E-mail" onChange={(driverEmail) => onChange({ ...value, driverEmail })} placeholder="E-mail" readOnly={readOnly} type="email" value={value.driverEmail} />
+        <Field accent={accent} invalid={(isMissing("Telefon ili e-mail vozaca") && !value.driverPhone) || isMissing("Ispravan telefon vozaca")} label="Telefon" onChange={(driverPhone) => onChange({ ...value, driverPhone: normalizePhone(driverPhone) })} placeholder="+381641234567" readOnly={readOnly} type="tel" value={value.driverPhone} />
+        <Field accent={accent} invalid={(isMissing("Telefon ili e-mail vozaca") && !value.driverEmail) || isMissing("Ispravan e-mail vozaca")} label="E-mail" onChange={(driverEmail) => onChange({ ...value, driverEmail })} placeholder="ime@domen.rs" readOnly={readOnly} type="email" value={value.driverEmail} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Field accent={accent} invalid={isMissing("Datum rodjenja")} label="Datum rodjenja" onChange={(driverBirthDate) => onChange({ ...value, driverBirthDate })} readOnly={readOnly} type="date" value={value.driverBirthDate} />
@@ -281,7 +310,10 @@ function DriverFields({
           readOnly={readOnly}
           value={value.driverLicenseCategory}
         />
-        <Field accent={accent} invalid={isMissing("Vazenje vozacke dozvole")} label="Vazi do" onChange={(driverLicenseValidUntil) => onChange({ ...value, driverLicenseValidUntil })} readOnly={readOnly} type="date" value={value.driverLicenseValidUntil} />
+        <div className="space-y-2">
+          <Field accent={accent} invalid={isMissing("Vazenje vozacke dozvole")} label="Vazi do" onChange={(driverLicenseValidUntil) => onChange({ ...value, driverLicenseValidUntil })} readOnly={readOnly} type="date" value={value.driverLicenseValidUntil} />
+          {licenseExpired ? <FieldHint>Vozacka dozvola je istekla na datum nezgode.</FieldHint> : null}
+        </div>
       </div>
     </div>
   );
@@ -295,7 +327,8 @@ function VehicleFields({
   accent,
   makeListId,
   modelListId,
-  plateAreaListId
+  plateAreaListId,
+  otherPlate
 }: {
   value: VehicleDraft;
   readOnly: boolean;
@@ -305,11 +338,15 @@ function VehicleFields({
   makeListId: string;
   modelListId: string;
   plateAreaListId: string;
+  otherPlate?: string;
 }) {
   const selectedMake = VEHICLE_MAKE_OPTIONS.find(
     (make) => make.toLowerCase() === value.make.trim().toLowerCase()
   );
   const modelOptions = selectedMake ? VEHICLE_MODELS_BY_MAKE[selectedMake] : [];
+  const plateMatchesOther =
+    Boolean(value.plate && otherPlate) &&
+    normalizePlateForComparison(value.plate) === normalizePlateForComparison(otherPlate || "");
 
   return (
     <div className="space-y-4">
@@ -358,11 +395,12 @@ function VehicleFields({
           value={value.registrationCountry}
         />
       </div>
+      {plateMatchesOther ? <FieldHint>Vozila A i B imaju istu registarsku oznaku.</FieldHint> : null}
       <div className="grid grid-cols-2 gap-3">
         <Field accent={accent} invalid={isMissing("Marka vozila")} label="Marka" list={makeListId} onChange={(make) => onChange({ ...value, make })} placeholder="Marka" readOnly={readOnly} value={value.make} />
         <Field accent={accent} invalid={isMissing("Model vozila")} label="Model" list={modelListId} onChange={(model) => onChange({ ...value, model })} placeholder="Model" readOnly={readOnly} value={value.model} />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div>
         <SelectField
           accent={accent}
           invalid={isMissing("Tip vozila")}
@@ -372,12 +410,27 @@ function VehicleFields({
           readOnly={readOnly}
           value={value.type}
         />
-        <Field accent={accent} label="VIN" onChange={(vin) => onChange({ ...value, vin })} placeholder="VIN" readOnly={readOnly} value={value.vin} />
       </div>
       <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
         <div className="mb-3 text-xs uppercase tracking-[0.26em] text-white/40">Prikolica</div>
         <div className="grid grid-cols-2 gap-3">
-          <Field accent={accent} label="Registracija prikolice" onChange={(trailerPlate) => onChange({ ...value, trailerPlate })} placeholder="Registracija prikolice" readOnly={readOnly} value={value.trailerPlate} />
+          <Field
+            accent={accent}
+            label="Registracija prikolice"
+            onChange={(trailerPlate) =>
+              onChange({
+                ...value,
+                trailerPlate,
+                trailerRegistrationCountry:
+                  trailerPlate && !value.trailerPlate
+                    ? value.registrationCountry
+                    : value.trailerRegistrationCountry
+              })
+            }
+            placeholder="Registracija prikolice"
+            readOnly={readOnly}
+            value={value.trailerPlate}
+          />
           <Field accent={accent} label="Drzava prikolice" onChange={(trailerRegistrationCountry) => onChange({ ...value, trailerRegistrationCountry })} placeholder="Drzava prikolice" readOnly={readOnly} value={value.trailerRegistrationCountry} />
         </div>
       </div>
@@ -392,7 +445,8 @@ function PolicyFields({
   postalCodeListId,
   isMissing,
   onChange,
-  accent
+  accent,
+  accidentDate
 }: {
   value: VehicleDraft;
   readOnly: boolean;
@@ -401,8 +455,11 @@ function PolicyFields({
   isMissing: (label: string) => boolean;
   onChange: (next: VehicleDraft) => void;
   accent: AccentTone;
+  accidentDate?: string;
 }) {
   const ownerFieldsReadOnly = readOnly || value.ownerSameAsDriver;
+  const policyDatesReversed = isBefore(value.policyValidUntil, value.policyValidFrom);
+  const policyExpired = isBefore(value.policyValidUntil, accidentDate || "");
 
   useEffect(() => {
     if (!value.ownerSameAsDriver) {
@@ -518,8 +575,8 @@ function PolicyFields({
             <Field accent={accent} invalid={isMissing("Drzava ugovaraca")} label="Drzava osiguranika" onChange={(ownerCountry) => onChange({ ...value, ownerCountry })} placeholder="Drzava" readOnly={ownerFieldsReadOnly} value={value.ownerCountry} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field accent={accent} invalid={isMissing("Telefon ili e-mail ugovaraca") && !value.ownerPhone} label="Telefon osiguranika" onChange={(ownerPhone) => onChange({ ...value, ownerPhone })} placeholder="Telefon" readOnly={ownerFieldsReadOnly} type="tel" value={value.ownerPhone} />
-            <Field accent={accent} invalid={isMissing("Telefon ili e-mail ugovaraca") && !value.ownerEmail} label="E-mail osiguranika" onChange={(ownerEmail) => onChange({ ...value, ownerEmail })} placeholder="E-mail" readOnly={ownerFieldsReadOnly} type="email" value={value.ownerEmail} />
+            <Field accent={accent} invalid={(isMissing("Telefon ili e-mail ugovaraca") && !value.ownerPhone) || isMissing("Ispravan telefon ugovaraca")} label="Telefon osiguranika" onChange={(ownerPhone) => onChange({ ...value, ownerPhone: normalizePhone(ownerPhone) })} placeholder="+381641234567" readOnly={ownerFieldsReadOnly} type="tel" value={value.ownerPhone} />
+            <Field accent={accent} invalid={(isMissing("Telefon ili e-mail ugovaraca") && !value.ownerEmail) || isMissing("Ispravan e-mail ugovaraca")} label="E-mail osiguranika" onChange={(ownerEmail) => onChange({ ...value, ownerEmail })} placeholder="ime@domen.rs" readOnly={ownerFieldsReadOnly} type="email" value={value.ownerEmail} />
           </div>
         </div>
       </div>
@@ -533,8 +590,12 @@ function PolicyFields({
             <Field accent={accent} label="Broj zelene karte" onChange={(greenCardNumber) => onChange({ ...value, greenCardNumber })} placeholder="Broj zelene karte" readOnly={readOnly} value={value.greenCardNumber} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field accent={accent} invalid={isMissing("Polisa vazi od")} label="Vazi od" onChange={(policyValidFrom) => onChange({ ...value, policyValidFrom })} readOnly={readOnly} type="date" value={value.policyValidFrom} />
-            <Field accent={accent} invalid={isMissing("Polisa vazi do")} label="Vazi do" onChange={(policyValidUntil) => onChange({ ...value, policyValidUntil })} readOnly={readOnly} type="date" value={value.policyValidUntil} />
+            <Field accent={accent} invalid={isMissing("Polisa vazi od")} label="Vazi od" onChange={(policyValidFrom) => onChange({ ...value, policyValidFrom, policyValidUntil: value.policyValidUntil || addOneYear(policyValidFrom) })} readOnly={readOnly} type="date" value={value.policyValidFrom} />
+            <div className="space-y-2">
+              <Field accent={accent} invalid={isMissing("Polisa vazi do")} label="Vazi do" onChange={(policyValidUntil) => onChange({ ...value, policyValidUntil })} readOnly={readOnly} type="date" value={value.policyValidUntil} />
+              {policyDatesReversed ? <FieldHint>Datum isteka polise je pre datuma pocetka.</FieldHint> : null}
+              {!policyDatesReversed && policyExpired ? <FieldHint>Polisa je istekla na datum nezgode.</FieldHint> : null}
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field accent={accent} invalid={isMissing("Filijala ili posrednik")} label="Filijala / posrednik" onChange={(insuranceBranch) => onChange({ ...value, insuranceBranch })} placeholder="Filijala / posrednik" readOnly={readOnly} value={value.insuranceBranch} />
@@ -546,8 +607,8 @@ function PolicyFields({
             <Field accent={accent} invalid={isMissing("Drzava osiguranja")} label="Drzava osiguranja" onChange={(insuranceCountry) => onChange({ ...value, insuranceCountry })} placeholder="Drzava" readOnly={readOnly} value={value.insuranceCountry} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field accent={accent} invalid={isMissing("Telefon ili e-mail osiguranja") && !value.insurancePhone} label="Telefon osiguranja" onChange={(insurancePhone) => onChange({ ...value, insurancePhone })} placeholder="Telefon" readOnly={readOnly} type="tel" value={value.insurancePhone} />
-            <Field accent={accent} invalid={isMissing("Telefon ili e-mail osiguranja") && !value.insuranceEmail} label="E-mail osiguranja" onChange={(insuranceEmail) => onChange({ ...value, insuranceEmail })} placeholder="E-mail" readOnly={readOnly} type="email" value={value.insuranceEmail} />
+            <Field accent={accent} invalid={(isMissing("Telefon ili e-mail osiguranja") && !value.insurancePhone) || isMissing("Ispravan telefon osiguranja")} label="Telefon osiguranja" onChange={(insurancePhone) => onChange({ ...value, insurancePhone: normalizePhone(insurancePhone) })} placeholder="+381641234567" readOnly={readOnly} type="tel" value={value.insurancePhone} />
+            <Field accent={accent} invalid={(isMissing("Telefon ili e-mail osiguranja") && !value.insuranceEmail) || isMissing("Ispravan e-mail osiguranja")} label="E-mail osiguranja" onChange={(insuranceEmail) => onChange({ ...value, insuranceEmail })} placeholder="ime@domen.rs" readOnly={readOnly} type="email" value={value.insuranceEmail} />
           </div>
           <div className="space-y-2">
             <span className="text-sm text-white/60">Da li ovo vozilo ima kasko osiguranje?</span>
@@ -582,7 +643,9 @@ export default function VehicleForm({
   value,
   onChange,
   readOnly = false,
-  accent = "blue"
+  accent = "blue",
+  accidentDate,
+  otherPlate
 }: Props) {
   const insurerListId = useMemo(() => `insurer-${value.side}-${section}`, [section, value.side]);
   const postalCodeListId = useMemo(() => `postal-${value.side}-${section}`, [section, value.side]);
@@ -614,6 +677,7 @@ export default function VehicleForm({
             postalCodeListId={postalCodeListId}
             readOnly={readOnly}
             value={value}
+            accidentDate={accidentDate}
           />
         ) : section === "vehicle" ? (
           <VehicleFields
@@ -622,6 +686,7 @@ export default function VehicleForm({
             makeListId={makeListId}
             modelListId={modelListId}
             plateAreaListId={plateAreaListId}
+            otherPlate={otherPlate}
             onChange={onChange}
             readOnly={readOnly}
             value={value}
@@ -635,6 +700,7 @@ export default function VehicleForm({
             postalCodeListId={postalCodeListId}
             readOnly={readOnly}
             value={value}
+            accidentDate={accidentDate}
           />
         )}
       </Card>

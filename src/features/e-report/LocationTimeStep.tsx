@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import Button from "../../components/Button";
 import Card from "../../components/Card";
+import { normalizePhone } from "../../lib/utils";
 import type { LocationDetails } from "../../types";
 
 type Props = {
@@ -11,6 +12,35 @@ type Props = {
   readOnly?: boolean;
 };
 
+type Witness = {
+  name: string;
+  address: string;
+  phone: string;
+};
+
+const emptyWitness = (): Witness => ({ name: "", address: "", phone: "" });
+
+function parseWitnesses(value: string): Witness[] {
+  if (!value.trim()) {
+    return [];
+  }
+
+  return value
+    .split(/\r?\n/)
+    .slice(0, 2)
+    .map((line) => {
+      const [name = "", address = "", phone = ""] = line.split(", ");
+      return { name, address, phone };
+    });
+}
+
+function serializeWitnesses(witnesses: Witness[]) {
+  return witnesses
+    .map((witness) => [witness.name, witness.address, witness.phone].map((part) => part.trim()).join(", "))
+    .filter((line) => line.replace(/,/g, "").trim())
+    .join("\n");
+}
+
 export default function LocationTimeStep({
   value,
   witnessInfo,
@@ -20,6 +50,10 @@ export default function LocationTimeStep({
 }: Props) {
   const [gpsState, setGpsState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [gpsMessage, setGpsMessage] = useState<string | null>(null);
+  const [witnessesEnabled, setWitnessesEnabled] = useState(Boolean(witnessInfo.trim()));
+  const parsedWitnesses = useMemo(() => parseWitnesses(witnessInfo), [witnessInfo]);
+  const witnesses = witnessesEnabled ? (parsedWitnesses.length ? parsedWitnesses : [emptyWitness()]) : [];
+  const hasWitnesses = witnessesEnabled;
   const mapUrl = useMemo(() => {
     if (!value.latitude || !value.longitude) {
       return null;
@@ -32,6 +66,19 @@ export default function LocationTimeStep({
     ...next,
     address: [next.street, next.streetNumber].filter(Boolean).join(" ")
   });
+
+  const updateWitnesses = (nextWitnesses: Witness[]) => {
+    setWitnessesEnabled(nextWitnesses.length > 0);
+    onWitnessInfoChange(serializeWitnesses(nextWitnesses));
+  };
+
+  const updateWitness = (index: number, patch: Partial<Witness>) => {
+    updateWitnesses(
+      witnesses.map((witness, witnessIndex) =>
+        witnessIndex === index ? { ...witness, ...patch } : witness
+      )
+    );
+  };
 
   const resolveAddressFromCoordinates = async (latitude: number, longitude: number) => {
     const controller = new AbortController();
@@ -256,16 +303,82 @@ export default function LocationTimeStep({
             onChange={(event) => onChange({ ...value, country: event.target.value })}
           />
         </label>
-        <label className="col-span-2 space-y-2">
-          <span className="text-sm text-white/60">Svedoci</span>
-          <textarea
-            className="input-glass min-h-[90px]"
-            disabled={readOnly}
-            placeholder="Imena, adrese i telefoni svedoka"
-            value={witnessInfo}
-            onChange={(event) => onWitnessInfoChange(event.target.value)}
-          />
-        </label>
+        <div className="col-span-2 space-y-3 rounded-[20px] border border-white/10 bg-white/5 p-4">
+          <div className="space-y-1">
+            <div className="text-sm font-medium text-white">Svedoci</div>
+            <div className="text-xs text-white/50">Opcionalno, najvise dva svedoka.</div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              className={`rounded-[18px] border px-4 py-3 text-sm transition ${!hasWitnesses ? "border-emerald-300/45 bg-emerald-500/16 text-white" : "border-white/10 bg-white/5 text-white/70"}`}
+              disabled={readOnly}
+              onClick={() => updateWitnesses([])}
+              type="button"
+            >
+              Nema svedoka
+            </button>
+            <button
+              className={`rounded-[18px] border px-4 py-3 text-sm transition ${hasWitnesses ? "border-sky-300/45 bg-sky-500/16 text-white" : "border-white/10 bg-white/5 text-white/70"}`}
+              disabled={readOnly}
+              onClick={() => setWitnessesEnabled(true)}
+              type="button"
+            >
+              Ima svedoka
+            </button>
+          </div>
+          {hasWitnesses ? (
+            <div className="space-y-4">
+              {witnesses.map((witness, index) => (
+                <div className="space-y-3 rounded-[18px] border border-white/10 bg-black/10 p-3" key={index}>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-xs uppercase tracking-[0.2em] text-white/45">Svedok {index + 1}</div>
+                    <button
+                      className="text-xs text-red-200/80"
+                      disabled={readOnly}
+                      onClick={() => updateWitnesses(witnesses.filter((_, witnessIndex) => witnessIndex !== index))}
+                      type="button"
+                    >
+                      Ukloni
+                    </button>
+                  </div>
+                  <input
+                    className="input-glass"
+                    disabled={readOnly}
+                    placeholder="Ime i prezime"
+                    value={witness.name}
+                    onChange={(event) => updateWitness(index, { name: event.target.value })}
+                  />
+                  <input
+                    className="input-glass"
+                    disabled={readOnly}
+                    placeholder="Adresa"
+                    value={witness.address}
+                    onChange={(event) => updateWitness(index, { address: event.target.value })}
+                  />
+                  <input
+                    className="input-glass"
+                    disabled={readOnly}
+                    inputMode="tel"
+                    placeholder="+381641234567"
+                    type="tel"
+                    value={witness.phone}
+                    onChange={(event) => updateWitness(index, { phone: normalizePhone(event.target.value) })}
+                  />
+                </div>
+              ))}
+              {witnesses.length < 2 ? (
+                <Button
+                  disabled={readOnly}
+                  onClick={() => updateWitnesses([...witnesses, emptyWitness()])}
+                  type="button"
+                  variant="secondary"
+                >
+                  Dodaj jos jednog svedoka
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
       </Card>
 
       {gpsMessage ? (
