@@ -1143,6 +1143,16 @@ export default function SceneSketchStep({
                       className="absolute inset-0"
                       style={{ zIndex: MAP_OVERLAY_Z_INDEX, pointerEvents: "none" }}
                     >
+                    {isMobileVehicleSheetOpen && useMobileEditorLayout ? (
+                      <button
+                        aria-label="Zatvori kontrole vozila"
+                        className="pointer-events-auto absolute inset-0"
+                        onClick={() => setIsMobileVehicleSheetOpen(false)}
+                        style={{ zIndex: MAP_OVERLAY_Z_INDEX - 1 }}
+                        type="button"
+                      />
+                    ) : null}
+
                     {hasGps ? (
                       <div className="pointer-events-none absolute inset-0">
                         <button
@@ -1263,7 +1273,7 @@ export default function SceneSketchStep({
                 ) : null}
 
                 {isMobileVehicleSheetOpen && useMobileEditorLayout ? (
-                  <div className="fixed inset-x-0 bottom-0 z-[70] rounded-t-[30px] border border-white/10 bg-[#111827]/95 px-4 pb-5 pt-4 shadow-[0_-18px_45px_rgba(0,0,0,0.45)] backdrop-blur">
+                  <div className="fixed inset-x-0 bottom-0 z-[2000] rounded-t-[30px] border border-white/10 bg-[#111827]/95 px-4 pb-5 pt-4 shadow-[0_-18px_45px_rgba(0,0,0,0.45)] backdrop-blur">
                     <div className="mx-auto max-w-md space-y-4">
                       <div className="flex items-center justify-between gap-3">
                         <div>
