@@ -92,7 +92,8 @@ function SignatureModal({
       window.cancelAnimationFrame(resizeFrame);
       resizeFrame = window.requestAnimationFrame(() => {
         const rect = area.getBoundingClientRect();
-        const displayWidth = Math.max(1, Math.min(1200, rect.width, rect.height * (20 / 9)));
+        const targetHeight = Math.min(rect.height, window.innerHeight * 0.7);
+        const displayWidth = Math.max(1, Math.min(1200, rect.width, targetHeight * (20 / 9)));
         const displayHeight = displayWidth * (9 / 20);
         const width = Math.max(1, Math.round(displayWidth));
         const height = Math.max(1, Math.round(displayHeight));
@@ -162,20 +163,20 @@ function SignatureModal({
 
   return (
     <div className="fixed inset-0 z-50 flex h-[100dvh] flex-col bg-bg">
-      <div className="flex items-center justify-between px-4 py-4 text-white">
-        <button onClick={onClose} type="button">
+      <div className="relative flex min-h-[56px] items-center justify-between px-4 py-2 text-white">
+        <button className="relative z-10" onClick={onClose} type="button">
           Odustani
         </button>
-        <div className="text-sm uppercase tracking-[0.3em] text-white/50">Potpisivanje</div>
+        <div className="absolute inset-x-24 text-center text-xl font-semibold text-white">{label}</div>
+        <div className="relative z-10 text-sm uppercase tracking-[0.3em] text-white/50">Potpisivanje</div>
       </div>
 
-      <div className="flex flex-1 flex-col justify-between p-4">
-        <div className="space-y-2 text-center">
-          <div className="text-2xl font-semibold text-white">{label}</div>
-          <div className="text-sm text-white/55 md:hidden">Okreni telefon horizontalno za lakse potpisivanje.</div>
+      <div className="flex min-h-0 flex-1 flex-col justify-between p-4 pt-1">
+        <div className="mb-2 text-center text-sm text-white/55 md:hidden">
+          Okreni telefon horizontalno za lakše potpisivanje.
         </div>
 
-        <div className="my-4 flex min-h-0 flex-1 items-center justify-center" ref={canvasAreaRef}>
+        <div className="mb-4 flex min-h-0 flex-1 items-center justify-center" ref={canvasAreaRef}>
           <div
             className="overflow-hidden rounded-[28px] border border-dashed border-slate-300 bg-white shadow-glass"
             style={{ height: canvasSize.displayHeight, width: canvasSize.displayWidth }}
