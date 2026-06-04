@@ -550,6 +550,7 @@ export default function SceneSketchStep({
   const [dragTarget, setDragTarget] = useState<DragTarget>(null);
   const [drawMode, setDrawMode] = useState(false);
   const [drawingPathId, setDrawingPathId] = useState<string | null>(null);
+  const [useMobileEditorLayout, setUseMobileEditorLayout] = useState(false);
   const [mapZoom, setMapZoom] = useState(sceneSketch.mapZoom ?? 18);
   const [mapCenter, setMapCenter] = useState({
     latitude: sceneSketch.mapCenterLatitude ?? latitude ?? 0,
@@ -578,6 +579,24 @@ export default function SceneSketchStep({
   );
 
   useEffect(() => {
+    const narrowScreen = window.matchMedia("(max-width: 767px)");
+    const coarsePointer = window.matchMedia("(pointer: coarse)");
+
+    const syncEditorLayout = () => {
+      setUseMobileEditorLayout(narrowScreen.matches || coarsePointer.matches);
+    };
+
+    narrowScreen.addEventListener("change", syncEditorLayout);
+    coarsePointer.addEventListener("change", syncEditorLayout);
+    syncEditorLayout();
+
+    return () => {
+      narrowScreen.removeEventListener("change", syncEditorLayout);
+      coarsePointer.removeEventListener("change", syncEditorLayout);
+    };
+  }, []);
+
+  useEffect(() => {
     if (isEditorOpen) {
       return;
     }
@@ -601,7 +620,7 @@ export default function SceneSketchStep({
     const syncBoardSize = () => {
       window.cancelAnimationFrame(resizeFrame);
       resizeFrame = window.requestAnimationFrame(() => {
-        if (!window.matchMedia("(max-width: 767px)").matches) {
+        if (!useMobileEditorLayout) {
           setMobileBoardSize(null);
           leafletMapRef.current?.invalidateSize(false);
           return;
@@ -632,7 +651,7 @@ export default function SceneSketchStep({
       window.removeEventListener("orientationchange", syncBoardSize);
       window.removeEventListener("resize", syncBoardSize);
     };
-  }, [isEditorOpen]);
+  }, [isEditorOpen, useMobileEditorLayout]);
 
   useEffect(() => {
     if (!isEditorOpen || !hasGps || !mapHostRef.current) {
@@ -731,7 +750,7 @@ export default function SceneSketchStep({
   };
 
   const openEditor = async () => {
-    if (window.matchMedia("(max-width: 767px)").matches && !document.fullscreenElement) {
+    if (useMobileEditorLayout && !document.fullscreenElement) {
       try {
         await document.documentElement.requestFullscreen();
         requestedFullscreenRef.current = true;
@@ -740,7 +759,7 @@ export default function SceneSketchStep({
       }
     }
 
-    if (window.matchMedia("(max-width: 767px)").matches) {
+    if (useMobileEditorLayout) {
       try {
         const orientation = screen.orientation as ScreenOrientation & {
           lock?: (orientation: "landscape") => Promise<void>;
@@ -1243,8 +1262,8 @@ export default function SceneSketchStep({
                   </div>
                 ) : null}
 
-                {isMobileVehicleSheetOpen ? (
-                  <div className="fixed inset-x-0 bottom-0 z-[70] rounded-t-[30px] border border-white/10 bg-[#111827]/95 px-4 pb-5 pt-4 shadow-[0_-18px_45px_rgba(0,0,0,0.45)] backdrop-blur md:hidden">
+                {isMobileVehicleSheetOpen && useMobileEditorLayout ? (
+                  <div className="fixed inset-x-0 bottom-0 z-[70] rounded-t-[30px] border border-white/10 bg-[#111827]/95 px-4 pb-5 pt-4 shadow-[0_-18px_45px_rgba(0,0,0,0.45)] backdrop-blur">
                     <div className="mx-auto max-w-md space-y-4">
                       <div className="flex items-center justify-between gap-3">
                         <div>
@@ -1296,7 +1315,8 @@ export default function SceneSketchStep({
                   </div>
                 ) : null}
 
-                <div className="hidden space-y-4 rounded-[28px] border border-white/10 bg-card p-4 md:block">
+                {!useMobileEditorLayout ? (
+                <div className="space-y-4 rounded-[28px] border border-white/10 bg-card p-4">
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       className={`rounded-[18px] border px-4 py-3 text-sm font-bold ${
@@ -1378,6 +1398,7 @@ export default function SceneSketchStep({
                     Potvrdi skicu
                   </Button>
                 </div>
+                ) : null}
               </div>
             </div>
           </div>
