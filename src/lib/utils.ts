@@ -65,14 +65,7 @@ export const VEHICLE_MAKE_OPTIONS = Object.keys(VEHICLE_MODELS_BY_MAKE);
 
 export const VEHICLE_TYPE_OPTIONS = [
   "Putnicko",
-  "Teretno",
-  "Motocikl",
-  "Moped",
-  "Autobus",
-  "Kombi",
-  "Traktor",
-  "Prikolica",
-  "Drugo"
+  "Teretno"
 ] as const;
 
 export const POSTAL_CODE_CITY_OPTIONS = [
