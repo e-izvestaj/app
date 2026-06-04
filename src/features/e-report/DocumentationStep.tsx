@@ -120,6 +120,7 @@ function DriverLicenseUploader({
         <div className="mb-3 text-sm font-medium text-white">{sideLabel("front", 1)}</div>
         <Camera
           buttonLabel="Dodaj sliku vozacke"
+          crop
           disabled={readOnly}
           multiple={false}
           onCapture={saveFiles}
