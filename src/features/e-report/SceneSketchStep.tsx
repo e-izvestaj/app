@@ -627,8 +627,7 @@ export default function SceneSketchStep({
         }
 
         const rect = area.getBoundingClientRect();
-        const targetHeight = Math.min(rect.height, window.innerHeight * 0.7);
-        const width = Math.max(1, Math.min(rect.width, targetHeight * (20 / 9)));
+        const width = Math.max(1, Math.min(rect.width, rect.height * (20 / 9)));
         const height = width * (9 / 20);
         setMobileBoardSize((current) =>
           current && Math.abs(current.width - width) < 1 && Math.abs(current.height - height) < 1
