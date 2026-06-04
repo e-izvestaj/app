@@ -347,6 +347,25 @@ export default function ReportWizard({
     }
   };
 
+  const currentVehicleMissingFields = (() => {
+    switch (currentStep) {
+      case "Vozac A":
+        return getVehicleSectionMissingFields(report.vehicleA, "driver");
+      case "Vozilo A":
+        return getVehicleSectionMissingFields(report.vehicleA, "vehicle");
+      case "Polisa A":
+        return getVehicleSectionMissingFields(report.vehicleA, "policy");
+      case "Vozac B":
+        return getVehicleSectionMissingFields(report.vehicleB, "driver");
+      case "Vozilo B":
+        return getVehicleSectionMissingFields(report.vehicleB, "vehicle");
+      case "Polisa B":
+        return getVehicleSectionMissingFields(report.vehicleB, "policy");
+      default:
+        return [];
+    }
+  })();
+
   const renderStep = () => {
     switch (currentStep) {
       case "Bezbednost":
@@ -576,6 +595,12 @@ export default function ReportWizard({
       ) : null}
 
       <div className="mt-6">
+        {currentVehicleMissingFields.length > 0 && !readOnly ? (
+          <div className="mb-3 rounded-[18px] border border-amber-300/25 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
+            <div className="font-semibold">Za nastavak popuni ili ispravi:</div>
+            <div className="mt-1 text-amber-100/80">{currentVehicleMissingFields.join(", ")}</div>
+          </div>
+        ) : null}
         {currentStep === "Potpisi" ? (
           <Button disabled type="button" variant="secondary">
             {isLocking

@@ -564,6 +564,9 @@ export function getVehicleMissingFields(vehicle: VehicleDraft) {
   requireValue("Datum rodjenja", vehicle.driverBirthDate);
   requireValue("Adresa vozaca", vehicle.driverAddress);
   requireValue("Postanski broj vozaca", vehicle.driverPostalCode);
+  if (vehicle.driverPostalCode && !/^\d{5}$/.test(vehicle.driverPostalCode)) {
+    missing.push("Ispravan postanski broj vozaca");
+  }
   requireValue("Grad vozaca", vehicle.driverCity);
   requireOneOf("Telefon ili e-mail vozaca", [vehicle.driverPhone, vehicle.driverEmail]);
   if (vehicle.driverPhone && !isValidPhone(vehicle.driverPhone)) {
@@ -587,6 +590,9 @@ export function getVehicleMissingFields(vehicle: VehicleDraft) {
   requireValue("Adresa ugovaraca", vehicle.ownerAddress);
   requireValue("Grad ugovaraca", vehicle.ownerCity);
   requireValue("Postanski broj ugovaraca", vehicle.ownerPostalCode);
+  if (vehicle.ownerPostalCode && !/^\d{5}$/.test(vehicle.ownerPostalCode)) {
+    missing.push("Ispravan postanski broj ugovaraca");
+  }
   requireValue("Drzava ugovaraca", vehicle.ownerCountry);
   requireOneOf("Telefon ili e-mail ugovaraca", [vehicle.ownerPhone, vehicle.ownerEmail]);
   if (vehicle.ownerPhone && !isValidPhone(vehicle.ownerPhone)) {
@@ -627,6 +633,7 @@ export function getVehicleSectionMissingFields(vehicle: VehicleDraft, section: V
         "Datum rodjenja",
         "Adresa vozaca",
         "Postanski broj vozaca",
+        "Ispravan postanski broj vozaca",
         "Grad vozaca",
         "Telefon ili e-mail vozaca",
         "Ispravan telefon vozaca",
@@ -657,6 +664,7 @@ export function getVehicleSectionMissingFields(vehicle: VehicleDraft, section: V
       "Adresa ugovaraca",
       "Grad ugovaraca",
       "Postanski broj ugovaraca",
+      "Ispravan postanski broj ugovaraca",
       "Drzava ugovaraca",
       "Telefon ili e-mail ugovaraca",
       "Ispravan telefon ugovaraca",

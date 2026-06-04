@@ -100,6 +100,7 @@ function Field({
   list,
   placeholder,
   invalid = false,
+  errorMessage,
   accent = "blue"
 }: {
   label: string;
@@ -110,6 +111,7 @@ function Field({
   list?: string;
   placeholder?: string;
   invalid?: boolean;
+  errorMessage?: string;
   accent?: AccentTone;
 }) {
   const accentBorder =
@@ -129,6 +131,7 @@ function Field({
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
+      {invalid && errorMessage ? <span className="block text-xs text-red-200">{errorMessage}</span> : null}
     </label>
   );
 }
@@ -277,7 +280,8 @@ function DriverFields({
       <Field accent={accent} invalid={isMissing("Adresa vozaca")} label="Adresa" onChange={(driverAddress) => onChange({ ...value, driverAddress })} placeholder="Adresa" readOnly={readOnly} value={value.driverAddress} />
       <div className="grid grid-cols-2 gap-3">
         <Field
-          invalid={isMissing("Postanski broj vozaca")}
+          invalid={isMissing("Postanski broj vozaca") || isMissing("Ispravan postanski broj vozaca")}
+          errorMessage={isMissing("Ispravan postanski broj vozaca") ? "Postanski broj mora imati 5 cifara." : undefined}
           label="Postanski broj"
           list={postalCodeListId}
           onChange={(driverPostalCode) =>
@@ -290,11 +294,11 @@ function DriverFields({
           value={value.driverPostalCode}
           accent={accent}
         />
-        <Field accent={accent} label="Grad" onChange={(driverCity) => onChange({ ...value, driverCity })} placeholder="Grad" readOnly={readOnly} value={value.driverCity} />
+        <Field accent={accent} invalid={isMissing("Grad vozaca")} label="Grad" onChange={(driverCity) => onChange({ ...value, driverCity })} placeholder="Grad" readOnly={readOnly} value={value.driverCity} />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field accent={accent} invalid={(isMissing("Telefon ili e-mail vozaca") && !value.driverPhone) || isMissing("Ispravan telefon vozaca")} label="Telefon" onChange={(driverPhone) => onChange({ ...value, driverPhone: normalizePhone(driverPhone) })} placeholder="+381641234567" readOnly={readOnly} type="tel" value={value.driverPhone} />
-        <Field accent={accent} invalid={(isMissing("Telefon ili e-mail vozaca") && !value.driverEmail) || isMissing("Ispravan e-mail vozaca")} label="E-mail" onChange={(driverEmail) => onChange({ ...value, driverEmail })} placeholder="ime@domen.rs" readOnly={readOnly} type="email" value={value.driverEmail} />
+        <Field accent={accent} errorMessage={isMissing("Ispravan telefon vozaca") ? "Unesi ispravan broj telefona." : undefined} invalid={(isMissing("Telefon ili e-mail vozaca") && !value.driverPhone) || isMissing("Ispravan telefon vozaca")} label="Telefon" onChange={(driverPhone) => onChange({ ...value, driverPhone: normalizePhone(driverPhone) })} placeholder="+381641234567" readOnly={readOnly} type="tel" value={value.driverPhone} />
+        <Field accent={accent} errorMessage={isMissing("Ispravan e-mail vozaca") ? "Unesi e-mail u formatu ime@domen.rs." : undefined} invalid={(isMissing("Telefon ili e-mail vozaca") && !value.driverEmail) || isMissing("Ispravan e-mail vozaca")} label="E-mail" onChange={(driverEmail) => onChange({ ...value, driverEmail })} placeholder="ime@domen.rs" readOnly={readOnly} type="email" value={value.driverEmail} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Field accent={accent} invalid={isMissing("Datum rodjenja")} label="Datum rodjenja" onChange={(driverBirthDate) => onChange({ ...value, driverBirthDate })} readOnly={readOnly} type="date" value={value.driverBirthDate} />
@@ -558,7 +562,8 @@ function PolicyFields({
           <Field accent={accent} invalid={isMissing("Adresa ugovaraca")} label="Adresa osiguranika" onChange={(ownerAddress) => onChange({ ...value, ownerAddress })} placeholder="Adresa osiguranika" readOnly={ownerFieldsReadOnly} value={value.ownerAddress} />
           <div className="grid grid-cols-3 gap-3">
             <Field
-              invalid={isMissing("Postanski broj ugovaraca")}
+              invalid={isMissing("Postanski broj ugovaraca") || isMissing("Ispravan postanski broj ugovaraca")}
+              errorMessage={isMissing("Ispravan postanski broj ugovaraca") ? "Postanski broj mora imati 5 cifara." : undefined}
               label="Postanski broj"
               list={postalCodeListId}
               onChange={(ownerPostalCode) =>
@@ -575,8 +580,8 @@ function PolicyFields({
             <Field accent={accent} invalid={isMissing("Drzava ugovaraca")} label="Drzava osiguranika" onChange={(ownerCountry) => onChange({ ...value, ownerCountry })} placeholder="Drzava" readOnly={ownerFieldsReadOnly} value={value.ownerCountry} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field accent={accent} invalid={(isMissing("Telefon ili e-mail ugovaraca") && !value.ownerPhone) || isMissing("Ispravan telefon ugovaraca")} label="Telefon osiguranika" onChange={(ownerPhone) => onChange({ ...value, ownerPhone: normalizePhone(ownerPhone) })} placeholder="+381641234567" readOnly={ownerFieldsReadOnly} type="tel" value={value.ownerPhone} />
-            <Field accent={accent} invalid={(isMissing("Telefon ili e-mail ugovaraca") && !value.ownerEmail) || isMissing("Ispravan e-mail ugovaraca")} label="E-mail osiguranika" onChange={(ownerEmail) => onChange({ ...value, ownerEmail })} placeholder="ime@domen.rs" readOnly={ownerFieldsReadOnly} type="email" value={value.ownerEmail} />
+            <Field accent={accent} errorMessage={isMissing("Ispravan telefon ugovaraca") ? "Unesi ispravan broj telefona." : undefined} invalid={(isMissing("Telefon ili e-mail ugovaraca") && !value.ownerPhone) || isMissing("Ispravan telefon ugovaraca")} label="Telefon osiguranika" onChange={(ownerPhone) => onChange({ ...value, ownerPhone: normalizePhone(ownerPhone) })} placeholder="+381641234567" readOnly={ownerFieldsReadOnly} type="tel" value={value.ownerPhone} />
+            <Field accent={accent} errorMessage={isMissing("Ispravan e-mail ugovaraca") ? "Unesi e-mail u formatu ime@domen.rs." : undefined} invalid={(isMissing("Telefon ili e-mail ugovaraca") && !value.ownerEmail) || isMissing("Ispravan e-mail ugovaraca")} label="E-mail osiguranika" onChange={(ownerEmail) => onChange({ ...value, ownerEmail })} placeholder="ime@domen.rs" readOnly={ownerFieldsReadOnly} type="email" value={value.ownerEmail} />
           </div>
         </div>
       </div>
@@ -607,8 +612,8 @@ function PolicyFields({
             <Field accent={accent} invalid={isMissing("Drzava osiguranja")} label="Drzava osiguranja" onChange={(insuranceCountry) => onChange({ ...value, insuranceCountry })} placeholder="Drzava" readOnly={readOnly} value={value.insuranceCountry} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field accent={accent} invalid={(isMissing("Telefon ili e-mail osiguranja") && !value.insurancePhone) || isMissing("Ispravan telefon osiguranja")} label="Telefon osiguranja" onChange={(insurancePhone) => onChange({ ...value, insurancePhone: normalizePhone(insurancePhone) })} placeholder="+381641234567" readOnly={readOnly} type="tel" value={value.insurancePhone} />
-            <Field accent={accent} invalid={(isMissing("Telefon ili e-mail osiguranja") && !value.insuranceEmail) || isMissing("Ispravan e-mail osiguranja")} label="E-mail osiguranja" onChange={(insuranceEmail) => onChange({ ...value, insuranceEmail })} placeholder="ime@domen.rs" readOnly={readOnly} type="email" value={value.insuranceEmail} />
+            <Field accent={accent} errorMessage={isMissing("Ispravan telefon osiguranja") ? "Unesi ispravan broj telefona." : undefined} invalid={(isMissing("Telefon ili e-mail osiguranja") && !value.insurancePhone) || isMissing("Ispravan telefon osiguranja")} label="Telefon osiguranja" onChange={(insurancePhone) => onChange({ ...value, insurancePhone: normalizePhone(insurancePhone) })} placeholder="+381641234567" readOnly={readOnly} type="tel" value={value.insurancePhone} />
+            <Field accent={accent} errorMessage={isMissing("Ispravan e-mail osiguranja") ? "Unesi e-mail u formatu ime@domen.rs." : undefined} invalid={(isMissing("Telefon ili e-mail osiguranja") && !value.insuranceEmail) || isMissing("Ispravan e-mail osiguranja")} label="E-mail osiguranja" onChange={(insuranceEmail) => onChange({ ...value, insuranceEmail })} placeholder="ime@domen.rs" readOnly={readOnly} type="email" value={value.insuranceEmail} />
           </div>
           <div className="space-y-2">
             <span className="text-sm text-white/60">Da li ovo vozilo ima kasko osiguranje?</span>
