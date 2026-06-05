@@ -118,34 +118,48 @@ function DriverLicenseUploader({
 
       <div className="rounded-[20px] border border-white/10 bg-black/15 p-4">
         <div className="mb-3 text-sm font-medium text-white">{sideLabel("front", 1)}</div>
-        <Camera
-          buttonLabel={photo ? "Izmeni sliku vozacke" : "Dodaj sliku vozacke"}
-          crop
-          disabled={readOnly}
-          multiple={false}
-          onCapture={saveFiles}
-          reviewBeforeSave
-          title={title}
-        />
         {photo ? (
           <div className="mt-3 flex items-center justify-between gap-3 rounded-[18px] border border-white/10 bg-white/5 px-4 py-3">
             <div className="text-sm font-medium text-white">Slika dodata</div>
             {!readOnly ? (
-              <button
-                className={`rounded-full border px-3 py-1 text-xs ${theme.button}`}
-                onClick={() =>
-                  onChange({
-                    ...vehicle,
-                    documentPhotos: vehicle.documentPhotos.filter((item) => item.id !== photo.id)
-                  })
-                }
-                type="button"
-              >
-                Obrisi
-              </button>
+              <div className="flex shrink-0 items-center gap-2">
+                <Camera
+                  buttonLabel="Izmeni"
+                  compact
+                  crop
+                  disabled={readOnly}
+                  hideStatus
+                  multiple={false}
+                  onCapture={saveFiles}
+                  reviewBeforeSave
+                  title={title}
+                />
+                <button
+                  className={`rounded-full border px-3 py-1 text-xs ${theme.button}`}
+                  onClick={() =>
+                    onChange({
+                      ...vehicle,
+                      documentPhotos: vehicle.documentPhotos.filter((item) => item.id !== photo.id)
+                    })
+                  }
+                  type="button"
+                >
+                  Obrisi
+                </button>
+              </div>
             ) : null}
           </div>
-        ) : null}
+        ) : (
+          <Camera
+            buttonLabel="Dodaj sliku vozacke"
+            crop
+            disabled={readOnly}
+            multiple={false}
+            onCapture={saveFiles}
+            reviewBeforeSave
+            title={title}
+          />
+        )}
       </div>
     </div>
   );
@@ -192,6 +206,7 @@ function DamageCard({
       <Camera
         buttonLabel="Dodaj fotografije stete"
         disabled={readOnly}
+        hideStatus={photos.length > 0}
         onCapture={handleCapture}
         reviewBeforeSave
         title={title}

@@ -14,6 +14,8 @@ type Props = {
   multiple?: boolean;
   crop?: boolean;
   reviewBeforeSave?: boolean;
+  compact?: boolean;
+  hideStatus?: boolean;
 };
 
 export default function Camera({
@@ -24,7 +26,9 @@ export default function Camera({
   buttonLabel,
   multiple = true,
   crop = false,
-  reviewBeforeSave = false
+  reviewBeforeSave = false,
+  compact = false,
+  hideStatus = false
 }: Props) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [isPicking, setIsPicking] = useState(false);
@@ -182,34 +186,70 @@ export default function Camera({
 
   return (
     <>
-      <Card className="space-y-4 bg-gradient-to-b from-white/10 to-white/5">
-        <div className="text-lg font-semibold text-white">{title}</div>
-        <input
-          ref={inputRef}
-          className="hidden"
-          type="file"
-          accept="image/*"
-          capture="environment"
-          multiple={multiple}
-          onChange={handleChange}
-        />
-        <Button disabled={disabled} onClick={handleOpenPicker} type="button">
-          {isPicking ? "Otvaram kameru..." : buttonLabel || "Otvori kameru"}
-        </Button>
-        {statusMessage ? (
-          <div
-            className={`rounded-[20px] px-4 py-3 text-sm ${
-              statusTone === "error"
-                ? "border border-red-400/25 bg-red-500/12 text-red-100"
-                : statusTone === "success"
-                  ? "border border-emerald-400/25 bg-emerald-500/12 text-emerald-100"
-                  : "border border-white/10 bg-white/6 text-white/65"
-            }`}
+      {compact ? (
+        <>
+          <input
+            ref={inputRef}
+            className="hidden"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            multiple={multiple}
+            onChange={handleChange}
+          />
+          <button
+            className="rounded-full border border-white/15 bg-white/8 px-3 py-1 text-xs font-semibold text-white/80"
+            disabled={disabled}
+            onClick={handleOpenPicker}
+            type="button"
           >
-            {statusMessage}
-          </div>
-        ) : null}
-      </Card>
+            {isPicking ? "Otvaram..." : buttonLabel || "Izmeni"}
+          </button>
+        </>
+      ) : (
+        <Card className="space-y-4 bg-gradient-to-b from-white/10 to-white/5">
+          <div className="text-lg font-semibold text-white">{title}</div>
+          <input
+            ref={inputRef}
+            className="hidden"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            multiple={multiple}
+            onChange={handleChange}
+          />
+          <Button disabled={disabled} onClick={handleOpenPicker} type="button">
+            {isPicking ? "Otvaram kameru..." : buttonLabel || "Otvori kameru"}
+          </Button>
+          {statusMessage && !hideStatus ? (
+            <div
+              className={`rounded-[20px] px-4 py-3 text-sm ${
+                statusTone === "error"
+                  ? "border border-red-400/25 bg-red-500/12 text-red-100"
+                  : statusTone === "success"
+                    ? "border border-emerald-400/25 bg-emerald-500/12 text-emerald-100"
+                    : "border border-white/10 bg-white/6 text-white/65"
+              }`}
+            >
+              {statusMessage}
+            </div>
+          ) : null}
+        </Card>
+      )}
+
+      {compact && statusMessage && !hideStatus ? (
+        <div
+          className={`rounded-[20px] px-4 py-3 text-sm ${
+            statusTone === "error"
+              ? "border border-red-400/25 bg-red-500/12 text-red-100"
+              : statusTone === "success"
+                ? "border border-emerald-400/25 bg-emerald-500/12 text-emerald-100"
+                : "border border-white/10 bg-white/6 text-white/65"
+          }`}
+        >
+          {statusMessage}
+        </div>
+      ) : null}
 
       {reviewFiles.length && reviewImageUrl
         ? createPortal(
