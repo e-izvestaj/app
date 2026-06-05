@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { createPortal } from "react-dom";
 import Button from "./Button";
 import Card from "./Card";
 import DocumentCropper from "./DocumentCropper";
@@ -12,6 +13,7 @@ type Props = {
   buttonLabel?: string;
   multiple?: boolean;
   crop?: boolean;
+  reviewBeforeSave?: boolean;
 };
 
 export default function Camera({
@@ -21,13 +23,30 @@ export default function Camera({
   disabled = false,
   buttonLabel,
   multiple = true,
-  crop = false
+  crop = false,
+  reviewBeforeSave = false
 }: Props) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [isPicking, setIsPicking] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [statusTone, setStatusTone] = useState<"neutral" | "error" | "success">("neutral");
   const [pendingCropFile, setPendingCropFile] = useState<File | null>(null);
+  const [reviewFiles, setReviewFiles] = useState<File[]>([]);
+  const reviewImageUrl = useMemo(() => {
+    if (!reviewFiles[0]) {
+      return "";
+    }
+
+    return URL.createObjectURL(reviewFiles[0]);
+  }, [reviewFiles]);
+
+  useEffect(() => {
+    if (!reviewImageUrl) {
+      return;
+    }
+
+    return () => URL.revokeObjectURL(reviewImageUrl);
+  }, [reviewImageUrl]);
 
   useEffect(() => {
     if (!isPicking) {
@@ -88,6 +107,12 @@ export default function Camera({
     }
   };
 
+  const filesToFileList = (files: File[]) => {
+    const transfer = new DataTransfer();
+    files.forEach((file) => transfer.items.add(file));
+    return transfer.files;
+  };
+
   const handleChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
 
@@ -95,6 +120,15 @@ export default function Camera({
       setIsPicking(false);
       setStatusTone("neutral");
       setStatusMessage("Nije izabrana fotografija.");
+      event.target.value = "";
+      return;
+    }
+
+    if (reviewBeforeSave) {
+      setReviewFiles(Array.from(files));
+      setIsPicking(false);
+      setStatusTone("neutral");
+      setStatusMessage("Proveri kvalitet fotografije pre cuvanja.");
       event.target.value = "";
       return;
     }
@@ -110,6 +144,33 @@ export default function Camera({
 
     await saveFiles(files);
     event.target.value = "";
+  };
+
+  const retakeReview = () => {
+    const input = inputRef.current;
+    setReviewFiles([]);
+    setIsPicking(true);
+    setStatusTone("neutral");
+    setStatusMessage("Otvaram kameru ili galeriju...");
+    input?.click();
+  };
+
+  const acceptReview = async () => {
+    const files = reviewFiles;
+    setReviewFiles([]);
+
+    if (!files.length) {
+      return;
+    }
+
+    if (crop && files.length === 1) {
+      setPendingCropFile(files[0]);
+      setStatusTone("neutral");
+      setStatusMessage("Podesi ivice dokumenta pre cuvanja.");
+      return;
+    }
+
+    await saveFiles(filesToFileList(files));
   };
 
   const saveCroppedFile = async (file: File) => {
@@ -150,16 +211,47 @@ export default function Camera({
         ) : null}
       </Card>
 
+      {reviewFiles.length && reviewImageUrl
+        ? createPortal(
+            <div className="fixed inset-0 z-[100] overflow-y-auto bg-[#0B0D12]/98 px-4 py-5 text-white">
+              <div className="mx-auto w-full max-w-md space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <button className="text-sm text-white/60" onClick={retakeReview} type="button">
+                    Slikaj ponovo
+                  </button>
+                  <div className="text-lg font-semibold">Proveri kvalitet slike</div>
+                  <div className="w-20" />
+                </div>
+                <div className="overflow-hidden rounded-[24px] border border-white/10 bg-black">
+                  <img alt="Provera fotografije" className="block h-auto w-full" src={reviewImageUrl} />
+                </div>
+                {reviewFiles.length > 1 ? (
+                  <div className="text-center text-sm text-white/55">
+                    Izabrano fotografija: {reviewFiles.length}
+                  </div>
+                ) : null}
+                <Button onClick={acceptReview} type="button">
+                  Slika je OK
+                </Button>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
+
       {pendingCropFile ? (
-        <DocumentCropper
-          file={pendingCropFile}
-          onCancel={() => {
-            setPendingCropFile(null);
-            setStatusTone("neutral");
-            setStatusMessage("Crop dokumenta je otkazan.");
-          }}
-          onConfirm={saveCroppedFile}
-        />
+        createPortal(
+          <DocumentCropper
+            file={pendingCropFile}
+            onCancel={() => {
+              setPendingCropFile(null);
+              setStatusTone("neutral");
+              setStatusMessage("Crop dokumenta je otkazan.");
+            }}
+            onConfirm={saveCroppedFile}
+          />,
+          document.body
+        )
       ) : null}
     </>
   );

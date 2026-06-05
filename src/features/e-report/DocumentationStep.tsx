@@ -119,23 +119,20 @@ function DriverLicenseUploader({
       <div className="rounded-[20px] border border-white/10 bg-black/15 p-4">
         <div className="mb-3 text-sm font-medium text-white">{sideLabel("front", 1)}</div>
         <Camera
-          buttonLabel="Dodaj sliku vozacke"
+          buttonLabel={photo ? "Izmeni sliku vozacke" : "Dodaj sliku vozacke"}
           crop
           disabled={readOnly}
           multiple={false}
           onCapture={saveFiles}
+          reviewBeforeSave
           title={title}
         />
         {photo ? (
-          <div className="relative mt-3 overflow-hidden rounded-[18px] bg-white/5">
-            <img
-              alt={title}
-              className="aspect-[4/3] w-full object-cover"
-              src={photo.dataUrl}
-            />
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-[18px] border border-white/10 bg-white/5 px-4 py-3">
+            <div className="text-sm font-medium text-white">Slika dodata</div>
             {!readOnly ? (
               <button
-                className={`absolute right-2 top-2 rounded-full border px-3 py-1 text-xs ${theme.button}`}
+                className={`rounded-full border px-3 py-1 text-xs ${theme.button}`}
                 onClick={() =>
                   onChange({
                     ...vehicle,
@@ -196,25 +193,24 @@ function DamageCard({
         buttonLabel="Dodaj fotografije stete"
         disabled={readOnly}
         onCapture={handleCapture}
+        reviewBeforeSave
         title={title}
       />
 
       {photos.length ? (
-        <div className="grid grid-cols-2 gap-3">
-          {photos.map((photo, index) => (
-            <div key={photo.id} className="relative overflow-hidden rounded-[18px] bg-white/5">
-              <img alt={`${title} ${index + 1}`} className="aspect-[4/3] w-full object-cover" src={photo.dataUrl} />
-              {!readOnly ? (
-                <button
-                  className={`absolute right-2 top-2 rounded-full border px-3 py-1 text-xs ${theme.button}`}
-                  onClick={() => onPhotosChange(photos.filter((item) => item.id !== photo.id))}
-                  type="button"
-                >
-                  Obrisi
-                </button>
-              ) : null}
-            </div>
-          ))}
+        <div className="flex items-center justify-between gap-3 rounded-[18px] border border-white/10 bg-white/5 px-4 py-3">
+          <div className="text-sm font-medium text-white">
+            {photos.length === 1 ? "Fotografija dodata" : `Dodato fotografija: ${photos.length}`}
+          </div>
+          {!readOnly ? (
+            <button
+              className={`rounded-full border px-3 py-1 text-xs ${theme.button}`}
+              onClick={() => onPhotosChange([])}
+              type="button"
+            >
+              Obrisi
+            </button>
+          ) : null}
         </div>
       ) : null}
 
