@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import Button from "./Button";
 
 type Crop = { x: number; y: number; width: number; height: number };
 type DragMode = "move" | "top-left" | "top-right" | "bottom-left" | "bottom-right" | null;
@@ -151,13 +150,7 @@ export default function DocumentCropper({ file, onCancel, onConfirm }: Props) {
   return (
     <div className="fixed inset-0 z-[100] overflow-y-auto bg-[#0B0D12] px-4 pb-6 pt-4 text-white">
       <div className="mx-auto w-full max-w-md space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <button className="text-sm text-white/60" onClick={onCancel} type="button">
-            Otkaži
-          </button>
-          <div className="text-lg font-semibold">Podesi ivice dokumenta</div>
-          <div className="w-12" />
-        </div>
+        <div className="text-center text-lg font-semibold">Podesi ivice dokumenta</div>
 
         <div
           className="relative overflow-hidden rounded-[24px] border border-white/10 bg-black"
@@ -207,9 +200,24 @@ export default function DocumentCropper({ file, onCancel, onConfirm }: Props) {
         <div className="text-center text-sm text-white/55">
           Pomeri okvir ili njegove uglove tako da obuhvati dokument.
         </div>
-        <Button disabled={isSaving} onClick={confirm} type="button">
-          {isSaving ? "Obrađujem fotografiju..." : "Potvrdi crop"}
-        </Button>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            className="rounded-[18px] border border-white/12 bg-white/8 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isSaving}
+            onClick={confirm}
+            type="button"
+          >
+            {isSaving ? "Obradjujem..." : "Potvrdi"}
+          </button>
+          <button
+            className="rounded-[18px] border border-white/12 bg-white/8 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isSaving}
+            onClick={onCancel}
+            type="button"
+          >
+            Otkazi
+          </button>
+        </div>
       </div>
     </div>
   );

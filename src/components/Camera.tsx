@@ -16,6 +16,7 @@ type Props = {
   reviewBeforeSave?: boolean;
   compact?: boolean;
   hideStatus?: boolean;
+  plain?: boolean;
 };
 
 export default function Camera({
@@ -28,7 +29,8 @@ export default function Camera({
   crop = false,
   reviewBeforeSave = false,
   compact = false,
-  hideStatus = false
+  hideStatus = false,
+  plain = false
 }: Props) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [isPicking, setIsPicking] = useState(false);
@@ -186,7 +188,7 @@ export default function Camera({
 
   return (
     <>
-      {compact ? (
+      {compact || plain ? (
         <>
           <input
             ref={inputRef}
@@ -198,12 +200,16 @@ export default function Camera({
             onChange={handleChange}
           />
           <button
-            className="rounded-full border border-white/15 bg-white/8 px-3 py-1 text-xs font-semibold text-white/80"
+            className={
+              compact
+                ? "rounded-full border border-white/15 bg-white/8 px-3 py-1 text-xs font-semibold text-white/80"
+                : "w-full rounded-[24px] bg-accent px-5 py-4 text-left text-base font-semibold text-white shadow-[0_12px_35px_rgba(47,128,255,0.35)] transition duration-200 hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+            }
             disabled={disabled}
             onClick={handleOpenPicker}
             type="button"
           >
-            {isPicking ? "Otvaram..." : buttonLabel || "Izmeni"}
+            {isPicking ? (compact ? "Otvaram..." : "Otvaram kameru...") : buttonLabel || (compact ? "Izmeni" : "Otvori kameru")}
           </button>
         </>
       ) : (
@@ -237,7 +243,7 @@ export default function Camera({
         </Card>
       )}
 
-      {compact && statusMessage && !hideStatus ? (
+      {(compact || plain) && statusMessage && !hideStatus ? (
         <div
           className={`rounded-[20px] px-4 py-3 text-sm ${
             statusTone === "error"
@@ -253,15 +259,9 @@ export default function Camera({
 
       {reviewFiles.length && reviewImageUrl
         ? createPortal(
-            <div className="fixed inset-0 z-[100] overflow-y-auto bg-[#0B0D12]/98 px-4 py-5 text-white">
+            <div className="fixed inset-0 z-[100] overflow-y-auto bg-[#0B0D12] px-4 py-5 text-white">
               <div className="mx-auto w-full max-w-md space-y-4">
-                <div className="flex items-center justify-between gap-3">
-                  <button className="text-sm text-white/60" onClick={retakeReview} type="button">
-                    Slikaj ponovo
-                  </button>
-                  <div className="text-lg font-semibold">Proveri kvalitet slike</div>
-                  <div className="w-20" />
-                </div>
+                <div className="text-center text-lg font-semibold">Proveri kvalitet slike</div>
                 <div className="overflow-hidden rounded-[24px] border border-white/10 bg-black">
                   <img alt="Provera fotografije" className="block h-auto w-full" src={reviewImageUrl} />
                 </div>
@@ -270,9 +270,22 @@ export default function Camera({
                     Izabrano fotografija: {reviewFiles.length}
                   </div>
                 ) : null}
-                <Button onClick={acceptReview} type="button">
-                  Slika je OK
-                </Button>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    className="rounded-[18px] border border-white/12 bg-white/8 px-4 py-3 text-sm font-semibold text-white"
+                    onClick={acceptReview}
+                    type="button"
+                  >
+                    Slika je OK
+                  </button>
+                  <button
+                    className="rounded-[18px] border border-white/12 bg-white/8 px-4 py-3 text-sm font-semibold text-white"
+                    onClick={retakeReview}
+                    type="button"
+                  >
+                    Slikaj ponovo
+                  </button>
+                </div>
               </div>
             </div>,
             document.body
