@@ -124,7 +124,7 @@ export default function SecondParticipantStep({
       <div className="space-y-4">
         <h2 className="text-[30px] font-semibold text-white">Drugi ucesnik</h2>
         <div className="rounded-[20px] border border-white/10 bg-white/5 px-4 py-3 text-center text-sm font-semibold text-white">
-          Neka drugi ucesnik skenira QR i popuni svoje podatke.
+          Drugi ucesnik moze skenirati QR kod i sam uneti podatke za sebe i svoje vozilo. Nakon popunjavanja, njegovi podaci se mogu preuzeti ovde radi brzeg zavrsetka izvestaja.
         </div>
         <Card className="space-y-4 text-center">
           {inviteQr ? (
