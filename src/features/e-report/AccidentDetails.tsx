@@ -15,60 +15,81 @@ function countSelected(options: ScenarioOption[], side: "A" | "B") {
   return options.filter((item) => (side === "A" ? item.selectedByA : item.selectedByB)).length;
 }
 
-function CircumstanceColumn({
-  side,
+function CheckBoxButton({
+  selected,
+  readOnly,
+  onClick,
+  label
+}: {
+  selected: boolean;
+  readOnly: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      aria-label={label}
+      className={`flex h-11 w-11 items-end justify-center pb-1 ${readOnly ? "cursor-default opacity-85" : ""}`}
+      disabled={readOnly}
+      onClick={onClick}
+      type="button"
+    >
+      <span
+        className={`flex h-6 w-6 items-center justify-center border text-sm font-semibold leading-none ${
+          selected ? "border-accent bg-accent text-white" : "border-white/45 bg-transparent text-transparent"
+        }`}
+      >
+        X
+      </span>
+    </button>
+  );
+}
+
+function CircumstancesTable({
   options,
   readOnly = false,
   onToggle
 }: {
-  side: "A" | "B";
   options: ScenarioOption[];
   readOnly?: boolean;
-  onToggle: (id: string) => void;
+  onToggle: (side: "A" | "B", id: string) => void;
 }) {
-  const selectedCount = countSelected(options, side);
+  const selectedA = countSelected(options, "A");
+  const selectedB = countSelected(options, "B");
 
   return (
     <Card className="space-y-4">
       <div className="flex items-end justify-between gap-3">
-        <div className="text-sm uppercase tracking-[0.24em] text-white/40">Okolnosti vozila {side}</div>
-        <div className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1 text-sm text-accent">
-          Označeno: {selectedCount}
+        <div className="text-sm uppercase tracking-[0.24em] text-white/40">Okolnosti nezgode</div>
+        <div className="flex gap-2 text-sm text-accent">
+          <span className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1">A: {selectedA}</span>
+          <span className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1">B: {selectedB}</span>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-3">
-        {options.map((item, index) => {
-          const selected = side === "A" ? item.selectedByA : item.selectedByB;
-
-          return (
-            <button
-              key={`${side}-${item.id}`}
-              className={`rounded-[22px] border px-4 py-4 text-left text-sm transition ${
-                selected
-                  ? "border-accent bg-accent/18 text-white"
-                  : "border-white/10 bg-white/5 text-white/72"
-              } ${readOnly ? "cursor-default opacity-85" : ""}`}
-              disabled={readOnly}
-              onClick={() => onToggle(item.id)}
-              type="button"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-xs uppercase tracking-[0.24em] text-white/40">{index + 1}</div>
-                  <div className="mt-2">{item.label}</div>
-                </div>
-                <div
-                  className={`mt-1 h-6 w-6 rounded-md border text-center text-xs leading-[22px] ${
-                    selected ? "border-accent bg-accent text-white" : "border-white/20 text-white/45"
-                  }`}
-                >
-                  {selected ? "X" : ""}
-                </div>
-              </div>
-            </button>
-          );
-        })}
+      <div className="space-y-3">
+        {options.map((item, index) => (
+          <div
+            className="grid grid-cols-[44px_minmax(0,1fr)_44px] items-end gap-3 rounded-[18px] border border-white/10 bg-white/5 px-2 py-3"
+            key={item.id}
+          >
+            <CheckBoxButton
+              label={`Vozilo A okolnost ${index + 1}`}
+              onClick={() => onToggle("A", item.id)}
+              readOnly={readOnly}
+              selected={item.selectedByA}
+            />
+            <div className="min-w-0 text-center text-base font-medium leading-snug text-white">
+              {index + 1}. {item.label}
+            </div>
+            <CheckBoxButton
+              label={`Vozilo B okolnost ${index + 1}`}
+              onClick={() => onToggle("B", item.id)}
+              readOnly={readOnly}
+              selected={item.selectedByB}
+            />
+          </div>
+        ))}
       </div>
     </Card>
   );
@@ -101,23 +122,10 @@ export default function AccidentDetails({
     <div className="space-y-4">
       <h2 className="text-[30px] font-semibold text-white">Okolnosti nezgode</h2>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <CircumstanceColumn
-          onToggle={(id) => toggleSide("A", id)}
-          options={options}
-          readOnly={readOnly}
-          side="A"
-        />
-        <CircumstanceColumn
-          onToggle={(id) => toggleSide("B", id)}
-          options={options}
-          readOnly={readOnly}
-          side="B"
-        />
-      </div>
+      <CircumstancesTable onToggle={toggleSide} options={options} readOnly={readOnly} />
 
       <Card className="space-y-4">
-        <div className="text-sm uppercase tracking-[0.24em] text-white/40">Napomene vozača</div>
+        <div className="text-sm uppercase tracking-[0.24em] text-white/40">Napomene vozaca</div>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <label className="space-y-2">
             <span className="text-sm text-white/60">Napomena vozila A</span>
