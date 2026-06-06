@@ -534,8 +534,10 @@ export function getDocumentationMissingFields(report: ReportDraft) {
     documentType: "driver-license" | "registration" | "policy";
     side: "front" | "back";
   }> = [
-    { label: "Vozacka dozvola A - prednja", vehicle: report.vehicleA, documentType: "driver-license", side: "front" },
-    { label: "Vozacka dozvola B - prednja", vehicle: report.vehicleB, documentType: "driver-license", side: "front" }
+    { label: "Saobracajna dozvola A - prednja", vehicle: report.vehicleA, documentType: "registration", side: "front" },
+    { label: "Saobracajna dozvola A - zadnja", vehicle: report.vehicleA, documentType: "registration", side: "back" },
+    { label: "Saobracajna dozvola B - prednja", vehicle: report.vehicleB, documentType: "registration", side: "front" },
+    { label: "Saobracajna dozvola B - zadnja", vehicle: report.vehicleB, documentType: "registration", side: "back" }
   ];
 
   requirements.forEach((item) => {

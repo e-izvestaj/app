@@ -63,10 +63,11 @@ function Section({
   );
 }
 
-function DriverLicenseUploader({
+function RegistrationUploader({
   accent,
   title,
   photoKind,
+  documentSide,
   vehicle,
   onChange,
   readOnly = false
@@ -74,12 +75,13 @@ function DriverLicenseUploader({
   accent: Accent;
   title: string;
   photoKind: PhotoKind;
+  documentSide: "front" | "back";
   vehicle: VehicleDraft;
   onChange: (vehicle: VehicleDraft) => void;
   readOnly?: boolean;
 }) {
-  const photos = getDocumentPhotos(vehicle, "driver-license");
-  const photo = photos.find((item) => item.documentSide === "front");
+  const photos = getDocumentPhotos(vehicle, "registration");
+  const photo = photos.find((item) => item.documentSide === documentSide);
   const theme = accentTheme[accent];
 
   const saveFiles = async (files: FileList) => {
@@ -93,15 +95,15 @@ function DriverLicenseUploader({
       dataUrl: await fileToDataUrl(file),
       label: file.name,
       kind: photoKind,
-      documentType: "driver-license" as DocumentType,
-      documentSide: "front" as const
+      documentType: "registration" as DocumentType,
+      documentSide
     };
 
     onChange({
       ...vehicle,
       documentPhotos: [
         ...vehicle.documentPhotos.filter(
-          (item) => !(item.documentType === "driver-license" && item.documentSide === "front")
+          (item) => !(item.documentType === "registration" && item.documentSide === documentSide)
         ),
         upload
       ]
@@ -143,7 +145,7 @@ function DriverLicenseUploader({
         </div>
       ) : (
         <Camera
-          buttonLabel="Dodaj sliku vozacke"
+          buttonLabel="Dodaj sliku saobracajne"
           crop
           disabled={readOnly}
           hideStatus
@@ -282,20 +284,40 @@ export default function DocumentationStep({
 }: Props) {
   return (
     <div className="space-y-5">
-      <DriverLicenseUploader
+      <RegistrationUploader
         accent="blue"
+        documentSide="front"
         onChange={onVehicleAChange}
         photoKind="document-a"
         readOnly={readOnly}
-        title="Vozacka dozvola A"
+        title="Saobracajna dozvola A - prednja"
         vehicle={vehicleA}
       />
-      <DriverLicenseUploader
+      <RegistrationUploader
+        accent="blue"
+        documentSide="back"
+        onChange={onVehicleAChange}
+        photoKind="document-a"
+        readOnly={readOnly}
+        title="Saobracajna dozvola A - zadnja"
+        vehicle={vehicleA}
+      />
+      <RegistrationUploader
         accent="yellow"
+        documentSide="front"
         onChange={onVehicleBChange}
         photoKind="document-b"
         readOnly={readOnly}
-        title="Vozacka dozvola B"
+        title="Saobracajna dozvola B - prednja"
+        vehicle={vehicleB}
+      />
+      <RegistrationUploader
+        accent="yellow"
+        documentSide="back"
+        onChange={onVehicleBChange}
+        photoKind="document-b"
+        readOnly={readOnly}
+        title="Saobracajna dozvola B - zadnja"
         vehicle={vehicleB}
       />
       <DamageCard
