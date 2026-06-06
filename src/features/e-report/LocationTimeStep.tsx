@@ -232,7 +232,7 @@ export default function LocationTimeStep({
         <h2 className="text-[30px] font-semibold text-white">Vreme i mesto nezgode</h2>
       </div>
 
-      <Card className="grid grid-cols-2 gap-3">
+      <Card className="grid gap-3 sm:grid-cols-2">
         <label className="space-y-2">
           <span className="text-sm text-white/60">Datum</span>
           <input
@@ -253,7 +253,7 @@ export default function LocationTimeStep({
             onChange={(event) => onChange({ ...value, time: event.target.value })}
           />
         </label>
-        <div className="col-span-2">
+        <div className="sm:col-span-2">
           <Button
             disabled={gpsState === "loading" || readOnly}
             onClick={handleRequestLocation}
@@ -306,7 +306,7 @@ export default function LocationTimeStep({
             onChange={(event) => onChange({ ...value, country: event.target.value })}
           />
         </label>
-        <div className="col-span-2 space-y-3 rounded-[20px] border border-white/10 bg-white/5 p-4">
+        <div className="space-y-3 rounded-[20px] border border-white/10 bg-white/5 p-4 sm:col-span-2">
           <div className="space-y-1">
             <div className="text-sm font-medium text-white">Svedoci</div>
             <div className="text-xs text-white/50">Opcionalno, najvise dva svedoka.</div>
