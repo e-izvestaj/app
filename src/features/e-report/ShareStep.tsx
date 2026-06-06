@@ -1,46 +1,37 @@
 import { useState } from "react";
 import Button from "../../components/Button";
 import Card from "../../components/Card";
+import type { ReportDraft } from "../../types";
+import DocumentationPackageView, { buildDocumentationShareText } from "./DocumentationPackageView";
 
 type Props = {
-  pdfUrl: string | null;
-  zipReady: boolean;
-  reportId: string;
   documents: Array<{
     dataUrl: string;
     label: string;
   }>;
   onPreview: () => void;
-  onSaveZip: () => void;
-  onShareZip: () => Promise<string>;
+  pdfUrl: string | null;
+  report: ReportDraft;
+  reportId: string;
 };
 
 export default function ShareStep({
-  pdfUrl,
-  zipReady,
-  reportId,
   documents,
   onPreview,
-  onSaveZip,
-  onShareZip
+  pdfUrl,
+  report,
+  reportId
 }: Props) {
-  const [isSharing, setIsSharing] = useState(false);
-  const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [documentsOpen, setDocumentsOpen] = useState(false);
+  const [packageOpen, setPackageOpen] = useState(false);
+  const [copyMessage, setCopyMessage] = useState<string | null>(null);
 
-  const shareZip = async () => {
-    setIsSharing(true);
-    setShareMessage(null);
-
+  const copyShareData = async () => {
     try {
-      setShareMessage(await onShareZip());
-    } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") {
-        return;
-      }
-      setShareMessage("ZIP paket nije podeljen. Pokusaj ponovo ili ga preuzmi na telefon.");
-    } finally {
-      setIsSharing(false);
+      await navigator.clipboard.writeText(buildDocumentationShareText(report));
+      setCopyMessage("Podaci su kopirani.");
+    } catch {
+      setCopyMessage("Kopiranje nije uspelo na ovom uredjaju.");
     }
   };
 
@@ -59,31 +50,30 @@ export default function ShareStep({
           Pregledaj e-Izveštaj.pdf
         </Button>
         <Button disabled={!documents.length} onClick={() => setDocumentsOpen(true)} type="button" variant="secondary">
-          Pregledaj dokumenta
+          Pregled dokumentacije
         </Button>
       </Card>
 
       <Card className="space-y-3 border border-emerald-300/25 bg-emerald-500/8">
-        <div className="text-xs uppercase tracking-[0.28em] text-emerald-100/60">Kompletan ZIP paket</div>
-        <div className="text-sm text-white/65">Podeli isti paket ucesniku B i osiguranju.</div>
-        <Button disabled={!pdfUrl || !zipReady || isSharing} onClick={() => void shareZip()} type="button" variant="success">
-          {isSharing ? "Otvaram deljenje..." : zipReady ? "Podeli e-Izveštaj.zip" : "Pripremam e-Izveštaj.zip..."}
+        <div className="text-xs uppercase tracking-[0.28em] text-emerald-100/60">Podaci za slanje</div>
+        <Button onClick={() => void copyShareData()} type="button" variant="success">
+          Kopiraj podatke za slanje
         </Button>
-        <Button disabled={!pdfUrl || !zipReady || isSharing} onClick={onSaveZip} type="button" variant="secondary">
-          Preuzmi e-Izveštaj.zip
+        <Button onClick={() => setPackageOpen(true)} type="button" variant="secondary">
+          Otvori HTML paket
         </Button>
-        {shareMessage ? (
+        {copyMessage ? (
           <div className="rounded-[18px] border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/65">
-            {shareMessage}
+            {copyMessage}
           </div>
         ) : null}
       </Card>
 
       {documentsOpen ? (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-bg/98 px-4 py-6">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-bg/50 px-4 py-6">
           <div className="mx-auto w-full max-w-3xl space-y-4">
             <div className="flex items-center justify-between gap-4">
-              <h3 className="text-2xl font-semibold text-white">Dokumenta, slike i skica</h3>
+              <h3 className="text-2xl font-semibold text-white">Dokumentacija</h3>
               <Button fullWidth={false} onClick={() => setDocumentsOpen(false)} type="button" variant="secondary">
                 Zatvori
               </Button>
@@ -99,6 +89,8 @@ export default function ShareStep({
           </div>
         </div>
       ) : null}
+
+      {packageOpen ? <DocumentationPackageView documents={documents} onClose={() => setPackageOpen(false)} report={report} /> : null}
     </div>
   );
 }

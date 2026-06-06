@@ -6,7 +6,6 @@ import ProgressBar from "../../components/ProgressBar";
 import { trackEvent, trackEventOnce } from "../../lib/analytics";
 import { saveReport, setActiveDraftId } from "../../lib/indexedDb";
 import { generatePdf } from "../../lib/pdf";
-import { generateReportZip } from "../../lib/zip";
 import {
   deriveReportStatus,
   getDocumentationMissingFields,
@@ -47,7 +46,6 @@ export default function ReportWizard({
   const [stepIndex, setStepIndex] = useState(0);
   const [isChangingStep, setIsChangingStep] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(report.pdfDataUrl);
-  const [zipFile, setZipFile] = useState<File | null>(null);
   const [isLocking, setIsLocking] = useState(false);
   const [lockError, setLockError] = useState<string | null>(null);
   const wizardTopRef = useRef<HTMLDivElement | null>(null);
@@ -123,25 +121,6 @@ export default function ReportWizard({
       trackEventOnce("signatures_completed", report.id);
     }
   }, [report.id, report.signatures.a, report.signatures.b]);
-
-  useEffect(() => {
-    if (currentStep !== "Finalizacija") {
-      return;
-    }
-
-    let cancelled = false;
-    setZipFile(null);
-
-    void generateReportZip(report).then((zip) => {
-      if (!cancelled) {
-        setZipFile(new File([zip.blob], `${report.publicId}.zip`, { type: "application/zip" }));
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [currentStep, report.id, report.publicId, report.updatedAt]);
 
   useEffect(() => {
     if (report.status !== "locked" && report.status !== "completed" && !forceReadOnly) {
@@ -300,44 +279,6 @@ export default function ReportWizard({
     onReportChange(updatedReport);
     await saveReport(updatedReport);
     return pdfResult.url;
-  };
-
-  const saveZip = () => {
-    void (async () => {
-      const file = zipFile;
-      if (!file) {
-        return;
-      }
-
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(file);
-      link.download = file.name;
-      link.click();
-    })();
-  };
-
-  const shareZip = async () => {
-    const file = zipFile;
-    if (!file) {
-      throw new Error("ZIP paket jos nije spreman.");
-    }
-
-    const shareData = {
-      title: `e-Izveštaj ${report.publicId}`,
-      text: `Kompletan paket evropskog izveštaja ${report.publicId}`,
-      files: [file]
-    };
-
-    if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
-      await navigator.share(shareData);
-      return "Otvoren je meni za deljenje. Izaberi ucesnika B, Mail, Viber, WhatsApp ili drugu aplikaciju.";
-    }
-
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(file);
-    link.download = file.name;
-    link.click();
-    return "Ovaj browser ne podrzava direktno deljenje ZIP fajla. Paket je preuzet na uredjaj.";
   };
 
   const locationLabel =
@@ -627,11 +568,9 @@ export default function ReportWizard({
           <ShareStep
             documents={finalDocuments}
             onPreview={previewPdf}
-            onSaveZip={saveZip}
-            onShareZip={shareZip}
             pdfUrl={pdfUrl}
+            report={report}
             reportId={report.publicId}
-            zipReady={Boolean(zipFile)}
           />
         );
       default:
