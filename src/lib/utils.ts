@@ -548,6 +548,14 @@ export function getDocumentationMissingFields(report: ReportDraft) {
 
 export function getVehicleMissingFields(vehicle: VehicleDraft) {
   const missing: string[] = [];
+  const today = new Date().toISOString().slice(0, 10);
+  const [todayYear, todayMonth, todayDay] = today.split("-").map(Number);
+  const minimumDriverBirthDate = new Date(todayYear - 16, todayMonth - 1, todayDay);
+  const latestAllowedDriverBirthDate = [
+    minimumDriverBirthDate.getFullYear(),
+    String(minimumDriverBirthDate.getMonth() + 1).padStart(2, "0"),
+    String(minimumDriverBirthDate.getDate()).padStart(2, "0")
+  ].join("-");
   const requireValue = (label: string, value: string) => {
     if (!value.trim()) {
       missing.push(label);
@@ -562,8 +570,11 @@ export function getVehicleMissingFields(vehicle: VehicleDraft) {
   requireValue("Prezime vozaca", vehicle.driverLastName);
   requireValue("Ime vozaca", vehicle.driverFirstName);
   requireValue("Datum rodjenja", vehicle.driverBirthDate);
-  if (vehicle.driverBirthDate && vehicle.driverBirthDate > new Date().toISOString().slice(0, 10)) {
+  if (vehicle.driverBirthDate && vehicle.driverBirthDate > today) {
     missing.push("Datum rodjenja ne moze biti u buducnosti");
+  }
+  if (vehicle.driverBirthDate && vehicle.driverBirthDate > latestAllowedDriverBirthDate) {
+    missing.push("Vozac mora imati najmanje 16 godina");
   }
   requireValue("Adresa vozaca", vehicle.driverAddress);
   requireValue("Postanski broj vozaca", vehicle.driverPostalCode);
@@ -581,6 +592,9 @@ export function getVehicleMissingFields(vehicle: VehicleDraft) {
   requireValue("Broj vozacke dozvole", vehicle.driverLicenseNumber);
   requireValue("Kategorija dozvole", vehicle.driverLicenseCategory);
   requireValue("Vazenje vozacke dozvole", vehicle.driverLicenseValidUntil);
+  if (vehicle.driverLicenseValidUntil && vehicle.driverLicenseValidUntil < today) {
+    missing.push("Vozacka dozvola je istekla");
+  }
 
   requireValue("Marka vozila", vehicle.make);
   requireValue("Model vozila", vehicle.model);
@@ -635,6 +649,7 @@ export function getVehicleSectionMissingFields(vehicle: VehicleDraft, section: V
         "Ime vozaca",
         "Datum rodjenja",
         "Datum rodjenja ne moze biti u buducnosti",
+        "Vozac mora imati najmanje 16 godina",
         "Adresa vozaca",
         "Postanski broj vozaca",
         "Ispravan postanski broj vozaca",
@@ -644,7 +659,8 @@ export function getVehicleSectionMissingFields(vehicle: VehicleDraft, section: V
         "Ispravan e-mail vozaca",
         "Broj vozacke dozvole",
         "Kategorija dozvole",
-        "Vazenje vozacke dozvole"
+        "Vazenje vozacke dozvole",
+        "Vozacka dozvola je istekla"
       ].includes(field)
     );
   }

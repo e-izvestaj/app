@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Card from "../../components/Card";
 import {
   INSURER_OPTIONS,
@@ -105,7 +105,9 @@ function Field({
   placeholder,
   invalid = false,
   errorMessage,
+  min,
   max,
+  inputMode,
   accent = "blue"
 }: {
   label: string;
@@ -117,7 +119,9 @@ function Field({
   placeholder?: string;
   invalid?: boolean;
   errorMessage?: string;
+  min?: string;
   max?: string;
+  inputMode?: "none" | "text" | "tel" | "url" | "email" | "numeric" | "decimal" | "search";
   accent?: AccentTone;
 }) {
   const accentBorder =
@@ -131,7 +135,9 @@ function Field({
       <input
         className={`input-glass ${accentBorder} ${invalid ? "border-red-400/70 bg-red-500/8 placeholder:text-red-200/80" : ""}`}
         disabled={readOnly}
+        inputMode={inputMode}
         list={list}
+        min={min}
         max={max}
         placeholder={invalid ? placeholder || "Obavezno polje" : placeholder}
         type={type}
@@ -139,6 +145,84 @@ function Field({
         onChange={(event) => onChange(event.target.value)}
       />
       {invalid && errorMessage ? <span className="block text-xs text-red-200">{errorMessage}</span> : null}
+    </label>
+  );
+}
+
+function addYears(dateValue: string, years: number) {
+  const [year, month, day] = dateValue.split("-").map(Number);
+  const date = new Date(year + years, month - 1, day);
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0")
+  ].join("-");
+}
+
+function PostalCodeField({
+  accent,
+  invalid,
+  errorMessage,
+  onResolved,
+  readOnly,
+  value
+}: {
+  accent: AccentTone;
+  invalid: boolean;
+  errorMessage?: string;
+  onResolved: (postalCode: string, city: string) => void;
+  readOnly: boolean;
+  value: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const postalCode = normalizePostalCode(value);
+  const suggestions =
+    postalCode.length >= 2
+      ? POSTAL_CODE_CITY_OPTIONS.filter((option) => option.postalCode.startsWith(postalCode)).slice(0, 6)
+      : [];
+  const accentBorder =
+    accent === "yellow"
+      ? "border-2 border-amber-300/40 focus:border-amber-200/80"
+      : "border-2 border-sky-400/40 focus:border-sky-300/75";
+
+  return (
+    <label className="relative block space-y-2">
+      <span className={`text-sm ${invalid ? "text-red-200" : "text-white/60"}`}>Postanski broj</span>
+      <input
+        autoComplete="off"
+        className={`input-glass ${accentBorder} ${invalid ? "border-red-400/70 bg-red-500/8 placeholder:text-red-200/80" : ""}`}
+        disabled={readOnly}
+        inputMode="numeric"
+        placeholder={invalid ? "Postanski broj" : "Postanski broj"}
+        value={value}
+        onBlur={() => window.setTimeout(() => setIsOpen(false), 120)}
+        onChange={(event) => {
+          const nextPostalCode = normalizePostalCode(event.target.value);
+          const exactCity = resolveCityFromPostalCode(nextPostalCode);
+          onResolved(nextPostalCode, exactCity);
+          setIsOpen(true);
+        }}
+        onFocus={() => setIsOpen(true)}
+      />
+      {invalid && errorMessage ? <span className="block text-xs text-red-200">{errorMessage}</span> : null}
+      {isOpen && !readOnly && suggestions.length ? (
+        <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-56 overflow-y-auto rounded-[18px] border border-white/12 bg-[#101722] p-1 shadow-[0_18px_46px_rgba(0,0,0,0.45)]">
+          {suggestions.map((option) => (
+            <button
+              className="block w-full rounded-[14px] px-3 py-3 text-left text-sm text-white/85 hover:bg-white/10"
+              key={`${option.postalCode}-${option.city}`}
+              onMouseDown={(event) => {
+                event.preventDefault();
+                onResolved(option.postalCode, option.city);
+                setIsOpen(false);
+              }}
+              type="button"
+            >
+              {option.postalCode} - {option.city}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </label>
   );
 }
@@ -278,7 +362,10 @@ function DriverFields({
 }) {
   const licenseExpired = isBefore(value.driverLicenseValidUntil, accidentDate || "");
   const birthDateInFuture = isMissing("Datum rodjenja ne moze biti u buducnosti");
+  const birthDateTooYoung = isMissing("Vozac mora imati najmanje 16 godina");
+  const licenseExpiredToday = isMissing("Vozacka dozvola je istekla");
   const today = new Date().toISOString().slice(0, 10);
+  const latestAllowedBirthDate = addYears(today, -16);
 
   return (
     <div className="space-y-4">
@@ -288,20 +375,15 @@ function DriverFields({
       </div>
       <Field accent={accent} invalid={isMissing("Adresa vozaca")} label="Adresa" onChange={(driverAddress) => onChange({ ...value, driverAddress })} placeholder="Adresa" readOnly={readOnly} value={value.driverAddress} />
       <div className="grid grid-cols-2 gap-3">
-        <Field
+        <PostalCodeField
+          accent={accent}
           invalid={isMissing("Postanski broj vozaca") || isMissing("Ispravan postanski broj vozaca")}
           errorMessage={isMissing("Ispravan postanski broj vozaca") ? "Postanski broj mora imati 5 cifara." : undefined}
-          label="Postanski broj"
-          list={postalCodeListId}
-          onChange={(driverPostalCode) =>
-            applyPostalCodeAutofill(driverPostalCode, value.driverCity, (postalCode, city) =>
-              onChange({ ...value, driverPostalCode: postalCode, driverCity: city })
-            )
+          onResolved={(driverPostalCode, driverCity) =>
+            onChange({ ...value, driverPostalCode, driverCity: driverCity || value.driverCity })
           }
-          placeholder="Postanski broj"
           readOnly={readOnly}
           value={value.driverPostalCode}
-          accent={accent}
         />
         <Field accent={accent} invalid={isMissing("Grad vozaca")} label="Grad" onChange={(driverCity) => onChange({ ...value, driverCity })} placeholder="Grad" readOnly={readOnly} value={value.driverCity} />
       </div>
@@ -310,7 +392,7 @@ function DriverFields({
         <Field accent={accent} errorMessage={isMissing("Ispravan e-mail vozaca") ? "Unesi e-mail u formatu ime@domen.rs." : undefined} invalid={(isMissing("Telefon ili e-mail vozaca") && !value.driverEmail) || isMissing("Ispravan e-mail vozaca")} label="E-mail" onChange={(driverEmail) => onChange({ ...value, driverEmail })} placeholder="ime@domen.rs" readOnly={readOnly} type="email" value={value.driverEmail} />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field accent={accent} errorMessage={birthDateInFuture ? "Datum rodjenja ne moze biti u buducnosti." : undefined} invalid={isMissing("Datum rodjenja") || birthDateInFuture} label="Datum rodjenja" max={today} onChange={(driverBirthDate) => onChange({ ...value, driverBirthDate })} readOnly={readOnly} type="date" value={value.driverBirthDate} />
+        <Field accent={accent} errorMessage={birthDateInFuture ? "Datum rodjenja ne moze biti u buducnosti." : birthDateTooYoung ? "Vozac mora imati najmanje 16 godina." : undefined} invalid={isMissing("Datum rodjenja") || birthDateInFuture || birthDateTooYoung} label="Datum rodjenja" max={latestAllowedBirthDate} onChange={(driverBirthDate) => onChange({ ...value, driverBirthDate })} readOnly={readOnly} type="date" value={value.driverBirthDate} />
         <Field accent={accent} invalid={isMissing("Broj vozacke dozvole")} label="Broj vozacke dozvole" onChange={(driverLicenseNumber) => onChange({ ...value, driverLicenseNumber })} placeholder="Broj dozvole" readOnly={readOnly} value={value.driverLicenseNumber} />
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -324,7 +406,7 @@ function DriverFields({
           value={value.driverLicenseCategory}
         />
         <div className="space-y-2">
-          <Field accent={accent} invalid={isMissing("Vazenje vozacke dozvole")} label="Vazi do" onChange={(driverLicenseValidUntil) => onChange({ ...value, driverLicenseValidUntil })} readOnly={readOnly} type="date" value={value.driverLicenseValidUntil} />
+          <Field accent={accent} errorMessage={licenseExpiredToday ? "Vozacka dozvola ne moze biti istekla." : undefined} invalid={isMissing("Vazenje vozacke dozvole") || licenseExpiredToday} label="Vazi do" min={today} onChange={(driverLicenseValidUntil) => onChange({ ...value, driverLicenseValidUntil })} readOnly={readOnly} type="date" value={value.driverLicenseValidUntil} />
           {licenseExpired ? <FieldHint>Vozacka dozvola je istekla na datum nezgode.</FieldHint> : null}
         </div>
       </div>
