@@ -112,7 +112,7 @@ function DriverLicenseUploader({
     <Section accent={accent} title={title}>
       {photo ? (
         <div className="flex items-center justify-between gap-3 rounded-[18px] border border-white/10 bg-white/5 px-4 py-3">
-          <div className="text-sm font-medium text-white">Slika dodata</div>
+          <div className="text-sm font-semibold text-emerald-300">Slika dodata</div>
           {!readOnly ? (
             <div className="flex shrink-0 items-center gap-2">
               <Camera
@@ -207,7 +207,7 @@ function DamageCard({
 
       {photos.length ? (
         <div className="flex items-center justify-between gap-3 rounded-[18px] border border-white/10 bg-white/5 px-4 py-3">
-          <div className="text-sm font-medium text-white">
+          <div className="text-sm font-semibold text-emerald-300">
             {photos.length === 1 ? "Fotografija dodata" : `Dodato fotografija: ${photos.length}`}
           </div>
           {!readOnly ? (

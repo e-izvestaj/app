@@ -543,6 +543,14 @@ export function getDocumentationMissingFields(report: ReportDraft) {
     }
   });
 
+  if (!report.scenePhotos.some((photo) => photo.kind === "damage-a")) {
+    missing.push("Fotografija stete na vozilu A");
+  }
+
+  if (!report.scenePhotos.some((photo) => photo.kind === "damage-b")) {
+    missing.push("Fotografija stete na vozilu B");
+  }
+
   return missing;
 }
 
