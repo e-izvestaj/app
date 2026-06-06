@@ -599,9 +599,7 @@ function VehicleFields({
 function PolicyFields({
   value,
   readOnly,
-  insurerListId,
   postalCodeListId,
-  cityListId,
   isMissing,
   onChange,
   accent,
@@ -609,9 +607,7 @@ function PolicyFields({
 }: {
   value: VehicleDraft;
   readOnly: boolean;
-  insurerListId: string;
   postalCodeListId: string;
-  cityListId: string;
   isMissing: (label: string) => boolean;
   onChange: (next: VehicleDraft) => void;
   accent: AccentTone;
@@ -620,6 +616,12 @@ function PolicyFields({
   const ownerFieldsReadOnly = readOnly || value.ownerSameAsDriver;
   const policyDatesReversed = isBefore(value.policyValidUntil, value.policyValidFrom);
   const policyExpired = isBefore(value.policyValidUntil, accidentDate || "");
+  const policyStartsInFuture = isMissing("Polisa vazi od ne moze biti u buducnosti");
+  const today = new Date().toISOString().slice(0, 10);
+  const cityOptions = useMemo(
+    () => [...new Set(POSTAL_CODE_CITY_OPTIONS.map((option) => option.city))],
+    []
+  );
 
   useEffect(() => {
     if (!value.ownerSameAsDriver) {
@@ -675,12 +677,6 @@ function PolicyFields({
 
   return (
     <div className="space-y-4">
-      <datalist id={insurerListId}>
-        {INSURER_OPTIONS.map((option) => (
-          <option key={option} value={option} />
-        ))}
-      </datalist>
-
       <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
         <div className="mb-3 space-y-3">
           <div className="text-xs uppercase tracking-[0.26em] text-white/40">Ugovarac osiguranja</div>
@@ -745,13 +741,18 @@ function PolicyFields({
       <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
         <div className="mb-3 text-xs uppercase tracking-[0.26em] text-white/40">Osiguravajuca kuca</div>
         <div className="space-y-3">
-          <Field accent={accent} invalid={isMissing("Osiguravajuca kuca")} label="Osiguravajuce drustvo" list={insurerListId} onChange={(insurer) => onChange({ ...value, insurer })} placeholder="Osiguravajuce drustvo" readOnly={readOnly} value={value.insurer} />
+          <SmartTextField accent={accent} invalid={isMissing("Osiguravajuca kuca")} label="Osiguravajuce drustvo" onChange={(insurer) => onChange({ ...value, insurer })} options={INSURER_OPTIONS} placeholder="Osiguravajuce drustvo" readOnly={readOnly} value={value.insurer} />
           <div className="grid grid-cols-2 gap-3">
             <Field accent={accent} invalid={isMissing("Broj ugovora")} label="Broj polise" onChange={(policyNumber) => onChange({ ...value, policyNumber })} placeholder="Broj polise" readOnly={readOnly} value={value.policyNumber} />
             <Field accent={accent} label="Broj zelene karte" onChange={(greenCardNumber) => onChange({ ...value, greenCardNumber })} placeholder="Broj zelene karte" readOnly={readOnly} value={value.greenCardNumber} />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field accent={accent} invalid={isMissing("Polisa vazi od")} label="Vazi od" onChange={(policyValidFrom) => onChange({ ...value, policyValidFrom, policyValidUntil: addOneYear(policyValidFrom) })} readOnly={readOnly} type="date" value={value.policyValidFrom} />
+            <Field accent={accent} errorMessage={policyStartsInFuture ? "Datum pocetka polise ne moze biti u buducnosti." : undefined} invalid={isMissing("Polisa vazi od") || policyStartsInFuture} label="Vazi od" max={today} onChange={(policyValidFrom) => {
+              if (policyValidFrom && policyValidFrom > today) {
+                return;
+              }
+              onChange({ ...value, policyValidFrom, policyValidUntil: addOneYear(policyValidFrom) });
+            }} readOnly={readOnly} type="date" value={value.policyValidFrom} />
             <div className="space-y-2">
               <Field accent={accent} invalid={isMissing("Polisa vazi do")} label="Vazi do" onChange={(policyValidUntil) => onChange({ ...value, policyValidUntil })} readOnly={readOnly} type="date" value={value.policyValidUntil} />
               {policyDatesReversed ? <FieldHint>Datum isteka polise je pre datuma pocetka.</FieldHint> : null}
@@ -764,7 +765,7 @@ function PolicyFields({
           </div>
           <Field accent={accent} invalid={isMissing("Adresa osiguranja")} label="Adresa osiguranja" onChange={(insuranceAddress) => onChange({ ...value, insuranceAddress })} placeholder="Adresa osiguranja" readOnly={readOnly} value={value.insuranceAddress} />
           <div className="grid grid-cols-2 gap-3">
-            <Field accent={accent} invalid={isMissing("Grad osiguranja")} label="Grad osiguranja" list={cityListId} onChange={(insuranceCity) => onChange({ ...value, insuranceCity: capitalizeFirstLetter(insuranceCity) })} placeholder="Grad" readOnly={readOnly} value={value.insuranceCity} />
+            <SmartTextField accent={accent} invalid={isMissing("Grad osiguranja")} label="Grad osiguranja" onChange={(insuranceCity) => onChange({ ...value, insuranceCity: capitalizeFirstLetter(insuranceCity) })} options={cityOptions} placeholder="Grad" readOnly={readOnly} value={value.insuranceCity} />
             <Field accent={accent} invalid={isMissing("Drzava osiguranja")} label="Drzava osiguranja" onChange={(insuranceCountry) => onChange({ ...value, insuranceCountry })} placeholder="Drzava" readOnly={readOnly} value={value.insuranceCountry} />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -808,7 +809,6 @@ export default function VehicleForm({
   accidentDate,
   otherPlate
 }: Props) {
-  const insurerListId = useMemo(() => `insurer-${value.side}-${section}`, [section, value.side]);
   const postalCodeListId = useMemo(() => `postal-${value.side}-${section}`, [section, value.side]);
   const cityListId = useMemo(() => `cities-${value.side}-${section}`, [section, value.side]);
   const plateAreaListId = useMemo(() => `plate-areas-${value.side}`, [value.side]);
@@ -857,11 +857,9 @@ export default function VehicleForm({
         ) : (
           <PolicyFields
             accent={accent}
-            insurerListId={insurerListId}
             isMissing={isMissing}
             onChange={onChange}
             postalCodeListId={postalCodeListId}
-            cityListId={cityListId}
             readOnly={readOnly}
             value={value}
             accidentDate={accidentDate}

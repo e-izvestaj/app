@@ -622,6 +622,9 @@ export function getVehicleMissingFields(vehicle: VehicleDraft) {
   requireValue("Osiguravajuca kuca", vehicle.insurer);
   requireValue("Broj ugovora", vehicle.policyNumber);
   requireValue("Polisa vazi od", vehicle.policyValidFrom);
+  if (vehicle.policyValidFrom && vehicle.policyValidFrom > today) {
+    missing.push("Polisa vazi od ne moze biti u buducnosti");
+  }
   requireValue("Polisa vazi do", vehicle.policyValidUntil);
   requireValue("Filijala ili posrednik", vehicle.insuranceBranch);
   requireValue("Naziv filijale", vehicle.insuranceOfficeName);
@@ -692,6 +695,7 @@ export function getVehicleSectionMissingFields(vehicle: VehicleDraft, section: V
       "Osiguravajuca kuca",
       "Broj ugovora",
       "Polisa vazi od",
+      "Polisa vazi od ne moze biti u buducnosti",
       "Polisa vazi do",
       "Filijala ili posrednik",
       "Naziv filijale",
