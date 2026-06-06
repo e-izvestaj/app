@@ -392,7 +392,12 @@ function DriverFields({
         <Field accent={accent} errorMessage={isMissing("Ispravan e-mail vozaca") ? "Unesi e-mail u formatu ime@domen.rs." : undefined} invalid={(isMissing("Telefon ili e-mail vozaca") && !value.driverEmail) || isMissing("Ispravan e-mail vozaca")} label="E-mail" onChange={(driverEmail) => onChange({ ...value, driverEmail })} placeholder="ime@domen.rs" readOnly={readOnly} type="email" value={value.driverEmail} />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Field accent={accent} errorMessage={birthDateInFuture ? "Datum rodjenja ne moze biti u buducnosti." : birthDateTooYoung ? "Vozac mora imati najmanje 16 godina." : undefined} invalid={isMissing("Datum rodjenja") || birthDateInFuture || birthDateTooYoung} label="Datum rodjenja" max={latestAllowedBirthDate} onChange={(driverBirthDate) => onChange({ ...value, driverBirthDate })} readOnly={readOnly} type="date" value={value.driverBirthDate} />
+        <Field accent={accent} errorMessage={birthDateInFuture ? "Datum rodjenja ne moze biti u buducnosti." : birthDateTooYoung ? "Vozac mora imati najmanje 16 godina." : undefined} invalid={isMissing("Datum rodjenja") || birthDateInFuture || birthDateTooYoung} label="Datum rodjenja" max={latestAllowedBirthDate} onChange={(driverBirthDate) => {
+          if (driverBirthDate && driverBirthDate > latestAllowedBirthDate) {
+            return;
+          }
+          onChange({ ...value, driverBirthDate });
+        }} readOnly={readOnly} type="date" value={value.driverBirthDate} />
         <Field accent={accent} invalid={isMissing("Broj vozacke dozvole")} label="Broj vozacke dozvole" onChange={(driverLicenseNumber) => onChange({ ...value, driverLicenseNumber })} placeholder="Broj dozvole" readOnly={readOnly} value={value.driverLicenseNumber} />
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -406,7 +411,12 @@ function DriverFields({
           value={value.driverLicenseCategory}
         />
         <div className="space-y-2">
-          <Field accent={accent} errorMessage={licenseExpiredToday ? "Vozacka dozvola ne moze biti istekla." : undefined} invalid={isMissing("Vazenje vozacke dozvole") || licenseExpiredToday} label="Vazi do" min={today} onChange={(driverLicenseValidUntil) => onChange({ ...value, driverLicenseValidUntil })} readOnly={readOnly} type="date" value={value.driverLicenseValidUntil} />
+          <Field accent={accent} errorMessage={licenseExpiredToday ? "Vozacka dozvola ne moze biti istekla." : undefined} invalid={isMissing("Vazenje vozacke dozvole") || licenseExpiredToday} label="Vazi do" min={today} onChange={(driverLicenseValidUntil) => {
+            if (driverLicenseValidUntil && driverLicenseValidUntil < today) {
+              return;
+            }
+            onChange({ ...value, driverLicenseValidUntil });
+          }} readOnly={readOnly} type="date" value={value.driverLicenseValidUntil} />
           {licenseExpired ? <FieldHint>Vozacka dozvola je istekla na datum nezgode.</FieldHint> : null}
         </div>
       </div>
