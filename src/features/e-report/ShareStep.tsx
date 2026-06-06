@@ -2,7 +2,11 @@ import { useState } from "react";
 import Button from "../../components/Button";
 import Card from "../../components/Card";
 import type { ReportDraft } from "../../types";
-import DocumentationPackageView, { buildDocumentationShareText } from "./DocumentationPackageView";
+import DocumentationPackageView, {
+  buildDocumentationHtml,
+  createDocumentationHtmlFile,
+  downloadDocumentationHtml
+} from "./DocumentationPackageView";
 
 type Props = {
   documents: Array<{
@@ -24,14 +28,27 @@ export default function ShareStep({
 }: Props) {
   const [documentsOpen, setDocumentsOpen] = useState(false);
   const [packageOpen, setPackageOpen] = useState(false);
-  const [copyMessage, setCopyMessage] = useState<string | null>(null);
+  const [insuranceOpen, setInsuranceOpen] = useState(false);
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
 
-  const copyShareData = async () => {
+  const shareWithInsurance = async () => {
+    const file = createDocumentationHtmlFile(report, documents);
+    const shareData = {
+      title: `Dokumentacija ${report.publicId}`,
+      text: `Dokumentacija za e-Izvestaj ${report.publicId}`,
+      files: [file]
+    };
+
     try {
-      await navigator.clipboard.writeText(buildDocumentationShareText(report));
-      setCopyMessage("Podaci su kopirani.");
+      if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
+        await navigator.share(shareData);
+        setShareMessage("Otvoren je meni za deljenje.");
+        return;
+      }
+      downloadDocumentationHtml(report, documents);
+      setShareMessage("Ovaj uredjaj ne podrzava direktno deljenje HTML fajla. HTML paket je preuzet.");
     } catch {
-      setCopyMessage("Kopiranje nije uspelo na ovom uredjaju.");
+      setShareMessage("Deljenje nije uspelo. Mozes preuzeti HTML paket i poslati ga rucno.");
     }
   };
 
@@ -56,17 +73,12 @@ export default function ShareStep({
 
       <Card className="space-y-3 border border-emerald-300/25 bg-emerald-500/8">
         <div className="text-xs uppercase tracking-[0.28em] text-emerald-100/60">Podaci za slanje</div>
-        <Button onClick={() => void copyShareData()} type="button" variant="success">
-          Kopiraj podatke za slanje
-        </Button>
         <Button onClick={() => setPackageOpen(true)} type="button" variant="secondary">
           Otvori HTML paket
         </Button>
-        {copyMessage ? (
-          <div className="rounded-[18px] border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/65">
-            {copyMessage}
-          </div>
-        ) : null}
+        <Button disabled={!documents.length} onClick={() => setInsuranceOpen(true)} type="button" variant="success">
+          Prosledi dokumentaciju osiguranju
+        </Button>
       </Card>
 
       {documentsOpen ? (
@@ -91,6 +103,38 @@ export default function ShareStep({
       ) : null}
 
       {packageOpen ? <DocumentationPackageView documents={documents} onClose={() => setPackageOpen(false)} report={report} /> : null}
+
+      {insuranceOpen ? (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-bg/70 px-4 py-6">
+          <div className="mx-auto w-full max-w-md space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <h3 className="text-2xl font-semibold text-white">Prosledi osiguranju</h3>
+              <Button fullWidth={false} onClick={() => setInsuranceOpen(false)} type="button" variant="secondary">
+                Zatvori
+              </Button>
+            </div>
+            <Card className="space-y-3">
+              <div className="text-xs uppercase tracking-[0.28em] text-white/40">HTML paket</div>
+              <iframe
+                className="h-56 w-full rounded-[8px] border border-white/10 bg-white"
+                srcDoc={buildDocumentationHtml(report, documents)}
+                title="Pregled HTML paketa"
+              />
+              <Button onClick={() => void shareWithInsurance()} type="button" variant="success">
+                Podeli
+              </Button>
+              <Button onClick={() => downloadDocumentationHtml(report, documents)} type="button" variant="secondary">
+                Preuzmi HTML paket
+              </Button>
+              {shareMessage ? (
+                <div className="rounded-[18px] border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/65">
+                  {shareMessage}
+                </div>
+              ) : null}
+            </Card>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
