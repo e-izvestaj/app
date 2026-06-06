@@ -227,6 +227,73 @@ function PostalCodeField({
   );
 }
 
+function SmartTextField({
+  accent,
+  invalid,
+  label,
+  onChange,
+  options,
+  placeholder,
+  readOnly,
+  value
+}: {
+  accent: AccentTone;
+  invalid: boolean;
+  label: string;
+  onChange: (value: string) => void;
+  options: readonly string[];
+  placeholder: string;
+  readOnly: boolean;
+  value: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const normalizedValue = value.trim().toLocaleLowerCase("sr-Latn-RS");
+  const suggestions = normalizedValue
+    ? options.filter((option) => option.toLocaleLowerCase("sr-Latn-RS").includes(normalizedValue)).slice(0, 6)
+    : options.slice(0, 6);
+  const accentBorder =
+    accent === "yellow"
+      ? "border-2 border-amber-300/40 focus:border-amber-200/80"
+      : "border-2 border-sky-400/40 focus:border-sky-300/75";
+
+  return (
+    <label className="relative block space-y-2">
+      <span className={`text-sm ${invalid ? "text-red-200" : "text-white/60"}`}>{label}</span>
+      <input
+        autoComplete="off"
+        className={`input-glass ${accentBorder} ${invalid ? "border-red-400/70 bg-red-500/8 placeholder:text-red-200/80" : ""}`}
+        disabled={readOnly}
+        placeholder={invalid ? placeholder || "Obavezno polje" : placeholder}
+        value={value}
+        onBlur={() => window.setTimeout(() => setIsOpen(false), 120)}
+        onChange={(event) => {
+          onChange(event.target.value);
+          setIsOpen(true);
+        }}
+        onFocus={() => setIsOpen(true)}
+      />
+      {isOpen && !readOnly && suggestions.length ? (
+        <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-56 overflow-y-auto rounded-[18px] border border-white/12 bg-[#101722] p-1 shadow-[0_18px_46px_rgba(0,0,0,0.45)]">
+          {suggestions.map((option) => (
+            <button
+              className="block w-full rounded-[14px] px-3 py-3 text-left text-sm text-white/85 hover:bg-white/10"
+              key={option}
+              onMouseDown={(event) => {
+                event.preventDefault();
+                onChange(option);
+                setIsOpen(false);
+              }}
+              type="button"
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </label>
+  );
+}
+
 function PlateField({
   value,
   registrationCountry,
@@ -430,8 +497,6 @@ function VehicleFields({
   isMissing,
   onChange,
   accent,
-  makeListId,
-  modelListId,
   plateAreaListId,
   otherPlate
 }: {
@@ -440,8 +505,6 @@ function VehicleFields({
   isMissing: (label: string) => boolean;
   onChange: (next: VehicleDraft) => void;
   accent: AccentTone;
-  makeListId: string;
-  modelListId: string;
   plateAreaListId: string;
   otherPlate?: string;
 }) {
@@ -455,16 +518,6 @@ function VehicleFields({
 
   return (
     <div className="space-y-4">
-      <datalist id={makeListId}>
-        {VEHICLE_MAKE_OPTIONS.map((make) => (
-          <option key={make} value={make} />
-        ))}
-      </datalist>
-      <datalist id={modelListId}>
-        {modelOptions.map((model) => (
-          <option key={model} value={model} />
-        ))}
-      </datalist>
       <datalist id={plateAreaListId}>
         {SERBIAN_REGISTRATION_AREA_OPTIONS.map((option) => (
           <option key={option.code} value={option.code}>
@@ -502,8 +555,8 @@ function VehicleFields({
       </div>
       {plateMatchesOther ? <FieldHint>Vozila A i B imaju istu registarsku oznaku.</FieldHint> : null}
       <div className="grid grid-cols-2 gap-3">
-        <Field accent={accent} invalid={isMissing("Marka vozila")} label="Marka" list={makeListId} onChange={(make) => onChange({ ...value, make })} placeholder="Marka" readOnly={readOnly} value={value.make} />
-        <Field accent={accent} invalid={isMissing("Model vozila")} label="Model" list={modelListId} onChange={(model) => onChange({ ...value, model })} placeholder="Model" readOnly={readOnly} value={value.model} />
+        <SmartTextField accent={accent} invalid={isMissing("Marka vozila")} label="Marka" onChange={(make) => onChange({ ...value, make, model: make === value.make ? value.model : "" })} options={VEHICLE_MAKE_OPTIONS} placeholder="Marka" readOnly={readOnly} value={value.make} />
+        <SmartTextField accent={accent} invalid={isMissing("Model vozila")} label="Model" onChange={(model) => onChange({ ...value, model })} options={modelOptions} placeholder={selectedMake ? "Model" : "Model ili rucni unos"} readOnly={readOnly} value={value.model} />
       </div>
       <div>
         <SelectField
@@ -758,8 +811,6 @@ export default function VehicleForm({
   const insurerListId = useMemo(() => `insurer-${value.side}-${section}`, [section, value.side]);
   const postalCodeListId = useMemo(() => `postal-${value.side}-${section}`, [section, value.side]);
   const cityListId = useMemo(() => `cities-${value.side}-${section}`, [section, value.side]);
-  const makeListId = useMemo(() => `vehicle-makes-${value.side}`, [value.side]);
-  const modelListId = useMemo(() => `vehicle-models-${value.side}`, [value.side]);
   const plateAreaListId = useMemo(() => `plate-areas-${value.side}`, [value.side]);
   const accentClasses = accentClassMap[accent];
   const missingFields = getVehicleSectionMissingFields(value, section);
@@ -797,8 +848,6 @@ export default function VehicleForm({
           <VehicleFields
             accent={accent}
             isMissing={isMissing}
-            makeListId={makeListId}
-            modelListId={modelListId}
             plateAreaListId={plateAreaListId}
             otherPlate={otherPlate}
             onChange={onChange}
