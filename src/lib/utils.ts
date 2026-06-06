@@ -14,6 +14,7 @@ export const INSURER_OPTIONS = [
   "Dunav",
   "DDOR",
   "Generali",
+  "Grawe",
   "Uniqa",
   "Wiener",
   "Triglav",
