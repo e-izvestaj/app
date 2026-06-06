@@ -59,11 +59,13 @@ function CircumstancesTable({
 
   return (
     <Card className="space-y-4">
-      <div className="flex items-end justify-between gap-3">
-        <div className="text-sm uppercase tracking-[0.24em] text-white/40">Okolnosti nezgode</div>
-        <div className="flex gap-2 text-sm text-accent">
-          <span className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1">A: {selectedA}</span>
-          <span className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1">B: {selectedB}</span>
+      <div className="grid grid-cols-[64px_minmax(0,1fr)_64px] items-center gap-3">
+        <div className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1 text-center text-sm text-accent">
+          A: {selectedA}
+        </div>
+        <div className="text-center text-sm uppercase tracking-[0.24em] text-white/40">Okolnosti nezgode</div>
+        <div className="rounded-full border border-accent/25 bg-accent/10 px-3 py-1 text-center text-sm text-accent">
+          B: {selectedB}
         </div>
       </div>
 
@@ -120,8 +122,6 @@ export default function AccidentDetails({
 
   return (
     <div className="space-y-4">
-      <h2 className="text-[30px] font-semibold text-white">Okolnosti nezgode</h2>
-
       <CircumstancesTable onToggle={toggleSide} options={options} readOnly={readOnly} />
 
       <Card className="space-y-4">
