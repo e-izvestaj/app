@@ -233,20 +233,20 @@ export default function LocationTimeStep({
       </div>
 
       <Card className="grid gap-3 sm:grid-cols-2">
-        <label className="space-y-2">
+        <label className="min-w-0 space-y-2">
           <span className="text-sm text-white/60">Datum</span>
           <input
-            className="input-glass"
+            className="input-glass min-w-0"
             disabled={readOnly}
             type="date"
             value={value.date}
             onChange={(event) => onChange({ ...value, date: event.target.value })}
           />
         </label>
-        <label className="space-y-2">
+        <label className="min-w-0 space-y-2">
           <span className="text-sm text-white/60">Vreme</span>
           <input
-            className="input-glass"
+            className="input-glass min-w-0"
             disabled={readOnly}
             type="time"
             value={value.time}
