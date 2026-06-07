@@ -254,9 +254,25 @@ export default function ReportWizard({
   };
 
   const previewPdf = () => {
+    if (pdfUrl) {
+      window.open(pdfUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    const previewWindow = window.open("about:blank", "_blank");
+    if (previewWindow) {
+      previewWindow.opener = null;
+    }
+
     void (async () => {
       const readyUrl = await ensurePdfReady();
       if (!readyUrl) {
+        previewWindow?.close();
+        return;
+      }
+
+      if (previewWindow) {
+        previewWindow.location.href = readyUrl;
         return;
       }
 
