@@ -359,29 +359,47 @@ export default function ShareStep({
                     : `Nije partner: preporuceno slanje PDF-a i slika na ${selectedInsurance.claimsEmail}.`}
                 </div>
               ) : null}
-              <iframe
-                className="h-56 w-full rounded-[8px] border border-white/10 bg-white"
-                srcDoc={buildDocumentationHtml(report, documents, {
-                  allowJsonExport: Boolean(selectedInsurance?.partner && selectedInsurance.acceptsJson)
-                })}
-                title="Pregled paketa za osiguranje"
-              />
-              <Button onClick={() => void shareWithInsurance()} type="button" variant="success">
-                Prosledi
-              </Button>
               {selectedInsurance?.partner ? (
-                <Button
-                  onClick={() =>
-                    downloadDocumentationHtml(report, documents, {
+                <>
+                  <iframe
+                    className="h-56 w-full rounded-[8px] border border-white/10 bg-white"
+                    srcDoc={buildDocumentationHtml(report, documents, {
                       allowJsonExport: Boolean(selectedInsurance.acceptsJson)
-                    })
-                  }
-                  type="button"
-                  variant="secondary"
-                >
-                  Preuzmi partner paket
-                </Button>
-              ) : null}
+                    })}
+                    title="Pregled paketa za osiguranje"
+                  />
+                  <Button onClick={() => void shareWithInsurance()} type="button" variant="success">
+                    Prosledi partner paket
+                  </Button>
+                  <Button
+                    onClick={() =>
+                      downloadDocumentationHtml(report, documents, {
+                        allowJsonExport: Boolean(selectedInsurance.acceptsJson)
+                      })
+                    }
+                    type="button"
+                    variant="secondary"
+                  >
+                    Preuzmi partner paket
+                  </Button>
+                </>
+              ) : (
+                <>
+                  {pdfUrl ? (
+                    <a
+                      className="block w-full rounded-[24px] bg-emerald-500 px-5 py-4 text-left text-base font-semibold text-white shadow-[0_12px_35px_rgba(16,185,129,0.32)] transition duration-200 hover:brightness-110"
+                      href={pdfUrl}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      Otvori evropski izvestaj PDF
+                    </a>
+                  ) : null}
+                  <Button onClick={() => setAttachmentsOpen(true)} type="button" variant="secondary">
+                    Izaberi i podeli slike iz priloga
+                  </Button>
+                </>
+              )}
             </Card>
           </div>
         </div>
