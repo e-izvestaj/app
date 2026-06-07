@@ -108,6 +108,7 @@ export default function ShareStep({
   const [documentsOpen, setDocumentsOpen] = useState(false);
   const [insuranceOpen, setInsuranceOpen] = useState(false);
   const [packageOpen, setPackageOpen] = useState(false);
+  const [reportImageLoading, setReportImageLoading] = useState(false);
   const [selectedDocumentKeys, setSelectedDocumentKeys] = useState(() =>
     documents.map((document) => `${document.label}-${document.dataUrl.slice(-16)}`)
   );
@@ -157,10 +158,45 @@ export default function ShareStep({
     }
   };
 
-  const shareReportAsImage = () => {
-    setShareMessage(
-      "Konverzija PDF-a u sliku je sledeci tehnicki korak. Za sada korisnik moze da podeli PDF ili slike iz priloga."
-    );
+  const shareReportAsImage = async () => {
+    if (!pdfUrl) {
+      setShareMessage("PDF jos nije dostupan za konverziju u sliku.");
+      return;
+    }
+
+    setReportImageLoading(true);
+    setShareMessage("Pripremam sliku evropskog izvestaja...");
+
+    try {
+      const { renderFirstPdfPageAsJpegFile } = await import("../../lib/pdfToImage");
+      const file = await renderFirstPdfPageAsJpegFile(
+        pdfUrl,
+        `${report.publicId}-evropski-izvestaj.jpg`
+      );
+      const shareData = {
+        title: `e-Izvestaj ${report.publicId}`,
+        text: `Evropski izvestaj ${report.publicId} kao slika.`,
+        files: [file]
+      };
+
+      if (navigator.share && (!navigator.canShare || navigator.canShare(shareData))) {
+        await navigator.share(shareData);
+        setShareMessage("Otvoren je meni za deljenje slike izvestaja.");
+        return;
+      }
+
+      const url = URL.createObjectURL(file);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = file.name;
+      link.click();
+      URL.revokeObjectURL(url);
+      setShareMessage("Ovaj uredjaj ne podrzava direktno deljenje slike. Slika je preuzeta.");
+    } catch {
+      setShareMessage("Slika izvestaja nije kreirana. Pokusaj ponovo ili podeli PDF.");
+    } finally {
+      setReportImageLoading(false);
+    }
   };
 
   const shareWithInsurance = async () => {
@@ -238,8 +274,13 @@ export default function ShareStep({
 
       <Card className="space-y-3 border border-emerald-300/25 bg-emerald-500/8">
         <div className="text-xs uppercase tracking-[0.28em] text-emerald-100/60">Podaci za slanje</div>
-        <Button onClick={shareReportAsImage} type="button" variant="secondary">
-          Prosledi evropski izvestaj kao sliku
+        <Button
+          disabled={!pdfUrl || reportImageLoading}
+          onClick={() => void shareReportAsImage()}
+          type="button"
+          variant="secondary"
+        >
+          {reportImageLoading ? "Pripremam sliku..." : "Prosledi evropski izvestaj kao sliku"}
         </Button>
         <Button disabled={!documents.length} onClick={() => setAttachmentsOpen(true)} type="button" variant="secondary">
           Prosledi slike iz priloga

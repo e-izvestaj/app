@@ -10,6 +10,7 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["logo.png", "maskable-icon.png"],
       workbox: {
+        globPatterns: ["**/*.{js,mjs,css,html,png,jpg,jpeg,svg,webp,pdf,webmanifest}"],
         globIgnores: ["**/ort-wasm-*.wasm"],
         maximumFileSizeToCacheInBytes: 32 * 1024 * 1024,
         navigateFallbackDenylist: [/\.pdf$/]
