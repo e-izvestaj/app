@@ -395,7 +395,14 @@ export default function ShareStep({
                       Otvori evropski izvestaj PDF
                     </a>
                   ) : null}
-                  <Button onClick={() => setAttachmentsOpen(true)} type="button" variant="secondary">
+                  <Button
+                    onClick={() => {
+                      setInsuranceOpen(false);
+                      setAttachmentsOpen(true);
+                    }}
+                    type="button"
+                    variant="secondary"
+                  >
                     Izaberi i podeli slike iz priloga
                   </Button>
                 </>
