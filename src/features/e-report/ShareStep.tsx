@@ -175,7 +175,6 @@ export default function ShareStep({
       );
       const shareData = {
         title: `e-Izvestaj ${report.publicId}`,
-        text: `Evropski izvestaj ${report.publicId} kao slika.`,
         files: [file]
       };
 
