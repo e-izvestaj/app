@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Button from "../../components/Button";
 import Card from "../../components/Card";
 import type { ReportDraft } from "../../types";
@@ -15,7 +15,6 @@ type DocumentAsset = {
 
 type Props = {
   documents: DocumentAsset[];
-  onPreview: () => void;
   pdfUrl: string | null;
   report: ReportDraft;
   reportId: string;
@@ -109,10 +108,6 @@ export default function ShareStep({
   const [documentsOpen, setDocumentsOpen] = useState(false);
   const [insuranceOpen, setInsuranceOpen] = useState(false);
   const [packageOpen, setPackageOpen] = useState(false);
-  const [pdfError, setPdfError] = useState<string | null>(null);
-  const [pdfIsLoading, setPdfIsLoading] = useState(false);
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
-  const [pdfOpen, setPdfOpen] = useState(false);
   const [selectedDocumentKeys, setSelectedDocumentKeys] = useState(() =>
     documents.map((document) => `${document.label}-${document.dataUrl.slice(-16)}`)
   );
@@ -129,14 +124,6 @@ export default function ShareStep({
   const selectedDocuments = documents.filter((document) =>
     selectedDocumentKeys.includes(documentKey(document))
   );
-
-  useEffect(() => {
-    return () => {
-      if (pdfPreviewUrl) {
-        URL.revokeObjectURL(pdfPreviewUrl);
-      }
-    };
-  }, [pdfPreviewUrl]);
 
   const toggleDocument = (key: string) => {
     setSelectedDocumentKeys((current) =>
@@ -174,39 +161,6 @@ export default function ShareStep({
     setShareMessage(
       "Konverzija PDF-a u sliku je sledeci tehnicki korak. Za sada korisnik moze da podeli PDF ili slike iz priloga."
     );
-  };
-
-  const openPdfPreview = async () => {
-    if (!pdfUrl) {
-      return;
-    }
-
-    setPdfOpen(true);
-    setPdfError(null);
-
-    if (pdfPreviewUrl) {
-      return;
-    }
-
-    setPdfIsLoading(true);
-    try {
-      const response = await fetch(pdfUrl, { cache: "no-store" });
-      const contentType = response.headers.get("content-type") || "";
-      const blob = await response.blob();
-
-      if (!response.ok || (!contentType.includes("pdf") && blob.type !== "application/pdf")) {
-        throw new Error("PDF fajl nije dostupan.");
-      }
-
-      const objectUrl = URL.createObjectURL(
-        blob.type === "application/pdf" ? blob : new Blob([blob], { type: "application/pdf" })
-      );
-      setPdfPreviewUrl(objectUrl);
-    } catch {
-      setPdfError("PDF nije ucitan. Pokusaj da osvezis aplikaciju nakon deploy-a.");
-    } finally {
-      setPdfIsLoading(false);
-    }
   };
 
   const shareWithInsurance = async () => {
@@ -260,9 +214,20 @@ export default function ShareStep({
 
       <Card className="space-y-3">
         <div className="text-xs uppercase tracking-[0.28em] text-white/40">Pregled</div>
-        <Button disabled={!pdfUrl || pdfIsLoading} onClick={() => void openPdfPreview()} type="button" variant="secondary">
-          Pregledaj e-Izvestaj PDF
-        </Button>
+        {pdfUrl ? (
+          <a
+            className="block w-full rounded-[24px] border border-white/10 bg-white/10 px-5 py-4 text-left text-base font-semibold text-white transition duration-200 hover:bg-white/14"
+            href={pdfUrl}
+            rel="noreferrer"
+            target="_blank"
+          >
+            Pregledaj e-Izvestaj PDF
+          </a>
+        ) : (
+          <Button disabled type="button" variant="secondary">
+            Pregledaj e-Izvestaj PDF
+          </Button>
+        )}
         <Button disabled={!documents.length} onClick={() => setPackageOpen(true)} type="button" variant="secondary">
           Pregled dokumentacije
         </Button>
@@ -288,39 +253,6 @@ export default function ShareStep({
           </div>
         ) : null}
       </Card>
-
-      {pdfOpen ? (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-bg/80 px-4 py-6">
-          <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-4">
-            <div className="flex items-center justify-between gap-4">
-              <h3 className="text-2xl font-semibold text-white">e-Izvestaj PDF</h3>
-              <Button fullWidth={false} onClick={() => setPdfOpen(false)} type="button" variant="secondary">
-                Zatvori
-              </Button>
-            </div>
-            {pdfIsLoading ? (
-              <Card className="text-center text-white/65">Ucitavam PDF...</Card>
-            ) : null}
-            {pdfError ? (
-              <Card className="space-y-3 text-sm text-white/70">
-                <div>{pdfError}</div>
-                {pdfUrl ? (
-                  <a className="font-semibold text-accent" href={pdfUrl} rel="noreferrer" target="_blank">
-                    Otvori PDF direktno
-                  </a>
-                ) : null}
-              </Card>
-            ) : null}
-            {pdfPreviewUrl ? (
-              <iframe
-                className="min-h-[75vh] w-full flex-1 rounded-[8px] border border-white/10 bg-white"
-                src={pdfPreviewUrl}
-                title="Pregled e-Izvestaj PDF"
-              />
-            ) : null}
-          </div>
-        </div>
-      ) : null}
 
       {documentsOpen ? (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-bg/50 px-4 py-6">

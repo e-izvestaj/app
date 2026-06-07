@@ -11,7 +11,8 @@ export default defineConfig({
       includeAssets: ["logo.png", "maskable-icon.png"],
       workbox: {
         globIgnores: ["**/ort-wasm-*.wasm"],
-        maximumFileSizeToCacheInBytes: 32 * 1024 * 1024
+        maximumFileSizeToCacheInBytes: 32 * 1024 * 1024,
+        navigateFallbackDenylist: [/\.pdf$/]
       },
       manifest: {
         name: "e-Izveštaj",
