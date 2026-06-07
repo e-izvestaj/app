@@ -8,6 +8,7 @@ type DocumentAsset = {
 };
 
 type Props = {
+  allowJsonExport?: boolean;
   documents: DocumentAsset[];
   onClose: () => void;
   report: ReportDraft;
@@ -78,9 +79,31 @@ function renderHtmlRows(rows: string[][]) {
     .join("");
 }
 
-export function buildDocumentationHtml(report: ReportDraft, documents: DocumentAsset[]) {
+export function buildDocumentationHtml(
+  report: ReportDraft,
+  documents: DocumentAsset[],
+  options: { allowJsonExport?: boolean } = {}
+) {
   const packageData = buildPackageData(report, documents);
   const packageJson = JSON.stringify(packageData);
+  const jsonButtonHtml = options.allowJsonExport
+    ? '<button type="button" onclick="downloadJson()">Preuzmi JSON</button>'
+    : "";
+  const scriptHtml = options.allowJsonExport
+    ? `
+  <script>
+    const packageData = ${packageJson};
+    function downloadJson() {
+      const blob = new Blob([JSON.stringify(packageData, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "${report.publicId}-dokumentacija.json";
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+  </script>`
+    : "";
   const locationRows = [
     ["Broj izvestaja", report.publicId],
     ["Status", report.status],
@@ -129,7 +152,7 @@ export function buildDocumentationHtml(report: ReportDraft, documents: DocumentA
 <body>
   <main>
     <h1>Paket dokumentacije ${escapeHtml(report.publicId)}</h1>
-    <button type="button" onclick="downloadJson()">Preuzmi JSON</button>
+    ${jsonButtonHtml}
     <h2>Izvestaj</h2>
     <table>${renderHtmlRows(locationRows)}</table>
     <h2>Vozilo A</h2>
@@ -141,30 +164,31 @@ export function buildDocumentationHtml(report: ReportDraft, documents: DocumentA
     <h2>Dokumentacija</h2>
     <div class="grid">${imageHtml}</div>
   </main>
-  <script>
-    const packageData = ${packageJson};
-    function downloadJson() {
-      const blob = new Blob([JSON.stringify(packageData, null, 2)], { type: "application/json" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "${report.publicId}-dokumentacija.json";
-      link.click();
-      URL.revokeObjectURL(url);
-    }
-  </script>
+  ${scriptHtml}
 </body>
 </html>`;
 }
 
-export function createDocumentationHtmlFile(report: ReportDraft, documents: DocumentAsset[]) {
-  return new File([buildDocumentationHtml(report, documents)], `${report.publicId}-dokumentacija.html`, {
-    type: "text/html"
-  });
+export function createDocumentationHtmlFile(
+  report: ReportDraft,
+  documents: DocumentAsset[],
+  options: { allowJsonExport?: boolean } = {}
+) {
+  return new File(
+    [buildDocumentationHtml(report, documents, options)],
+    `${report.publicId}-dokumentacija.html`,
+    {
+      type: "text/html"
+    }
+  );
 }
 
-export function downloadDocumentationHtml(report: ReportDraft, documents: DocumentAsset[]) {
-  const file = createDocumentationHtmlFile(report, documents);
+export function downloadDocumentationHtml(
+  report: ReportDraft,
+  documents: DocumentAsset[],
+  options: { allowJsonExport?: boolean } = {}
+) {
+  const file = createDocumentationHtmlFile(report, documents, options);
   const url = URL.createObjectURL(file);
   const link = document.createElement("a");
   link.href = url;
@@ -173,7 +197,12 @@ export function downloadDocumentationHtml(report: ReportDraft, documents: Docume
   URL.revokeObjectURL(url);
 }
 
-export default function DocumentationPackageView({ documents, onClose, report }: Props) {
+export default function DocumentationPackageView({
+  allowJsonExport = false,
+  documents,
+  onClose,
+  report
+}: Props) {
   const packageData = buildPackageData(report, documents);
 
   const downloadJson = () => {
@@ -248,9 +277,11 @@ export default function DocumentationPackageView({ documents, onClose, report }:
           </div>
         </Card>
 
-        <Button onClick={downloadJson} type="button" variant="secondary">
-          Preuzmi JSON
-        </Button>
+        {allowJsonExport ? (
+          <Button onClick={downloadJson} type="button" variant="secondary">
+            Preuzmi JSON
+          </Button>
+        ) : null}
       </div>
     </div>
   );

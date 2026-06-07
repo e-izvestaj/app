@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import Button from "../components/Button";
 import Card from "../components/Card";
 import { trackEvent } from "../lib/analytics";
-import { getActiveDraftId, getAllReports } from "../lib/indexedDb";
+import { DEMO_REPORT_ID, loadDemoReport } from "../lib/demoReport";
+import { getActiveDraftId, getAllReports, saveReport } from "../lib/indexedDb";
 import { createEmptyReport, reportTitle } from "../lib/utils";
 import type { ReportDraft } from "../types";
 
@@ -47,8 +48,16 @@ export default function HomePage() {
 
   const refreshReports = useCallback(() => {
     void (async () => {
-      const [allReports, activeId] = await Promise.all([getAllReports(), getActiveDraftId()]);
-      setReports(allReports);
+      const [allReports, activeId, demoReport] = await Promise.all([
+        getAllReports(),
+        getActiveDraftId(),
+        loadDemoReport()
+      ]);
+      await saveReport(demoReport);
+      setReports([
+        demoReport,
+        ...allReports.filter((report) => report.id !== DEMO_REPORT_ID)
+      ]);
       setActiveDraftId(activeId);
     })();
   }, []);
@@ -117,7 +126,9 @@ export default function HomePage() {
                   type="button"
                 >
                   <span className="text-white">{reportTitle(report)}</span>
-                  <span className="text-xs uppercase tracking-[0.22em] text-white/40">PDF</span>
+                  <span className="text-xs uppercase tracking-[0.22em] text-white/40">
+                    {report.id === DEMO_REPORT_ID ? "Demo" : "PDF"}
+                  </span>
                 </button>
               ))
             ) : (

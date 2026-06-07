@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import Card from "../components/Card";
 import ReportWizard from "../features/e-report/ReportWizard";
+import { isDemoReportId, loadDemoReport } from "../lib/demoReport";
 import { getReport, saveReport, setActiveDraftId } from "../lib/indexedDb";
 import { createEmptyReport, normalizeReport } from "../lib/utils";
 import type { ReportDraft } from "../types";
@@ -29,9 +30,13 @@ export default function ReportPage() {
       }
 
       if (reportId) {
-        const existing = await getReport(reportId);
+        const existing = isDemoReportId(reportId) ? await loadDemoReport() : await getReport(reportId);
         if (existing) {
-          setReport(normalizeReport(existing));
+          const normalized = normalizeReport(existing);
+          setReport(normalized);
+          if (isDemoReportId(reportId)) {
+            await saveReport(normalized);
+          }
           return;
         }
       }
