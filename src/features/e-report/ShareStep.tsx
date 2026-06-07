@@ -101,7 +101,6 @@ async function dataUrlToFile(document: DocumentAsset, index: number) {
 
 export default function ShareStep({
   documents,
-  onPreview,
   pdfUrl,
   report,
   reportId
@@ -110,6 +109,7 @@ export default function ShareStep({
   const [documentsOpen, setDocumentsOpen] = useState(false);
   const [insuranceOpen, setInsuranceOpen] = useState(false);
   const [packageOpen, setPackageOpen] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
   const [selectedDocumentKeys, setSelectedDocumentKeys] = useState(() =>
     documents.map((document) => `${document.label}-${document.dataUrl.slice(-16)}`)
   );
@@ -216,7 +216,7 @@ export default function ShareStep({
 
       <Card className="space-y-3">
         <div className="text-xs uppercase tracking-[0.28em] text-white/40">Pregled</div>
-        <Button disabled={!pdfUrl} onClick={onPreview} type="button" variant="secondary">
+        <Button disabled={!pdfUrl} onClick={() => setPdfOpen(true)} type="button" variant="secondary">
           Pregledaj e-Izvestaj PDF
         </Button>
         <Button disabled={!documents.length} onClick={() => setPackageOpen(true)} type="button" variant="secondary">
@@ -244,6 +244,24 @@ export default function ShareStep({
           </div>
         ) : null}
       </Card>
+
+      {pdfOpen && pdfUrl ? (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-bg/80 px-4 py-6">
+          <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col gap-4">
+            <div className="flex items-center justify-between gap-4">
+              <h3 className="text-2xl font-semibold text-white">e-Izvestaj PDF</h3>
+              <Button fullWidth={false} onClick={() => setPdfOpen(false)} type="button" variant="secondary">
+                Zatvori
+              </Button>
+            </div>
+            <iframe
+              className="min-h-[75vh] w-full flex-1 rounded-[8px] border border-white/10 bg-white"
+              src={pdfUrl}
+              title="Pregled e-Izvestaj PDF"
+            />
+          </div>
+        </div>
+      ) : null}
 
       {documentsOpen ? (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-bg/50 px-4 py-6">
